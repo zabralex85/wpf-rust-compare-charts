@@ -31,6 +31,20 @@ impl FrameMessage {
     }
 }
 
+#[derive(Debug, Clone, Serialize)]
+pub struct MetricsMessage {
+    #[serde(rename = "type")]
+    pub type_: &'static str,
+    pub cpu_pct: f32,
+    pub ram_mb: f64,
+}
+
+impl MetricsMessage {
+    pub fn new(cpu_pct: f32, ram_mb: f64) -> Self {
+        Self { type_: "metrics", cpu_pct, ram_mb }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -52,5 +66,15 @@ mod tests {
         let v: serde_json::Value = serde_json::from_str(&serde_json::to_string(&m).unwrap()).unwrap();
         assert_eq!(v["type"], "meta");
         assert_eq!(v["rate_hz"], 10);
+    }
+
+    #[test]
+    fn metrics_serializes_with_type_tag() {
+        let msg = MetricsMessage::new(12.5, 256.0);
+        let json = serde_json::to_string(&msg).unwrap();
+        let v: serde_json::Value = serde_json::from_str(&json).unwrap();
+        assert_eq!(v["type"], "metrics");
+        assert!((v["cpu_pct"].as_f64().unwrap() - 12.5).abs() < 1e-3);
+        assert!((v["ram_mb"].as_f64().unwrap() - 256.0).abs() < 1e-6);
     }
 }

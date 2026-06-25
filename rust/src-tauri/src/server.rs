@@ -6,7 +6,7 @@ use tokio::net::TcpListener;
 use tokio_tungstenite::tungstenite::Message;
 
 use crate::db::{load_channels, load_enum_values, load_samples};
-use crate::frame::{FrameMessage, MetaMessage};
+use crate::frame::{FrameMessage, MetaMessage, MetricsMessage};
 use crate::metrics::MetricsSampler;
 use crate::replay::Pacer;
 
@@ -51,7 +51,7 @@ async fn handle_client(
 
     // Load DB on a blocking thread (rusqlite is sync).
     let db_path = cfg.db_path.clone();
-    let (meta_json, samples, _rate) = tokio::task::spawn_blocking(move || {
+    let (meta_json, samples) = tokio::task::spawn_blocking(move || {
         let conn = Connection::open(&db_path)?;
         let channels = load_channels(&conn)?;
         let enums = load_enum_values(&conn)?;
@@ -59,7 +59,7 @@ async fn handle_client(
             conn.query_row("SELECT rate_hz FROM ride_meta", [], |r| r.get(0))?;
         let samples = load_samples(&conn, &channels)?;
         let meta = MetaMessage::new(channels, enums, rate);
-        Ok::<_, rusqlite::Error>((serde_json::to_string(&meta).unwrap(), samples, rate))
+        Ok::<_, rusqlite::Error>((serde_json::to_string(&meta).unwrap(), samples))
     })
     .await??;
 
@@ -68,7 +68,9 @@ async fn handle_client(
     let pacer = Pacer::new(cfg.speed);
     let mut sampler = MetricsSampler::new();
     let start = Instant::now();
-    let mut last_metrics = Instant::now();
+    // Track the last whole-second boundary (in replay time) at which metrics were emitted.
+    // Using replay-time seconds means metrics emit ~once per ride-second regardless of speed.
+    let mut last_metric_sec: i64 = -1;
 
     for s in samples {
         let elapsed = start.elapsed().as_millis() as i64;
@@ -80,15 +82,14 @@ async fn handle_client(
         ws.send(Message::Text(serde_json::to_string(&frame)?))
             .await?;
 
-        if last_metrics.elapsed().as_millis() >= 1000 {
-            last_metrics = Instant::now();
+        let sec = s.ts_ms / 1000;
+        if sec != last_metric_sec {
+            last_metric_sec = sec;
             let m = sampler.sample();
-            let mj = serde_json::json!({
-                "type": "metrics",
-                "cpu_pct": m.cpu_pct,
-                "ram_mb": m.ram_mb
-            });
-            ws.send(Message::Text(mj.to_string())).await?;
+            ws.send(Message::Text(
+                serde_json::to_string(&MetricsMessage::new(m.cpu_pct, m.ram_mb))?,
+            ))
+            .await?;
         }
     }
     Ok(())

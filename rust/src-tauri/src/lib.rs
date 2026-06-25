@@ -20,7 +20,7 @@ pub fn run() {
                 .and_then(|s| s.parse().ok())
                 .unwrap_or(9001);
             let db_path =
-                std::env::var("RIDE_DB").unwrap_or_else(|_| "../data/ride.db".into());
+                std::env::var("RIDE_DB").unwrap_or_else(|_| "../../data/ride.db".into());
             let speed: f64 = std::env::var("RIDE_SPEED")
                 .ok()
                 .and_then(|s| s.parse().ok())
