@@ -35,6 +35,7 @@ def generate(
     seed: int = 42,
     start_time: int = 0,
 ) -> int:
+    conn.execute("PRAGMA journal_mode=WAL")
     rng = random.Random(seed)
     create_schema(conn)
     _populate_channels(conn)
@@ -45,8 +46,9 @@ def generate(
     lats, lons = signals.gps_track(n, rng, 32.08, 34.78)
     modes = signals.enum_series(n, rng, p_event=0.001)
 
+    col_list = ", ".join(["ts"] + [c.column for c in CHANNELS])
     placeholders = ",".join(["?"] * (1 + len(CHANNELS)))
-    insert_sql = f"INSERT INTO samples VALUES ({placeholders})"
+    insert_sql = f"INSERT INTO samples ({col_list}) VALUES ({placeholders})"
 
     rows = []
     for i in range(n):
@@ -65,7 +67,6 @@ def generate(
                 row.append(0)
         rows.append(row)
 
-    conn.execute("PRAGMA journal_mode=WAL")
     conn.executemany(insert_sql, rows)
     conn.execute(
         "INSERT INTO ride_meta VALUES (?,?,?,?)",
