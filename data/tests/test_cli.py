@@ -8,5 +8,6 @@ def test_cli_writes_db(tmp_path):
     rc = main(["--out", str(out), "--duration", "5", "--rate", "10"])
     assert rc == 0
     assert out.exists()
-    conn = sqlite3.connect(out)
-    assert conn.execute("SELECT COUNT(*) FROM samples").fetchone()[0] == 50
+    with sqlite3.connect(out) as conn:
+        assert conn.execute("SELECT COUNT(*) FROM samples").fetchone()[0] == 50
+    conn.close()
