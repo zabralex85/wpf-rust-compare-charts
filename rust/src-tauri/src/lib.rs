@@ -1,5 +1,6 @@
 pub mod db;
 pub mod frame;
+pub mod replay;
 
 // Learn more about Tauri commands at https://tauri.app/develop/calling-rust/
 #[tauri::command]
