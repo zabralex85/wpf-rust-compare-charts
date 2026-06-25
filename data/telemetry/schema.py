@@ -1,3 +1,4 @@
+import re
 import sqlite3
 from .channels import CHANNELS, Channel
 
@@ -11,6 +12,10 @@ def column_sql_type(ch: Channel) -> str:
 
 
 def create_schema(conn: sqlite3.Connection) -> None:
+    for c in CHANNELS:
+        if not re.match(r"^[A-Za-z_][A-Za-z0-9_]*$", c.column):
+            raise ValueError(f"unsafe channel column name: {c.column!r}")
+
     cur = conn.cursor()
     cur.execute(
         """

@@ -1,6 +1,7 @@
 import sqlite3
+import pytest
 from telemetry.schema import create_schema, column_sql_type
-from telemetry.channels import CHANNELS, channel_by_column
+from telemetry.channels import CHANNELS, Channel, channel_by_column
 
 
 def _tables(conn):
@@ -30,3 +31,12 @@ def test_samples_has_ts_pk_and_one_column_per_channel():
 def test_column_sql_type_mapping():
     assert column_sql_type(channel_by_column("roll")) == "REAL"
     assert column_sql_type(channel_by_column("inu_mode2")) == "INTEGER"
+
+
+def test_rejects_unsafe_column_name(monkeypatch):
+    from telemetry import schema
+    bad = Channel(99, "Bad", "bad name;", "-", "real", 0, 1, "table", 99, "X")
+    monkeypatch.setattr(schema, "CHANNELS", list(schema.CHANNELS) + [bad])
+    conn = sqlite3.connect(":memory:")
+    with pytest.raises(ValueError):
+        schema.create_schema(conn)
