@@ -12,6 +12,12 @@ pub struct MetricsSampler {
     pid: Pid,
 }
 
+impl Default for MetricsSampler {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl MetricsSampler {
     pub fn new() -> Self {
         let pid = Pid::from_u32(std::process::id());
