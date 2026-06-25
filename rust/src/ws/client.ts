@@ -27,16 +27,18 @@ export function createWsClient(opts: WsClientOptions): { stop(): void } {
   const schedule = opts.schedule ?? ((fn, ms) => setTimeout(fn, ms));
   const delay = opts.reconnectDelayMs ?? 1000;
   let stopped = false;
+  let current: SocketLike | null = null;
 
   const connect = () => {
     opts.onStatus?.("connecting");
     const sock = factory(opts.url);
+    current = sock;
     sock.onopen = () => opts.onStatus?.("open");
     sock.onmessage = (ev) => {
       const msg = decodeMessage(ev.data);
       if (msg.type === "meta") opts.onMeta(msg);
       else if (msg.type === "frame") opts.onFrame(msg);
-      else opts.onMetrics(msg);
+      else if (msg.type === "metrics") opts.onMetrics(msg);
     };
     sock.onclose = () => {
       opts.onStatus?.("closed");
@@ -46,5 +48,5 @@ export function createWsClient(opts: WsClientOptions): { stop(): void } {
   };
 
   connect();
-  return { stop() { stopped = true; } };
+  return { stop() { stopped = true; current?.close(); } };
 }

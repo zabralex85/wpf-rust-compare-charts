@@ -43,4 +43,18 @@ describe("createWsClient", () => {
     sockets[0].onclose?.();
     expect(sockets.length).toBe(1); // no reconnect after stop
   });
+
+  it("stop() closes the active socket", () => {
+    const sock = new FakeSocket();
+    const client = createWsClient({ url: "ws://x", onMeta: vi.fn(), onFrame: vi.fn(), onMetrics: vi.fn(), socketFactory: () => sock });
+    client.stop();
+    expect(sock.closed).toBe(true);
+  });
+
+  it("onerror closes the socket", () => {
+    const sock = new FakeSocket();
+    createWsClient({ url: "ws://x", onMeta: vi.fn(), onFrame: vi.fn(), onMetrics: vi.fn(), socketFactory: () => sock });
+    sock.onerror?.();
+    expect(sock.closed).toBe(true);
+  });
 });
