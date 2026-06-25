@@ -60,4 +60,30 @@ describe("TelemetryStore", () => {
     const t = s.gpsTrack();
     expect(t.lat.length).toBe(t.lon.length);
   });
+
+  it("latest() still resolves by channel id after the index-map change", () => {
+    const s = new TelemetryStore();
+    s.applyMeta(meta());
+    s.applyFrame({ type: "frame", ts_ms: 0, emit_unix_ms: 1, values: [9.9, 32, 34.5] });
+    expect(s.latest(1)).toBe(9.9);
+    expect(s.latest(999)).toBeUndefined();
+  });
+
+  it("ignores a frame whose values length mismatches channels", () => {
+    const s = new TelemetryStore();
+    s.applyMeta(meta());
+    s.applyFrame({ type: "frame", ts_ms: 0, emit_unix_ms: 1, values: [1, 2] }); // too short (meta has 3 channels)
+    expect(s.latest(1)).toBeUndefined();
+    expect(s.series(1)?.len()).toBe(0);
+  });
+
+  it("clears metrics and lastEmit on re-meta", () => {
+    const s = new TelemetryStore();
+    s.applyMeta(meta());
+    s.applyMetrics({ type: "metrics", cpu_pct: 5, ram_mb: 90 });
+    s.applyFrame({ type: "frame", ts_ms: 0, emit_unix_ms: 123, values: [1, 32, 34.5] });
+    s.applyMeta(meta());
+    expect(s.metrics()).toBeUndefined();
+    expect(s.lastEmitUnixMs()).toBe(0);
+  });
 });
