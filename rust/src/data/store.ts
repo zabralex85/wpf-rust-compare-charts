@@ -20,6 +20,7 @@ export class TelemetryStore {
     this._channels = m.channels;
     this._enumIndex = buildEnumIndex(m.enum_values);
     this._series.clear();
+    this._latest = [];
     this._lat = [];
     this._lon = [];
     this._latIdx = -1;
@@ -38,8 +39,10 @@ export class TelemetryStore {
       const series = this._series.get(ch.id);
       if (series) series.push(f.ts_ms, f.values[i]);
     });
-    if (this._latIdx >= 0) this._lat.push(f.values[this._latIdx]);
-    if (this._lonIdx >= 0) this._lon.push(f.values[this._lonIdx]);
+    if (this._latIdx >= 0 && this._lonIdx >= 0) {
+      this._lat.push(f.values[this._latIdx]);
+      this._lon.push(f.values[this._lonIdx]);
+    }
   }
 
   applyMetrics(m: MetricsMessage): void {

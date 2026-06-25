@@ -42,4 +42,22 @@ describe("TelemetryStore", () => {
     s.applyMetrics({ type: "metrics", cpu_pct: 5, ram_mb: 90 });
     expect(s.metrics()?.ram_mb).toBe(90);
   });
+
+  it("clears latest values when meta is re-applied", () => {
+    const s = new TelemetryStore();
+    s.applyMeta(meta());
+    s.applyFrame({ type: "frame", ts_ms: 0, emit_unix_ms: 1, values: [12.5, 32.0, 34.5] });
+    s.applyMeta(meta()); // reconnect resends meta
+    expect(s.latest(1)).toBeUndefined();
+    expect(s.gpsTrack().lat).toEqual([]);
+  });
+
+  it("keeps gps lat/lon arrays equal length", () => {
+    const s = new TelemetryStore();
+    s.applyMeta(meta());
+    s.applyFrame({ type: "frame", ts_ms: 0, emit_unix_ms: 1, values: [0, 32.0, 34.5] });
+    s.applyFrame({ type: "frame", ts_ms: 100, emit_unix_ms: 2, values: [0, 32.1, 34.6] });
+    const t = s.gpsTrack();
+    expect(t.lat.length).toBe(t.lon.length);
+  });
 });
