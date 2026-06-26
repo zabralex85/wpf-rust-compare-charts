@@ -1,0 +1,18 @@
+@* dotnet/src/TelemetryPoc.App/Components/Hud.razor *@
+@using TelemetryPoc.Core
+<div class="hud">
+  <div>FPS <b>@Fps.ToString("0")</b></div>
+  <div>frame <b>@FrameTimeMs.ToString("0.0")</b> ms</div>
+  <div>latency <b>@Latency.ToString("0")</b> ms</div>
+  <div>CPU <b>@(Store.Metrics is { } m1 ? m1.CpuPct.ToString("0.0") : "-")</b> %</div>
+  <div>RAM <b>@(Store.Metrics is { } m2 ? m2.RamMb.ToString("0") : "-")</b> MB</div>
+</div>
+
+@code {
+    [Parameter, EditorRequired] public TelemetryStore Store { get; set; } = default!;
+    [Parameter] public double Fps { get; set; }
+    [Parameter] public double FrameTimeMs { get; set; }
+    [Parameter] public long NowUnixMs { get; set; }
+
+    private double Latency => Store.LastEmitUnixMs > 0 ? NowUnixMs - Store.LastEmitUnixMs : 0;
+}
