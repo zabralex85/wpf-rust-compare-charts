@@ -40,4 +40,22 @@ public static class TelemetryDb
         if (!r.Read()) throw new InvalidOperationException("ride_meta is empty");
         return new RideMeta(r.GetInt64(0), r.GetInt64(1), r.GetInt64(2), r.GetInt64(3));
     }
+
+    public static IReadOnlyList<Sample> LoadSamples(SqliteConnection conn, IReadOnlyList<ChannelMeta> channels)
+    {
+        var cols = string.Join(", ", channels.Select(c => "\"" + c.ColumnName + "\""));
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText = $"SELECT ts, {cols} FROM samples ORDER BY ts";
+        using var r = cmd.ExecuteReader();
+        var list = new List<Sample>();
+        var n = channels.Count;
+        while (r.Read())
+        {
+            var values = new double[n];
+            for (int i = 0; i < n; i++)
+                values[i] = Convert.ToDouble(r.GetValue(i + 1));
+            list.Add(new Sample(r.GetInt64(0), values));
+        }
+        return list;
+    }
 }
