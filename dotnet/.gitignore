@@ -1,0 +1,4 @@
+# dotnet/.gitignore
+bin/
+obj/
+*.user
