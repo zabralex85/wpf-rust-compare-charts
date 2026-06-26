@@ -1,0 +1,28 @@
+@* dotnet/src/TelemetryPoc.App/Components/StripChart.razor *@
+@using ScottPlot.Blazor
+<div class="strip-chart">
+  <div class="strip-title">@Title</div>
+  <BlazorPlot @ref="_plot" Style="width:100%;height:100%" />
+</div>
+
+@code {
+    public sealed record StripLine(string Label, IReadOnlyList<long> Xs, IReadOnlyList<double> Ys);
+
+    [Parameter] public string Title { get; set; } = "";
+    [Parameter] public IReadOnlyList<StripLine> Lines { get; set; } = Array.Empty<StripLine>();
+
+    private BlazorPlot? _plot;
+
+    public void RefreshData()
+    {
+        if (_plot is null) return;
+        _plot.Plot.Clear();
+        foreach (var line in Lines)
+        {
+            var xs = line.Xs.Select(x => x / 1000.0).ToArray(); // ms -> sec
+            var ys = line.Ys.ToArray();
+            if (xs.Length > 0) _plot.Plot.Add.Scatter(xs, ys);
+        }
+        _plot.Refresh();
+    }
+}
