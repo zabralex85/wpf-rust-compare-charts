@@ -3,3 +3,5 @@ ride.db-wal
 ride.db-shm
 __pycache__/
 .pytest_cache/
+*.db-shm
+*.db-wal

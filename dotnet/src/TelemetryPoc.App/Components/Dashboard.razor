@@ -1,6 +1,7 @@
 @* dotnet/src/TelemetryPoc.App/Components/Dashboard.razor *@
 @using TelemetryPoc.Core
 @using Microsoft.Data.Sqlite
+@using System.IO
 @implements IDisposable
 
 <div class="dashboard">
@@ -19,7 +20,7 @@
     </div>
   </aside>
   <Hud Store="_store" Fps="_fps" FrameTimeMs="_frameMs" NowUnixMs="NowMs()" />
-  <div class="status">.NET — @(_player?.Done == true ? "done" : "replaying")</div>
+  <div class="status">@(_error ?? (_player?.Done == true ? "done" : "replaying"))</div>
 </div>
 
 @code {
@@ -36,27 +37,52 @@
     private double _fps, _frameMs;
     private long _lastMetricSec = -1, _lastTick;
     private volatile bool _disposed;
+    private string? _error;
+    private double _speed = 1.0;
+
+    private static string ResolveDbPath()
+    {
+        var env = Environment.GetEnvironmentVariable("RIDE_DB");
+        if (!string.IsNullOrWhiteSpace(env) && File.Exists(env)) return env;
+        var dir = new DirectoryInfo(AppContext.BaseDirectory);
+        while (dir is not null)
+        {
+            foreach (var name in new[] { "ride.db", "ride_small.db" })
+            {
+                var p = Path.Combine(dir.FullName, "data", name);
+                if (File.Exists(p)) return p;
+            }
+            dir = dir.Parent;
+        }
+        return env ?? "data/ride.db";
+    }
 
     protected override void OnInitialized()
     {
-        var dbPath = Environment.GetEnvironmentVariable("RIDE_DB") ?? "../../data/ride.db";
-        var speed = double.TryParse(Environment.GetEnvironmentVariable("RIDE_SPEED"), out var s) ? s : 1.0;
-        using var conn = new SqliteConnection($"Data Source={dbPath};Mode=ReadOnly");
-        conn.Open();
-        var channels = TelemetryDb.LoadChannels(conn);
-        var enums = TelemetryDb.LoadEnumValues(conn);
-        var samples = TelemetryDb.LoadSamples(conn, channels);
-        _store.ApplyMeta(channels, enums);
-        _strip = channels.Where(c => c.Widget == "strip").ToList();
-        _accZ = _strip.FirstOrDefault(c => c.ColumnName == "acc_z");
-        _gauges = channels.Where(c => c.Widget == "gauge").ToList();
-        _player = new ReplayPlayer(samples, _store, speed);
-
-        _sw.Start();
-        _timer = new System.Timers.Timer(33); // ~30 fps
-        _timer.Elapsed += (_, _) => Tick();
-        _timer.AutoReset = false;
-        _timer.Start();
+        try
+        {
+            var dbPath = ResolveDbPath();
+            _speed = double.TryParse(Environment.GetEnvironmentVariable("RIDE_SPEED"),
+                System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var s) ? s : 1.0;
+            using var conn = new SqliteConnection($"Data Source={dbPath};Mode=ReadOnly");
+            conn.Open();
+            var channels = TelemetryDb.LoadChannels(conn);
+            var enums = TelemetryDb.LoadEnumValues(conn);
+            var samples = TelemetryDb.LoadSamples(conn, channels);
+            _store.ApplyMeta(channels, enums);
+            _strip = channels.Where(c => c.Widget == "strip").ToList();
+            _accZ = _strip.FirstOrDefault(c => c.ColumnName == "acc_z");
+            _gauges = channels.Where(c => c.Widget == "gauge").ToList();
+            _player = new ReplayPlayer(samples, _store, _speed);
+            _sw.Start();
+            _timer = new System.Timers.Timer(33) { AutoReset = false };
+            _timer.Elapsed += (_, _) => Tick();
+            _timer.Start();
+        }
+        catch (Exception ex)
+        {
+            _error = $"DB load failed: {ex.Message}";
+        }
     }
 
     private long NowMs() => DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
@@ -67,21 +93,23 @@
         _frameMs = elapsed - _lastTick;
         _fps = _frameMs > 0 ? 1000.0 / _frameMs : 0;
         _lastTick = elapsed;
+        var now = NowMs();
 
-        _player?.Advance(elapsed, NowMs());
-        if (_store.LastEmitUnixMs > 0)
-        {
-            var sec = _store.LastEmitUnixMs / 1000; // ride-second cadence for metrics
-            if (sec != _lastMetricSec) { _lastMetricSec = sec; _store.ApplyMetrics(_metrics.Sample()); }
-        }
         InvokeAsync(async () =>
         {
+            _player?.Advance(elapsed, now);
+            if (_store.LastEmitUnixMs > 0)
+            {
+                var rideSec = (long)(elapsed * _speed) / 1000;
+                if (rideSec != _lastMetricSec) { _lastMetricSec = rideSec; _store.ApplyMetrics(_metrics.Sample()); }
+            }
             _main?.RefreshData();
             _bottom?.RefreshData();
             if (_map is not null) await _map.UpdateTrack();
             StateHasChanged();
         });
-        if (!_disposed) _timer?.Start();
+
+        if (!_disposed) { try { _timer?.Start(); } catch (ObjectDisposedException) { } }
     }
 
     private IReadOnlyList<StripChart.StripLine> MainLines()
