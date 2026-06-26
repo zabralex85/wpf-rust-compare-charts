@@ -12,8 +12,8 @@ export interface TelemetrySnapshot {
 }
 
 export function useTelemetry(url: string): TelemetrySnapshot {
-  const storeRef = useRef<TelemetryStore>();
-  const meterRef = useRef<FpsMeter>();
+  const storeRef = useRef<TelemetryStore | undefined>(undefined);
+  const meterRef = useRef<FpsMeter | undefined>(undefined);
   if (!storeRef.current) storeRef.current = new TelemetryStore();
   if (!meterRef.current) meterRef.current = new FpsMeter();
 
