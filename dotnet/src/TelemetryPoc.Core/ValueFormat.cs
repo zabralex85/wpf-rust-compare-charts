@@ -12,12 +12,12 @@ public static class ValueFormat
     }
 
     public static EnumValue? DecodeEnum(long channelId, double value, IReadOnlyDictionary<(long, long), EnumValue> index)
-        => index.TryGetValue((channelId, (long)Math.Round(value)), out var e) ? e : null;
+        => index.TryGetValue((channelId, (long)Math.Floor(value + 0.5)), out var e) ? e : null;
 
     public static string FormatValue(ChannelMeta ch, double value, IReadOnlyDictionary<(long, long), EnumValue> index)
         => ch.Type switch
         {
-            "enum" => DecodeEnum(ch.Id, value, index)?.Label ?? Math.Round(value).ToString(CultureInfo.InvariantCulture),
+            "enum" => DecodeEnum(ch.Id, value, index)?.Label ?? Math.Floor(value + 0.5).ToString(CultureInfo.InvariantCulture),
             "real" => value.ToString("F3", CultureInfo.InvariantCulture),
             _ => value.ToString(CultureInfo.InvariantCulture),
         };
