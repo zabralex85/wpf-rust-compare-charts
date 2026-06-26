@@ -18,7 +18,7 @@ export function useTelemetry(url: string): TelemetrySnapshot {
   if (!meterRef.current) meterRef.current = new FpsMeter();
 
   const [status, setStatus] = useState<WsStatus>("connecting");
-  const [, setVersion] = useState(0);
+  const [version, setVersion] = useState(0);
   const fpsRef = useRef(0);
   const ftRef = useRef(0);
 
@@ -54,6 +54,6 @@ export function useTelemetry(url: string): TelemetrySnapshot {
     fps: fpsRef.current,
     frameTimeMs: ftRef.current,
     status,
-    version: 0,
+    version,
   };
 }
