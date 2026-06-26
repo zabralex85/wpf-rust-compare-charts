@@ -1,0 +1,32 @@
+@* dotnet/src/TelemetryPoc.App/Components/GpsMap.razor *@
+@inject IJSRuntime JS
+@implements IAsyncDisposable
+<div @ref="_el" class="gps-map"></div>
+
+@code {
+    [Parameter] public IReadOnlyList<double> Lat { get; set; } = Array.Empty<double>();
+    [Parameter] public IReadOnlyList<double> Lon { get; set; } = Array.Empty<double>();
+
+    private ElementReference _el;
+    private bool _inited;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            await JS.InvokeVoidAsync("gpsMap.init", _el);
+            _inited = true;
+        }
+    }
+
+    public async Task UpdateTrack()
+    {
+        if (_inited) await JS.InvokeVoidAsync("gpsMap.update", Lat, Lon);
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        // map teardown handled by webview lifecycle; no-op for the single-window app
+        await Task.CompletedTask;
+    }
+}
