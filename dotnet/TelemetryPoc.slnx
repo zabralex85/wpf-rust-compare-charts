@@ -1,0 +1,8 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/TelemetryPoc.Core/TelemetryPoc.Core.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/TelemetryPoc.Core.Tests/TelemetryPoc.Core.Tests.csproj" />
+  </Folder>
+</Solution>
