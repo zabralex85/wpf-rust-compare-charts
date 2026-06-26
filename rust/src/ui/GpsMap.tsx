@@ -31,7 +31,7 @@ export function GpsMap({ lat, lon }: { lat: number[]; lon: number[] }): React.JS
     const last = pts[pts.length - 1];
     marker.setLatLng(last);
     map.panTo(last, { animate: false });
-  }, [lat, lon]);
+  }, [lat, lon, lat.length]);
 
   return <div ref={elRef} className="gps-map" />;
 }
