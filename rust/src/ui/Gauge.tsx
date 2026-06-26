@@ -1,4 +1,4 @@
-import React from "react";
+import type React from "react";
 import { gaugeAngle } from "../gauge/geometry";
 
 export function Gauge({ label, unit, value, min, max }: { label: string; unit: string; value: number; min: number; max: number }): React.JSX.Element {

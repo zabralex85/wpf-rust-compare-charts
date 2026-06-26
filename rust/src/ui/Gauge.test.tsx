@@ -1,7 +1,9 @@
 // @vitest-environment jsdom
-import { describe, it, expect } from "vitest";
-import { render } from "@testing-library/react";
+import { describe, it, expect, afterEach } from "vitest";
+import { render, cleanup } from "@testing-library/react";
 import { Gauge } from "./Gauge";
+
+afterEach(() => cleanup());
 
 describe("Gauge", () => {
   it("rotates the needle to the mid angle at mid value", () => {
