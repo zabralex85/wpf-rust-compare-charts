@@ -1,0 +1,29 @@
+/* rust/src/ui/Dashboard.css */
+.dashboard {
+  display: grid;
+  grid-template-columns: 320px 1fr 360px;
+  grid-template-rows: 1fr auto;
+  grid-template-areas: "left center right" "status status status";
+  height: 100vh; width: 100vw; background: #c8c8c8; font: 12px/1.3 monospace;
+}
+.left { grid-area: left; overflow-y: auto; background: #eee; }
+.center { grid-area: center; display: flex; flex-direction: column; gap: 4px; background: #000; }
+.right { grid-area: right; display: flex; flex-direction: column; gap: 4px; }
+.status { grid-area: status; background: #2244aa; color: #fff; padding: 2px 8px; }
+.param-table { width: 100%; border-collapse: collapse; }
+.param-table th, .param-table td { border: 1px solid #bbb; padding: 1px 4px; }
+.param-table .value { text-align: right; color: #060; }
+.param-table .bar { width: 80px; }
+.param-table .bar-fill { height: 10px; }
+.gauges { display: flex; flex-wrap: wrap; gap: 4px; background: #ddd; }
+.gauge-face { fill: #111; stroke: #444; }
+.gauge-needle { stroke: #fa0; stroke-width: 2; }
+.gauge-hub { fill: #ccc; }
+.gauge-label, .gauge-value { fill: #eee; font-size: 7px; }
+.gps-map { height: 280px; width: 100%; }
+.strip-chart { background: #000; }
+.hud {
+  position: fixed; top: 8px; right: 8px; z-index: 1000;
+  background: rgba(0,0,0,0.75); color: #0f0; padding: 6px 10px; font: 11px monospace;
+}
+.hud b { color: #fff; }

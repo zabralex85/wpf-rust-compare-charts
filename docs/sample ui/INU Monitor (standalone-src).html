@@ -1,0 +1,677 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+<template id="__bundler_thumbnail" data-bg-color="#0a0e14">
+  <svg viewBox="0 0 1200 800" xmlns="http://www.w3.org/2000/svg">
+    <rect width="1200" height="800" fill="#0a0e14"/>
+    <rect x="360" y="300" width="480" height="200" rx="14" fill="#0d121b" stroke="#1d2632" stroke-width="3"/>
+    <circle cx="470" cy="400" r="44" fill="none" stroke="#38c5e0" stroke-width="8"/>
+    <rect x="466" y="396" width="56" height="8" rx="4" fill="#38c5e0" transform="rotate(-20 470 400)"/>
+    <text x="560" y="392" font-family="monospace" font-size="46" font-weight="700" letter-spacing="8" fill="#e6edf5">INU</text>
+    <text x="560" y="448" font-family="monospace" font-size="22" letter-spacing="6" fill="#5d6b7c">MONITOR</text>
+  </svg>
+</template>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<style>
+*{box-sizing:border-box}
+body{margin:0;background:#0a0e14}
+::-webkit-scrollbar{width:9px;height:9px}
+::-webkit-scrollbar-track{background:#0b1018}
+::-webkit-scrollbar-thumb{background:#222d3c;border-radius:5px}
+::-webkit-scrollbar-thumb:hover{background:#30404f}
+@keyframes blink{0%,55%{opacity:1}56%,100%{opacity:.2}}
+@keyframes pulsehalo{0%{opacity:.55;transform:scale(1)}100%{opacity:0;transform:scale(2.4)}}
+[data-rzh]{opacity:0;transition:opacity .12s}
+[data-widget]:hover [data-rzh]{opacity:.9}
+</style>
+</helmet>
+<div style="width:1920px;height:1080px;background:#0a0e14;color:#d6dde8;font-family:'IBM Plex Sans',sans-serif;display:flex;flex-direction:column;overflow:hidden;position:relative">
+
+  <!-- ============ TOP BAR ============ -->
+  <div style="height:54px;flex:none;display:flex;align-items:center;justify-content:space-between;padding:0 16px;background:#0d121b;border-bottom:1px solid #1d2632;position:relative;z-index:5">
+    <div style="display:flex;align-items:center;gap:14px">
+      <div style="display:flex;align-items:center;gap:9px">
+        <div style="width:26px;height:26px;border-radius:6px;background:#0f1722;border:1px solid #2a4a60;display:flex;align-items:center;justify-content:center">
+          <div style="width:11px;height:11px;border:2px solid #38c5e0;border-radius:50%;position:relative"><div style="position:absolute;top:50%;left:50%;width:7px;height:1.5px;background:#38c5e0;transform:translate(-50%,-50%) rotate(-20deg)"></div></div>
+        </div>
+        <div>
+          <div style="font-size:13px;font-weight:700;letter-spacing:.14em;color:#e6edf5">INU&middot;MONITOR</div>
+          <div style="font-size:9px;letter-spacing:.18em;color:#5d6b7c;font-family:'IBM Plex Mono',monospace">INERTIAL NAV TELEMETRY &nbsp;v4.0</div>
+        </div>
+      </div>
+      <div style="width:1px;height:26px;background:#1d2632"></div>
+      <div style="display:flex;flex-direction:column;gap:1px">
+        <div style="font-size:11px;font-weight:600;color:#cbd5e1;font-family:'IBM Plex Mono',monospace;letter-spacing:.04em">AC&nbsp;4X&minus;ELT &nbsp;<span style="color:#5d6b7c">/</span>&nbsp; FLT 1182</div>
+        <div style="font-size:9px;letter-spacing:.1em;color:#5d6b7c;font-family:'IBM Plex Mono',monospace">STN&nbsp;01 &middot; CONSOLE&nbsp;A</div>
+      </div>
+    </div>
+
+    <!-- nav tabs -->
+    <div style="display:flex;align-items:center;gap:4px;background:#0a0f17;border:1px solid #1d2632;border-radius:9px;padding:4px">
+      <div onClick="{{ goOverview }}" style="{{ tabOverview }}">OVERVIEW</div>
+      <div onClick="{{ goTrack }}" style="{{ tabTrack }}">FLIGHT TRACK</div>
+      <div onClick="{{ goEvents }}" style="{{ tabEvents }}">EVENTS</div>
+    </div>
+
+    <div style="display:flex;align-items:center;gap:16px">
+      <div style="display:flex;align-items:center;gap:8px;padding:5px 11px;background:#1a0f12;border:1px solid #3a1d22;border-radius:7px">
+        <span style="width:8px;height:8px;border-radius:50%;background:#ff4d52;animation:blink 1.1s steps(1) infinite"></span>
+        <span style="font:600 11px/1 'IBM Plex Sans';letter-spacing:.08em;color:#ff6b70">2 ALARM</span>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px;padding:5px 11px;background:#171206;border:1px solid #3a2e10;border-radius:7px">
+        <span style="width:8px;height:8px;border-radius:50%;background:#f5b440"></span>
+        <span style="font:600 11px/1 'IBM Plex Sans';letter-spacing:.08em;color:#f5c061">2 CAUTION</span>
+      </div>
+      <div onClick="{{ toggleScales }}" style="cursor:pointer;padding:5px 11px;border:1px solid #2a3c50;border-radius:7px;background:#0d1f2a;color:#7fdcf0;font:600 10px/1 'IBM Plex Sans';letter-spacing:.08em;user-select:none">{{ scalesLabel }}</div>
+      <div style="width:1px;height:26px;background:#1d2632"></div>
+      <div style="display:flex;align-items:center;gap:7px">
+        <span style="width:8px;height:8px;border-radius:50%;background:#2fd17a;box-shadow:0 0 7px #2fd17a"></span>
+        <span style="font:600 10px/1 'IBM Plex Sans';letter-spacing:.08em;color:#7e8c9d">LINK</span>
+        <span style="font:500 10px/1 'IBM Plex Mono';color:#2fd17a">1553B&middot;OK</span>
+      </div>
+      <div style="text-align:right">
+        <div style="font:600 17px/1 'IBM Plex Mono';color:#e6edf5;letter-spacing:.02em">11:33:26<span style="color:#5d6b7c">.878</span></div>
+        <div style="font:500 9px/1 'IBM Plex Mono';color:#5d6b7c;letter-spacing:.06em;margin-top:3px">RATE 1.0 s/s &middot; TAG 899904</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ BODY ============ -->
+  <div style="flex:1;min-height:0;position:relative">
+
+    <!-- ============================================================ OVERVIEW -->
+    <sc-if value="{{ isOverview }}" hint-placeholder-val="{{ true }}">
+    <div style="position:absolute;inset:0;display:flex;flex-direction:column;padding:10px;gap:10px">
+      <div style="flex:1;min-height:0;display:grid;grid-template-columns:474px 1fr;gap:10px">
+
+        <!-- ---- PARAM PANEL ---- -->
+        <div style="background:#10151d;border:1px solid #1d2632;border-radius:7px;display:flex;flex-direction:column;overflow:hidden;min-height:0">
+          <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 12px;border-bottom:1px solid #1d2632;background:#131a24;flex:none">
+            <div style="font:600 11px/1 'IBM Plex Sans';letter-spacing:.09em;text-transform:uppercase;color:#8b98a9;display:flex;align-items:center;gap:8px"><span style="width:5px;height:5px;background:#38c5e0;border-radius:1px"></span>Parameters</div>
+            <div style="display:flex;align-items:center;gap:6px;font:500 9.5px/1 'IBM Plex Mono';color:#5d6b7c"><span style="padding:3px 7px;background:#0c1119;border:1px solid #223044;border-radius:4px;color:#9aa7b6">ALL</span><span style="padding:3px 7px;border-radius:4px;color:#5d6b7c">31 CH</span></div>
+          </div>
+          <!-- column header -->
+          <div style="display:grid;grid-template-columns:9px 52px 1fr 90px 22px 34px;gap:7px;align-items:center;padding:6px 10px;background:#0c1119;border-bottom:1px solid #1d2632;font:600 8.5px/1 'IBM Plex Sans';letter-spacing:.1em;color:#566273;flex:none">
+            <span></span><span>ADDR</span><span>PARAMETER</span><span style="text-align:right">ENG&middot;DATA</span><span></span><span style="text-align:right">BUS</span>
+          </div>
+          <div style="flex:1;min-height:0;overflow-y:auto">
+
+            <!-- GROUP: INU MODE -->
+            <div style="display:flex;align-items:center;justify-content:space-between;padding:5px 10px 4px;background:#0c1118;border-bottom:1px solid #1a2230;font:600 9.5px/1 'IBM Plex Sans';letter-spacing:.12em;text-transform:uppercase;color:#5d6b7c"><span>INU&nbsp;Mode</span><span style="color:#3b4757">4</span></div>
+            <div draggable="true" data-prow="1" style="display:grid;grid-template-columns:9px 52px 1fr 90px 22px 34px;gap:7px;align-items:center;height:23px;padding:0 10px;border-bottom:1px solid #141b25;font-family:'IBM Plex Mono',monospace;font-size:11px"><span style="width:7px;height:7px;border-radius:50%;background:#2fd17a"></span><span style="color:#566273">I0101</span><span style="color:#c3ccd8">INUMode1</span><span style="text-align:right;color:#cdd6e1">32</span><span style="color:#566273;font-size:9px">&mdash;</span><span style="text-align:right;color:#4f5a68;font-size:9px">I_01</span></div>
+            <div draggable="true" data-prow="1" style="display:grid;grid-template-columns:9px 52px 1fr 90px 22px 34px;gap:7px;align-items:center;height:23px;padding:0 10px;border-bottom:1px solid #141b25;font-family:'IBM Plex Mono',monospace;font-size:11px"><span style="width:7px;height:7px;border-radius:50%;background:#2fd17a"></span><span style="color:#566273">I0129</span><span style="color:#c3ccd8">INUMode2</span><span style="text-align:right;color:#9aa7b6">0x00000080</span><span style="color:#566273;font-size:9px">hex</span><span style="text-align:right;color:#4f5a68;font-size:9px">I_01</span></div>
+            <div draggable="true" data-prow="1" style="display:grid;grid-template-columns:9px 52px 1fr 90px 22px 34px;gap:7px;align-items:center;height:23px;padding:0 10px;border-bottom:1px solid #141b25;font-family:'IBM Plex Mono',monospace;font-size:11px"><span style="width:7px;height:7px;border-radius:50%;background:#2fd17a"></span><span style="color:#566273">SkyM1</span><span style="color:#c3ccd8">SkyINUMode1</span><span style="text-align:right;color:#38d178;font-weight:600">NORMAL</span><span></span><span style="text-align:right;color:#4f5a68;font-size:9px">I_01</span></div>
+            <div draggable="true" data-prow="1" style="display:grid;grid-template-columns:9px 52px 1fr 90px 22px 34px;gap:7px;align-items:center;height:23px;padding:0 10px;border-bottom:1px solid #141b25;background:#1a0e11;font-family:'IBM Plex Mono',monospace;font-size:11px"><span style="width:7px;height:7px;border-radius:50%;background:#ff4d52;box-shadow:0 0 6px #ff4d52"></span><span style="color:#8a6064">SkyM2</span><span style="color:#e7c6c8">SkyINUMode2</span><span style="text-align:right;color:#ff6b70;font-weight:600">CRITICAL</span><span></span><span style="text-align:right;color:#7a5358;font-size:9px">I_01</span></div>
+
+            <!-- GROUP: VELOCITY -->
+            <div style="display:flex;align-items:center;justify-content:space-between;padding:5px 10px 4px;background:#0c1118;border-bottom:1px solid #1a2230;font:600 9.5px/1 'IBM Plex Sans';letter-spacing:.12em;text-transform:uppercase;color:#5d6b7c"><span>Velocity&nbsp;<span style="color:#3b4757;font-weight:500;letter-spacing:0">m/s</span></span><span style="color:#3b4757">6</span></div>
+            <div draggable="true" data-prow="1" style="display:grid;grid-template-columns:9px 52px 1fr 90px 22px 34px;gap:7px;align-items:center;height:23px;padding:0 10px;border-bottom:1px solid #141b25;font-family:'IBM Plex Mono',monospace;font-size:11px"><span style="width:7px;height:7px;border-radius:50%;background:#2fd17a"></span><span style="color:#566273">I0103</span><span style="color:#c3ccd8">PlatVelX</span><span style="text-align:right;color:#cdd6e1">0.576832</span><span style="color:#566273;font-size:9px">m/s</span><span style="text-align:right;color:#4f5a68;font-size:9px">I_01</span></div>
+            <div draggable="true" data-prow="1" style="display:grid;grid-template-columns:9px 52px 1fr 90px 22px 34px;gap:7px;align-items:center;height:23px;padding:0 10px;border-bottom:1px solid #141b25;font-family:'IBM Plex Mono',monospace;font-size:11px"><span style="width:7px;height:7px;border-radius:50%;background:#2fd17a"></span><span style="color:#566273">I0105</span><span style="color:#c3ccd8">PlatVelY</span><span style="text-align:right;color:#cdd6e1">&minus;1.396724</span><span style="color:#566273;font-size:9px">m/s</span><span style="text-align:right;color:#4f5a68;font-size:9px">I_01</span></div>
+            <div draggable="true" data-prow="1" style="display:grid;grid-template-columns:9px 52px 1fr 90px 22px 34px;gap:7px;align-items:center;height:23px;padding:0 10px;border-bottom:1px solid #141b25;font-family:'IBM Plex Mono',monospace;font-size:11px"><span style="width:7px;height:7px;border-radius:50%;background:#2fd17a"></span><span style="color:#566273">I0107</span><span style="color:#c3ccd8">PlatVelZ</span><span style="text-align:right;color:#cdd6e1">&minus;0.013116</span><span style="color:#566273;font-size:9px">m/s</span><span style="text-align:right;color:#4f5a68;font-size:9px">I_01</span></div>
+            <div draggable="true" data-prow="1" style="display:grid;grid-template-columns:9px 52px 1fr 90px 22px 34px;gap:7px;align-items:center;height:23px;padding:0 10px;border-bottom:1px solid #141b25;font-family:'IBM Plex Mono',monospace;font-size:11px"><span style="width:7px;height:7px;border-radius:50%;background:#2fd17a"></span><span style="color:#566273">I0109</span><span style="color:#c3ccd8">PlatAzim</span><span style="text-align:right;color:#cdd6e1">&minus;0.510415</span><span style="color:#566273;font-size:9px">rad</span><span style="text-align:right;color:#4f5a68;font-size:9px">I_01</span></div>
+            <div draggable="true" data-prow="1" style="display:grid;grid-template-columns:9px 52px 1fr 90px 22px 34px;gap:7px;align-items:center;height:23px;padding:0 10px;border-bottom:1px solid #141b25;font-family:'IBM Plex Mono',monospace;font-size:11px"><span style="width:7px;height:7px;border-radius:50%;background:#2fd17a"></span><span style="color:#566273">SkyVZ</span><span style="color:#c3ccd8">SkyPlatVelZ</span><span style="text-align:right;color:#cdd6e1">&minus;0.013116</span><span style="color:#566273;font-size:9px">m/s</span><span style="text-align:right;color:#4f5a68;font-size:9px">I_01</span></div>
+            <div draggable="true" data-prow="1" style="display:grid;grid-template-columns:9px 52px 1fr 90px 22px 34px;gap:7px;align-items:center;height:23px;padding:0 10px;border-bottom:1px solid #141b25;font-family:'IBM Plex Mono',monospace;font-size:11px"><span style="width:7px;height:7px;border-radius:50%;background:#f5b440"></span><span style="color:#566273">Vclb</span><span style="color:#c3ccd8">Vclimb</span><span style="text-align:right;color:#f5c061">&minus;0.750891</span><span style="color:#566273;font-size:9px">m/s</span><span style="text-align:right;color:#4f5a68;font-size:9px">I_01</span></div>
+
+            <!-- GROUP: ATTITUDE -->
+            <div style="display:flex;align-items:center;justify-content:space-between;padding:5px 10px 4px;background:#0c1118;border-bottom:1px solid #1a2230;font:600 9.5px/1 'IBM Plex Sans';letter-spacing:.12em;text-transform:uppercase;color:#5d6b7c"><span>Attitude&nbsp;<span style="color:#3b4757;font-weight:500;letter-spacing:0">deg</span></span><span style="color:#3b4757">9</span></div>
+            <div draggable="true" data-prow="1" style="display:grid;grid-template-columns:9px 52px 1fr 90px 22px 34px;gap:7px;align-items:center;height:23px;padding:0 10px;border-bottom:1px solid #141b25;font-family:'IBM Plex Mono',monospace;font-size:11px"><span style="width:7px;height:7px;border-radius:50%;background:#2fd17a"></span><span style="color:#566273">I0110</span><span style="color:#c3ccd8">Roll</span><span style="text-align:right;color:#38d178;font-weight:600">19.648448</span><span style="color:#566273;font-size:9px">&deg;</span><span style="text-align:right;color:#4f5a68;font-size:9px">I_01</span></div>
+            <div draggable="true" data-prow="1" style="display:grid;grid-template-columns:9px 52px 1fr 90px 22px 34px;gap:7px;align-items:center;height:23px;padding:0 10px;border-bottom:1px solid #141b25;font-family:'IBM Plex Mono',monospace;font-size:11px"><span style="width:7px;height:7px;border-radius:50%;background:#2fd17a"></span><span style="color:#566273">I0111</span><span style="color:#c3ccd8">Pitch</span><span style="text-align:right;color:#38d178;font-weight:600">12.213679</span><span style="color:#566273;font-size:9px">&deg;</span><span style="text-align:right;color:#4f5a68;font-size:9px">I_01</span></div>
+            <div draggable="true" data-prow="1" style="display:grid;grid-template-columns:9px 52px 1fr 90px 22px 34px;gap:7px;align-items:center;height:23px;padding:0 10px;border-bottom:1px solid #141b25;font-family:'IBM Plex Mono',monospace;font-size:11px"><span style="width:7px;height:7px;border-radius:50%;background:#2fd17a"></span><span style="color:#566273">I0112</span><span style="color:#c3ccd8">HeadingT</span><span style="text-align:right;color:#38d178;font-weight:600">269.332776</span><span style="color:#566273;font-size:9px">&deg;</span><span style="text-align:right;color:#4f5a68;font-size:9px">I_01</span></div>
+            <div draggable="true" data-prow="1" style="display:grid;grid-template-columns:9px 52px 1fr 90px 22px 34px;gap:7px;align-items:center;height:23px;padding:0 10px;border-bottom:1px solid #141b25;font-family:'IBM Plex Mono',monospace;font-size:11px"><span style="width:7px;height:7px;border-radius:50%;background:#2fd17a"></span><span style="color:#566273">I0113</span><span style="color:#c3ccd8">HeadingM</span><span style="text-align:right;color:#38d178;font-weight:600">261.296517</span><span style="color:#566273;font-size:9px">&deg;</span><span style="text-align:right;color:#4f5a68;font-size:9px">I_01</span></div>
+            <div draggable="true" data-prow="1" style="display:grid;grid-template-columns:9px 52px 1fr 90px 22px 34px;gap:7px;align-items:center;height:23px;padding:0 10px;border-bottom:1px solid #141b25;font-family:'IBM Plex Mono',monospace;font-size:11px"><span style="width:7px;height:7px;border-radius:50%;background:#2fd17a"></span><span style="color:#566273">SkyPt</span><span style="color:#c3ccd8">SkyPitch</span><span style="text-align:right;color:#cdd6e1">0.012493</span><span style="color:#566273;font-size:9px">&deg;</span><span style="text-align:right;color:#4f5a68;font-size:9px">I_01</span></div>
+            <div draggable="true" data-prow="1" style="display:grid;grid-template-columns:9px 52px 1fr 90px 22px 34px;gap:7px;align-items:center;height:23px;padding:0 10px;border-bottom:1px solid #141b25;font-family:'IBM Plex Mono',monospace;font-size:11px"><span style="width:7px;height:7px;border-radius:50%;background:#2fd17a"></span><span style="color:#566273">SkyRl</span><span style="color:#c3ccd8">SkyRoll</span><span style="text-align:right;color:#cdd6e1">&minus;0.001984</span><span style="color:#566273;font-size:9px">&deg;</span><span style="text-align:right;color:#4f5a68;font-size:9px">I_01</span></div>
+            <div draggable="true" data-prow="1" style="display:grid;grid-template-columns:9px 52px 1fr 90px 22px 34px;gap:7px;align-items:center;height:23px;padding:0 10px;border-bottom:1px solid #141b25;font-family:'IBM Plex Mono',monospace;font-size:11px"><span style="width:7px;height:7px;border-radius:50%;background:#2fd17a"></span><span style="color:#566273">SkyAz</span><span style="color:#c3ccd8">SkyAzim</span><span style="text-align:right;color:#cdd6e1">&minus;0.510415</span><span style="color:#566273;font-size:9px">rad</span><span style="text-align:right;color:#4f5a68;font-size:9px">I_01</span></div>
+            <div draggable="true" data-prow="1" style="display:grid;grid-template-columns:9px 52px 1fr 90px 22px 34px;gap:7px;align-items:center;height:23px;padding:0 10px;border-bottom:1px solid #141b25;font-family:'IBM Plex Mono',monospace;font-size:11px"><span style="width:7px;height:7px;border-radius:50%;background:#2fd17a"></span><span style="color:#566273">SkyHT</span><span style="color:#c3ccd8">SkyHeadingT</span><span style="text-align:right;color:#cdd6e1">&minus;0.511624</span><span style="color:#566273;font-size:9px">rad</span><span style="text-align:right;color:#4f5a68;font-size:9px">I_01</span></div>
+            <div draggable="true" data-prow="1" style="display:grid;grid-template-columns:9px 52px 1fr 90px 22px 34px;gap:7px;align-items:center;height:23px;padding:0 10px;border-bottom:1px solid #141b25;font-family:'IBM Plex Mono',monospace;font-size:11px"><span style="width:7px;height:7px;border-radius:50%;background:#2fd17a"></span><span style="color:#566273">I0612</span><span style="color:#c3ccd8">PrsntTruHead</span><span style="text-align:right;color:#cdd6e1">&minus;90.656472</span><span style="color:#566273;font-size:9px">&deg;</span><span style="text-align:right;color:#4f5a68;font-size:9px">I_06</span></div>
+
+            <!-- GROUP: ACCELERATION -->
+            <div style="display:flex;align-items:center;justify-content:space-between;padding:5px 10px 4px;background:#0c1118;border-bottom:1px solid #1a2230;font:600 9.5px/1 'IBM Plex Sans';letter-spacing:.12em;text-transform:uppercase;color:#5d6b7c"><span>Acceleration&nbsp;<span style="color:#3b4757;font-weight:500;letter-spacing:0">g</span></span><span style="color:#3b4757">3</span></div>
+            <div draggable="true" data-prow="1" style="display:grid;grid-template-columns:9px 52px 1fr 90px 22px 34px;gap:7px;align-items:center;height:23px;padding:0 10px;border-bottom:1px solid #141b25;font-family:'IBM Plex Mono',monospace;font-size:11px"><span style="width:7px;height:7px;border-radius:50%;background:#2fd17a"></span><span style="color:#566273">I0114</span><span style="color:#c3ccd8">PlatAccX</span><span style="text-align:right;color:#cdd6e1">0.006276</span><span style="color:#566273;font-size:9px">g</span><span style="text-align:right;color:#4f5a68;font-size:9px">I_01</span></div>
+            <div draggable="true" data-prow="1" style="display:grid;grid-template-columns:9px 52px 1fr 90px 22px 34px;gap:7px;align-items:center;height:23px;padding:0 10px;border-bottom:1px solid #141b25;font-family:'IBM Plex Mono',monospace;font-size:11px"><span style="width:7px;height:7px;border-radius:50%;background:#2fd17a"></span><span style="color:#566273">I0115</span><span style="color:#c3ccd8">PlatAccY</span><span style="text-align:right;color:#cdd6e1">0.015690</span><span style="color:#566273;font-size:9px">g</span><span style="text-align:right;color:#4f5a68;font-size:9px">I_01</span></div>
+            <div draggable="true" data-prow="1" style="display:grid;grid-template-columns:9px 52px 1fr 90px 22px 34px;gap:7px;align-items:center;height:23px;padding:0 10px;border-bottom:1px solid #141b25;font-family:'IBM Plex Mono',monospace;font-size:11px"><span style="width:7px;height:7px;border-radius:50%;background:#38c5e0;box-shadow:0 0 6px #38c5e0"></span><span style="color:#566273">I0116</span><span style="color:#c3ccd8">PlatAccZ</span><span style="text-align:right;color:#7fdcf0;font-weight:600">1.067966</span><span style="color:#566273;font-size:9px">g</span><span style="text-align:right;color:#4f5a68;font-size:9px">I_01</span></div>
+
+            <!-- GROUP: RATES -->
+            <div style="display:flex;align-items:center;justify-content:space-between;padding:5px 10px 4px;background:#0c1118;border-bottom:1px solid #1a2230;font:600 9.5px/1 'IBM Plex Sans';letter-spacing:.12em;text-transform:uppercase;color:#5d6b7c"><span>Body&nbsp;Rates&nbsp;<span style="color:#3b4757;font-weight:500;letter-spacing:0">deg/s</span></span><span style="color:#3b4757">3</span></div>
+            <div draggable="true" data-prow="1" style="display:grid;grid-template-columns:9px 52px 1fr 90px 22px 34px;gap:7px;align-items:center;height:23px;padding:0 10px;border-bottom:1px solid #141b25;font-family:'IBM Plex Mono',monospace;font-size:11px"><span style="width:7px;height:7px;border-radius:50%;background:#2fd17a"></span><span style="color:#566273">I0130</span><span style="color:#c3ccd8">RollR</span><span style="text-align:right;color:#cdd6e1">0.000122</span><span style="color:#566273;font-size:9px">/s</span><span style="text-align:right;color:#4f5a68;font-size:9px">I_01</span></div>
+            <div draggable="true" data-prow="1" style="display:grid;grid-template-columns:9px 52px 1fr 90px 22px 34px;gap:7px;align-items:center;height:23px;padding:0 10px;border-bottom:1px solid #141b25;font-family:'IBM Plex Mono',monospace;font-size:11px"><span style="width:7px;height:7px;border-radius:50%;background:#2fd17a"></span><span style="color:#566273">I0131</span><span style="color:#c3ccd8">PitchR</span><span style="text-align:right;color:#cdd6e1">0.000000</span><span style="color:#566273;font-size:9px">/s</span><span style="text-align:right;color:#4f5a68;font-size:9px">I_01</span></div>
+            <div draggable="true" data-prow="1" style="display:grid;grid-template-columns:9px 52px 1fr 90px 22px 34px;gap:7px;align-items:center;height:23px;padding:0 10px;border-bottom:1px solid #141b25;font-family:'IBM Plex Mono',monospace;font-size:11px"><span style="width:7px;height:7px;border-radius:50%;background:#2fd17a"></span><span style="color:#566273">I0132</span><span style="color:#c3ccd8">YawR</span><span style="text-align:right;color:#cdd6e1">0.000366</span><span style="color:#566273;font-size:9px">/s</span><span style="text-align:right;color:#4f5a68;font-size:9px">I_01</span></div>
+
+            <!-- GROUP: SYSTEM -->
+            <div style="display:flex;align-items:center;justify-content:space-between;padding:5px 10px 4px;background:#0c1118;border-bottom:1px solid #1a2230;font:600 9.5px/1 'IBM Plex Sans';letter-spacing:.12em;text-transform:uppercase;color:#5d6b7c"><span>System</span><span style="color:#3b4757">6</span></div>
+            <div draggable="true" data-prow="1" style="display:grid;grid-template-columns:9px 52px 1fr 90px 22px 34px;gap:7px;align-items:center;height:23px;padding:0 10px;border-bottom:1px solid #141b25;font-family:'IBM Plex Mono',monospace;font-size:11px"><span style="width:7px;height:7px;border-radius:50%;background:#2fd17a"></span><span style="color:#566273">I0102</span><span style="color:#c3ccd8">VTimeTag</span><span style="text-align:right;color:#cdd6e1">899904</span><span style="color:#566273;font-size:9px">cnt</span><span style="text-align:right;color:#4f5a68;font-size:9px">I_01</span></div>
+            <div draggable="true" data-prow="1" style="display:grid;grid-template-columns:9px 52px 1fr 90px 22px 34px;gap:7px;align-items:center;height:23px;padding:0 10px;border-bottom:1px solid #141b25;background:#1a0e11;font-family:'IBM Plex Mono',monospace;font-size:11px"><span style="width:7px;height:7px;border-radius:50%;background:#ff4d52;box-shadow:0 0 6px #ff4d52"></span><span style="color:#8a6064">I0125</span><span style="color:#e7c6c8">AltI</span><span style="text-align:right;color:#ff6b70;font-weight:600">156.000000</span><span style="color:#8a6064;font-size:9px">m</span><span style="text-align:right;color:#7a5358;font-size:9px">I_01</span></div>
+            <div draggable="true" data-prow="1" style="display:grid;grid-template-columns:9px 52px 1fr 90px 22px 34px;gap:7px;align-items:center;height:23px;padding:0 10px;border-bottom:1px solid #141b25;font-family:'IBM Plex Mono',monospace;font-size:11px"><span style="width:7px;height:7px;border-radius:50%;background:#f5b440"></span><span style="color:#566273">I0126</span><span style="color:#c3ccd8">GCSErr</span><span style="text-align:right;color:#f5c061">&minus;0.978205</span><span style="color:#566273;font-size:9px">&mdash;</span><span style="text-align:right;color:#4f5a68;font-size:9px">I_01</span></div>
+            <div draggable="true" data-prow="1" style="display:grid;grid-template-columns:9px 52px 1fr 90px 22px 34px;gap:7px;align-items:center;height:23px;padding:0 10px;border-bottom:1px solid #141b25;font-family:'IBM Plex Mono',monospace;font-size:11px"><span style="width:7px;height:7px;border-radius:50%;background:#2fd17a"></span><span style="color:#566273">I_09</span><span style="color:#c3ccd8">I_09_Tm</span><span style="text-align:right;color:#cdd6e1">33:26.730</span><span style="color:#566273;font-size:9px">t</span><span style="text-align:right;color:#4f5a68;font-size:9px">I_09</span></div>
+            <div draggable="true" data-prow="1" style="display:grid;grid-template-columns:9px 52px 1fr 90px 22px 34px;gap:7px;align-items:center;height:23px;padding:0 10px;border-bottom:1px solid #141b25;font-family:'IBM Plex Mono',monospace;font-size:11px"><span style="width:7px;height:7px;border-radius:50%;background:#2fd17a"></span><span style="color:#566273">SicuF</span><span style="color:#c3ccd8">SicuF_String</span><span style="text-align:right;color:#9aa7b6">3631313030</span><span style="color:#566273;font-size:9px">str</span><span style="text-align:right;color:#4f5a68;font-size:9px">SicuF</span></div>
+            <div draggable="true" data-prow="1" style="display:grid;grid-template-columns:9px 52px 1fr 90px 22px 34px;gap:7px;align-items:center;height:23px;padding:0 10px;font-family:'IBM Plex Mono',monospace;font-size:11px"><span style="width:7px;height:7px;border-radius:50%;background:#46586b"></span><span style="color:#566273">BIL00</span><span style="color:#c3ccd8">BIL00TRIGGER</span><span style="text-align:right;color:#7e8c9d">0</span><span style="color:#566273;font-size:9px">bit</span><span style="text-align:right;color:#4f5a68;font-size:9px">BI_L</span></div>
+          </div>
+        </div>
+
+        <!-- ---- DASHBOARD ---- -->
+        <div data-dropzone="1" style="min-height:0;overflow:auto;padding:1px;display:grid;grid-template-columns:repeat(auto-fill,158px);grid-auto-rows:158px;gap:10px;align-content:start">
+              <sc-for list="{{ widgets }}" as="w" hint-placeholder-count="1">
+                <div draggable="true" data-widget="{{ w.id }}" style="{{ w.gridStyle }}background:#0c121a;border:1px solid #1d2632;border-radius:6px;display:flex;flex-direction:column;overflow:hidden;position:relative">
+                  <sc-if value="{{ w.isMap }}" hint-placeholder-val="{{ false }}"><div style="display:flex;flex-direction:column;height:100%">
+            <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 12px;border-bottom:1px solid #1d2632;background:#131a24;flex:none">
+              <div style="font:600 11px/1 'IBM Plex Sans';letter-spacing:.09em;text-transform:uppercase;color:#8b98a9;display:flex;align-items:center;gap:8px"><span style="width:5px;height:5px;background:#38c5e0;border-radius:1px"></span>Flight Track &middot; XY</div>
+              <div style="display:flex;align-items:center;gap:12px;font-family:'IBM Plex Mono',monospace;font-size:10px;color:#7e8c9d"><div onClick="{{ toggleOsm }}" style="cursor:pointer;padding:3px 9px;border:1px solid #2a3c50;border-radius:5px;background:#0d1f2a;color:#7fdcf0;letter-spacing:.06em;user-select:none;font-weight:600">{{ osmLabel }}</div><span>32.0853&deg;N 34.7818&deg;E</span><span style="color:#38c5e0">HOLDING</span></div>
+            </div>
+            <div style="position:relative;flex:1;min-height:0;background:#091018">
+              <div id="osm-ov" style="position:absolute;inset:10px;display:{{ osmDisplay }};z-index:3"></div>
+              <svg viewBox="55 90 470 470" preserveAspectRatio="xMidYMid meet" style="position:absolute;top:10px;left:10px;width:calc(100% - 20px);height:calc(100% - 20px)">
+                <defs>
+                  <pattern id="gm" width="40" height="40" patternUnits="userSpaceOnUse"><path d="M40 0V40M0 40H40" fill="none" stroke="#15212e" stroke-width="0.7"/></pattern>
+                </defs>
+                <rect x="60" y="150" width="470" height="340" fill="url(#gm)" opacity="{{ gridOp }}"/>
+                <g opacity="{{ basemapOp }}">
+                  <polygon points="60,150 100,150 92,212 104,272 90,332 100,392 92,452 100,492 60,492" fill="#0c2533" opacity="0.55"/>
+                  <text x="78" y="330" fill="#35566a" font-size="8" font-family="monospace" letter-spacing="2.5" text-anchor="middle" transform="rotate(-90 78 330)">MEDITERRANEAN</text>
+                  <text x="252" y="298" fill="#5a7585" font-size="9.5" font-family="monospace" letter-spacing="1.5" text-anchor="middle">TEL AVIV-YAFO</text>
+                  <text x="312" y="206" fill="#48626f" font-size="8" font-family="monospace" letter-spacing="1" text-anchor="middle">HERZLIYA</text>
+                  <text x="436" y="252" fill="#48626f" font-size="8" font-family="monospace" letter-spacing="1" text-anchor="middle">PETAH TIKVA</text>
+                  <text x="256" y="432" fill="#48626f" font-size="8" font-family="monospace" letter-spacing="1" text-anchor="middle">RISHON LEZIYYON</text>
+                  <text x="168" y="360" fill="#3f5563" font-size="7.5" font-family="monospace" letter-spacing="1" text-anchor="middle">BAT YAM</text>
+                  <text x="466" y="478" fill="#314650" font-size="7" font-family="monospace" letter-spacing="1.5" text-anchor="end">GIS BASEMAP / DROP TILE LAYER</text>
+                </g>
+                <circle cx="320" cy="300" r="60" fill="none" stroke="#1c2c3a" stroke-width="0.8" opacity="{{ ringsOp }}"/>
+                <circle cx="320" cy="300" r="120" fill="none" stroke="#1c2c3a" stroke-width="0.8" opacity="{{ ringsOp }}"/>
+                <circle cx="320" cy="300" r="180" fill="none" stroke="#182734" stroke-width="0.8" stroke-dasharray="2 4" opacity="{{ ringsOp }}"/>
+                <line x1="320" y1="150" x2="320" y2="490" stroke="#16242f" stroke-width="0.7" opacity="{{ gridOp }}"/>
+                <line x1="60" y1="300" x2="530" y2="300" stroke="#16242f" stroke-width="0.7" opacity="{{ gridOp }}"/>
+                <path d="M89.3 470.9L93.1 468.5L94.5 466.8L97.5 462.5L101.7 462.1L104.6 458.2L107.5 458.1L110.3 454.4L113.9 454.0L117.0 450.4L120.2 449.8L122.6 447.7L127.4 444.9L128.3 444.1L131.1 440.5L135.6 438.2L137.4 435.6L141.6 434.0L145.2 431.3L147.9 430.1L150.3 428.6L153.8 425.2L156.3 424.6L158.9 420.7L160.6 420.0L166.5 417.6L167.4 416.1L172.0 413.3L174.6 410.5L177.7 409.4L180.8 405.9L183.7 403.7L185.3 403.2L188.6 400.2L193.0 397.3L195.8 395.1L198.2 394.6L201.7 390.8L205.5 391.2L206.1 388.3L210.9 387.3L211.9 382.6L215.7 382.4L219.0 380.8L221.7 377.4L223.7 374.1L457.1 299.2L454.5 323.5L447.9 343.2L437.5 359.5L416.8 379.6L400.9 394.0L376.0 406.2L352.3 407.9L327.3 413.3L300.3 412.8L272.5 409.1L251.2 398.5L228.2 388.2L210.7 373.6L194.3 352.5L180.5 336.7L176.9 312.2L177.8 291.8L182.5 266.1L192.8 245.5L208.1 228.9L226.8 213.4L246.3 195.7L270.3 190.0L299.0 179.9L326.4 182.8L351.7 180.7L380.4 188.3L406.2 201.5L423.8 218.3L444.8 236.1L457.7 253.3L460.6 274.5L463.7 295.9L464.2 321.0L453.6 344.2L442.5 362.4L426.2 378.2L407.4 395.9L380.3 405.6L353.3 411.5L326.5 417.6L304.2 416.6L277.9 410.6L250.2 404.0L229.6 391.2L209.2 372.8L197.3 352.2L187.1 331.7L182.8 314.4L182.1 289.9L186.2 270.5L196.3 252.0L211.2 235.2L231.0 218.4L250.1 205.6L275.6 195.5L296.4 191.4L326.1 190.9L348.4 196.0L373.7 202.6L395.8 208.7L408.8 225.8L428.0 242.8L437.1 257.6L444.1 275.4L444.2 297.3L442.6 317.1L434.3 337.1L423.6 353.1L411.5 368.7L392.6 378.0L373.3 390.4L353.4 396.0L328.2 398.4L303.8 397.6L284.0 390.9L262.5 383.3L246.5 372.1L232.5 359.2L218.6 345.8L207.2 331.9L202.7 313.6L207.2 293.1L211.1 277.4L219.9 259.2L226.3 247.2L240.8 230.5L261.5 220.0L278.0 216.2L302.5 210.4L319.6 205.1L343.4 209.1L364.7 215.2L380.8 222.2L400.2 232.9L409.2 249.1L422.5 265.5L430.0 281.7L432.6 295.5L429.6 315.4L425.0 332.8L417.8 348.2L402.4 358.1L389.2 372.2L368.6 379.5L353.8 388.3L327.7 394.6L308.7 392.3L286.1 388.7L269.8 383.8L247.5 373.9L234.0 361.3L222.2 348.7L211.6 333.8L204.9 315.1L202.5 295.5L206.1 279.1L212.2 262.1L225.3 242.1L238.1 230.8L253.5 214.8L273.5 207.9L296.6 202.8L319.2 197.7L345.0 204.4L363.4 204.2L387.9 212.5L405.3 227.8L422.8 238.3L430.9 258.4L443.1 277.8L445.9 296.4L444.6 314.4L442.7 334.7L431.8 349.2L417.2 369.6L399.4 385.0L379.0 396.3L360.0 403.6L333.6 404.3L310.9 405.3L286.9 406.2L260.5 393.3L240.8 383.2L219.1 371.2L205.8 354.4L192.8 338.4L186.8 319.4L188.4 298.9L192.1 277.3L200.1 255.4L208.1 237.0L227.5 224.8L248.6 206.4L270.5 196.8L293.1 194.5L319.3 188.0L341.6 190.3L364.5 197.2L389.7 205.7L409.0 219.7L426.4 232.7L438.8 251.4L445.4 274.4L452.2 292.4L449.8 310.7L446.9 332.3L435.2 349.3L421.0 368.3L400.7 381.8L379.1 391.7L356.6 402.1L334.7 403.4L313.4 402.4L288.2 399.1L262.1 395.2L243.8 380.5L225.3 369.9L212.3 351.1L205.0 336.6L198.9 313.9L196.8 300.7L203.3 278.8L208.4 262.6L219.3 243.3L237.3 229.0L253.8 219.8L274.5 213.9L297.1 206.0L316.7 206.2L339.5 210.4L360.4 211.0L379.8 219.0L397.2 231.7L408.7 247.8L420.6 260.4L425.7 276.2L428.9 295.6L426.4 312.0L421.9 327.9L416.7 342.2L399.9 356.8L390.9 363.2L368.3 372.5L352.1 381.7L336.0 384.3L312.3 385.5L295.7 379.0L279.2 377.8L257.9 368.2L248.8 356.3L231.8 342.8L227.2 328.5L223.0 312.4L219.3 297.9L224.4 282.9L229.1 271.3L234.1 253.7L247.4 241.2L263.0 232.7L280.2 225.8L295.8 219.0L317.9 218.0L333.6 217.5L352.6 220.6L369.3 229.2L387.4 238.8L397.2 248.7L409.3 264.5L416.1 277.5L421.6 293.6L421.8 308.5L416.7 325.3L411.0 339.8L396.6 351.0L387.0 363.9L371.9 372.8L353.3 376.8L332.2 384.5L312.3 386.2L296.6 382.3L279.1 379.2L260.6 369.8L246.3 362.6L231.8 345.2L219.8 331.5L213.6 315.9L214.6 297.9L210.5 282.2L219.2 269.5L228.6 250.1L240.2 236.0L252.9 223.4L273.5 214.2L294.0 207.9L312.2 208.2L337.1 206.0L353.9 208.9L374.9 215.7L393.3 225.4L412.2 241.5L424.2 255.2L430.8 274.1L438.6 287.4L439.9 305.6L433.5 324.6L423.7 341.1L415.4 359.9L397.5 370.6L379.3 383.3L363.4 395.2L339.2 394.6L315.8 398.6L295.5 395.1L270.0 393.1L254.5 384.4L236.6 369.8L218.3 355.4L208.4 337.6L199.4 321.8L198.3 298.7L198.7 284.3L207.4 265.2L219.5 249.0L233.7 235.9L248.1 220.0L269.8 211.9L288.4 206.3L313.8 200.6L334.7 204.7L353.5 209.1L374.5 216.8L398.2 226.2L408.6 238.2L424.5 255.6L431.5 270.3L432.9 290.6L434.8 306.8L432.2 324.1L424.6 342.5L409.5 358.5L396.1 370.8L375.8 376.0L359.1 383.6L339.7 391.7L319.4 391.6L296.6 390.5L278.9 383.7L261.4 374.5L247.7 363.3L233.4 349.3L221.1 332.1L218.2 318.5L215.9 304.9L219.9 286.7L221.4 273.9L230.2 256.2L244.2 247.8L259.0 234.0L278.4 228.5L296.1 221.1L309.2 218.2L329.8 223.0L345.6 225.6L364.5 229.3L376.7 242.2L394.0 248.0L403.9 262.5L407.8 273.8L411.1 289.9L411.1 303.9L405.5 318.4L399.4 331.5L394.6 343.1L383.2 356.4L368.5 358.8L354.9 365.5L337.7 368.8L317.7 373.0L303.8 371.8L285.8 366.4L271.6 357.1L259.1 350.6L248.6 341.1L239.7 330.5L235.5 315.9L232.6 302.5L235.1 288.1L236.6 278.8L246.5 266.6L254.1 254.0L264.6 243.8L280.3 238.0L296.6 229.4L310.7 226.3L328.1 228.4L346.5 229.9L360.0 238.8L375.0 243.7L387.7 253.1L395.5 260.7L403.9 275.4L409.5 288.4L409.0 303.2L405.7 318.6L400.1 332.8L393.5 341.9L384.4 357.4L369.6 365.8L356.2 371.2L338.9 376.6L318.3 380.1L301.0 378.7L283.2 375.7L268.0 367.2L253.3 355.8L241.2 348.9L232.3 335.5L223.2 319.4L220.0 304.1L222.0 288.6L227.4 271.2L231.5 261.4L239.9 244.2L255.2 232.5L272.9 227.2L290.4 220.3L307.7 212.7L329.7 215.5L347.1 216.8L364.0 221.3L385.0 233.6L397.6 244.7L411.4 253.2L418.5 271.7L427.4 288.4L429.8 303.8L427.3 316.5L417.9 335.2L407.0 351.8L395.4 364.7L381.2 373.3L363.9 381.3L343.8 389.0L321.8 388.7L304.3 385.1L282.9 381.5L264.0 375.6L246.4 366.1L233.1 355.4L221.3 336.7L215.0 321.2L215.8 307.9L214.9 290.5L220.8 274.5L224.4 260.5L238.1 245.8L252.0 234.8L267.4 222.2L289.3 216.0L305.8 214.3L326.9 214.7L347.2 218.8L364.7 223.8L383.7 235.5L394.5 245.0L406.6 253.8L411.6 272.0L419.2 285.1L419.3 301.2L415.9 315.8L409.4 330.3L401.4 342.3L385.5 357.4L372.5 361.7L356.7 373.0L343.2 372.3L323.8 373.1L307.7 375.7L289.8 369.3L275.6 361.4L257.8 356.6L247.8 343.9L241.0 331.0L235.8 316.9L234.6 307.6L233.5 292.0L238.8 279.3L247.5 265.3L253.0 254.5L265.0 248.6L281.2 244.3L297.1 238.4L311.5 233.8L327.3 236.5L342.1 239.6L351.0 240.4L368.5 248.6L374.9 255.1L384.6 266.7L389.6 276.1L393.8 291.3L398.2 302.8L395.3 313.0L387.9 325.5L383.5 331.8L371.6 341.4L361.8 349.7L352.6 353.7L340.1 358.7L320.6 359.1L312.2 358.4L293.6 357.1L284.2 352.1L274.0 346.8L260.9 339.6L253.1 329.2L246.1 320.1L249.2 306.5L248.3 294.1L247.4 284.7L251.1 269.7L260.0 263.8L270.8 251.8L282.1 245.2L292.9 240.0L308.1 239.5L323.4 236.0L339.0 238.0L353.3 241.7L366.9 247.8L375.5 256.3L387.6 263.5L393.6 272.8L398.5 284.9L401.0 296.8L401.3 314.3L396.9 326.9L389.6 334.8L380.4 347.4L366.4 352.6L354.0 364.8L339.3 369.4L326.0 371.1L310.0 370.5L290.0 368.7L279.0 362.8L261.3 354.3L249.9 347.2L244.0 337.3L236.5 319.8L231.1 309.3L231.3 296.6L229.3 278.8L236.8 266.2L244.8 252.7L260.7 242.8L274.8 237.3L285.9 226.1L287.5 226.0L291.9 223.7L295.6 223.4L298.0 223.3L303.5 224.0L305.2 221.9L309.7 220.3L311.4 219.8L315.3 221.8L319.5 221.6L321.6 218.2L327.4 220.3L329.4 220.0L333.7 217.1L338.7 218.9L339.7 216.1L343.3 217.0L346.3 214.1L349.9 213.0L354.5 215.3L356.5 211.9L361.5 214.6L362.8 212.3L367.8 210.0L369.5 211.3L373.7 209.3L376.5 208.1L380.7 209.3L386.4 210.0L387.3 207.5L393.2 206.5L395.9 206.5L402.5 205.1L405.1 204.3L407.5 205.0L412.1 204.2L416.7 203.6L423.7 201.3L424.1 200.1L427.4 201.2L432.3 200.0L434.8 199.3L440.3 199.7L442.6 199.2L447.0 196.0L449.8 197.9L453.2 196.7L455.3 197.6L461.0 194.0L463.1 196.5L465.0 193.8L469.6 192.3L473.3 194.0L474.6 194.3L479.4 191.7L482.1 193.3L486.5 190.3" fill="none" stroke="{{ accent }}" stroke-width="1" vector-effect="non-scaling-stroke" stroke-linejoin="round" opacity="0.92"/>
+                <circle cx="89.3" cy="470.9" r="4" fill="none" stroke="#2fd17a" stroke-width="1.6"/>
+                <rect x="240" y="250" width="13" height="9" rx="1.5" fill="#0d2a1c" stroke="#2fd17a" stroke-width="0.8"/>
+                <rect x="372" y="222" width="13" height="9" rx="1.5" fill="#0d1f2a" stroke="#38c5e0" stroke-width="0.8"/>
+                <rect x="300" y="345" width="13" height="9" rx="1.5" fill="#2a1d0a" stroke="#f5b440" stroke-width="0.8"/>
+                <g transform="translate(486.5 190.3) rotate(-10.8)"><path d="M0 -7 L5 6 L0 3 L-5 6 Z" fill="#ffffff" stroke="#0a0e14" stroke-width="0.5"/></g>
+              </svg>
+              <div style="position:absolute;left:8px;top:6px;font:500 9px/1 'IBM Plex Mono';color:#3f5160">N&uarr;</div>
+              <div style="position:absolute;right:8px;bottom:6px;display:flex;align-items:center;gap:6px;font:500 9px/1 'IBM Plex Mono';color:#3f5160"><span style="width:20px;height:1px;background:#3f5160;display:inline-block"></span>2 km</div>
+            </div>
+                  </div></sc-if>
+                  <sc-if value="{{ w.notMap }}" hint-placeholder-val="{{ true }}"><div style="display:flex;flex-direction:column;height:100%">
+                  <div style="display:flex;align-items:center;justify-content:space-between;padding:5px 7px;border-bottom:1px solid #1a2230;flex:none;gap:5px">
+                    <span style="font:600 9px/1 'IBM Plex Sans';letter-spacing:.04em;color:#9aa7b6;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:move">&#9776; {{ w.name }}</span>
+                    <div style="display:flex;align-items:center;gap:3px;flex:none">
+                      <span onClick="{{ w.toggle }}" style="cursor:pointer;font:600 8px/1 'IBM Plex Mono';color:#7fdcf0;border:1px solid #2a3c50;border-radius:3px;padding:3px 5px;letter-spacing:.04em">{{ w.typeLabel }}</span>
+                      <span onClick="{{ w.remove }}" style="cursor:pointer;width:15px;height:15px;display:flex;align-items:center;justify-content:center;color:#c8787c;border:1px solid #3a1d22;border-radius:3px;font-size:12px;line-height:1">&times;</span>
+                    </div>
+                  </div>
+                  <div style="flex:1;min-height:0;position:relative;display:flex;align-items:center;justify-content:center;padding:6px">
+                    <sc-if value="{{ w.isGauge }}" hint-placeholder-val="{{ true }}">
+                      <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;width:100%;height:100%">
+                        <div style="position:relative;flex:1;min-height:0;aspect-ratio:1;container-type:size">
+                          <svg viewBox="0 0 80 80" preserveAspectRatio="xMidYMid meet" style="position:absolute;inset:0;width:100%;height:100%"><circle cx="40" cy="40" r="36" fill="#070b11" stroke="#1f2c39" stroke-width="1.5"/><path d="M20.2 59.8 A28 28 0 1 1 59.8 59.8" fill="none" stroke="#2a3848" stroke-width="2.4"/><g opacity="{{ scalesOp }}" stroke-linecap="round"><path d="M18.8 61.2L23 57M12.3 28.5L17.8 30.8M40 10L40 16M67.7 28.5L62.2 30.8M61.2 61.2L57 57" stroke="#7a8798" stroke-width="1.1"/><path d="M10.6 45.9L13.5 45.3M23.3 15.1L25 17.6M56.7 15.1L55 17.6M69.4 45.9L66.5 45.3" stroke="#3a4757" stroke-width="0.8"/></g><line x1="40" y1="40" x2="{{ w.nx }}" y2="{{ w.ny }}" stroke="{{ w.accent }}" stroke-width="2" stroke-linecap="round"/><circle cx="40" cy="40" r="3" fill="{{ w.accent }}"/></svg>
+                          <div style="position:absolute;left:18.9%;top:81.1%;transform:translate(-50%,-50%);opacity:{{ scalesOp }};font-weight:600;font-size:clamp(7px,5.5cqmin,15px);font-family:'IBM Plex Mono',monospace;color:#8a98a8;line-height:1;pointer-events:none">{{ w.gMin }}</div>
+                          <div style="position:absolute;left:9.4%;top:33.2%;transform:translate(-50%,-50%);opacity:{{ scalesOp }};font-weight:600;font-size:clamp(7px,5.5cqmin,15px);font-family:'IBM Plex Mono',monospace;color:#8a98a8;line-height:1;pointer-events:none">{{ w.gQ1 }}</div>
+                          <div style="position:absolute;left:50%;top:6%;transform:translate(-50%,-50%);opacity:{{ scalesOp }};font-weight:600;font-size:clamp(7px,5.5cqmin,15px);font-family:'IBM Plex Mono',monospace;color:#8a98a8;line-height:1;pointer-events:none">0</div>
+                          <div style="position:absolute;left:90.6%;top:33.2%;transform:translate(-50%,-50%);opacity:{{ scalesOp }};font-weight:600;font-size:clamp(7px,5.5cqmin,15px);font-family:'IBM Plex Mono',monospace;color:#8a98a8;line-height:1;pointer-events:none">{{ w.gQ3 }}</div>
+                          <div style="position:absolute;left:81.1%;top:81.1%;transform:translate(-50%,-50%);opacity:{{ scalesOp }};font-weight:600;font-size:clamp(7px,5.5cqmin,15px);font-family:'IBM Plex Mono',monospace;color:#8a98a8;line-height:1;pointer-events:none">{{ w.gMax }}</div>
+                          <div style="position:absolute;left:50%;top:63%;transform:translate(-50%,-50%);opacity:{{ scalesOp }};font-weight:600;font-size:clamp(6px,4.5cqmin,12px);font-family:'IBM Plex Mono',monospace;color:#6b7787;line-height:1;pointer-events:none">{{ w.unit }}</div>
+                        </div>
+                        <div style="text-align:center;font-family:'IBM Plex Mono',monospace;line-height:1.1;flex:none"><span style="font-size:13px;font-weight:600;color:#cdd6e1">{{ w.value }}</span><span style="font-size:8px;color:#566273"> {{ w.unit }}</span></div>
+                      </div>
+                    </sc-if>
+                    <sc-if value="{{ w.isLine }}" hint-placeholder-val="{{ false }}">
+                      <div onMouseMove="{{ w.onChartMove }}" onMouseLeave="{{ w.onChartLeave }}" style="position:absolute;inset:6px;cursor:crosshair">
+                        <svg viewBox="0 0 200 80" preserveAspectRatio="none" style="width:100%;height:100%"><defs><pattern id="lg" width="20" height="13.33" patternUnits="userSpaceOnUse"><path d="M20 0V13.33M0 13.33H20" fill="none" stroke="#141d29" stroke-width="0.5"/></pattern></defs><rect x="0" y="0" width="200" height="80" fill="url(#lg)" opacity="{{ scalesOp }}"/><line x1="0" y1="40" x2="200" y2="40" stroke="#1c2836" stroke-width="0.6" stroke-dasharray="3 4"/><path d="{{ w.linePath }}" fill="none" stroke="{{ w.accent }}" stroke-width="1.4" vector-effect="non-scaling-stroke" stroke-linejoin="round"/></svg>
+                        <div style="position:absolute;right:4px;top:2px;font:600 12px/1 'IBM Plex Mono';color:#cdd6e1">{{ w.value }}<span style="font-size:8px;color:#566273"> {{ w.unit }}</span></div>
+                        <div style="position:absolute;left:0;top:0;bottom:9px;display:flex;flex-direction:column;justify-content:space-between;opacity:{{ scalesOp }};font:500 8px/1 'IBM Plex Mono';color:#52606f;pointer-events:none"><span>{{ w.lHi }}</span><span>{{ w.lQ3 }}</span><span>{{ w.lMid }}</span><span>{{ w.lQ1 }}</span><span>{{ w.lLo }}</span></div>
+                        <div style="position:absolute;left:2px;right:2px;bottom:-1px;display:flex;justify-content:space-between;opacity:{{ scalesOp }};font:500 8px/1 'IBM Plex Mono';color:#52606f;pointer-events:none"><span>{{ w.lX0 }}</span><span>{{ w.lXm }}</span><span>{{ w.lX1 }}</span></div>
+                        <div style="position:absolute;left:14px;top:1px;font:600 9px/1 'IBM Plex Mono';color:#7fdcf0;pointer-events:none">{{ w.zoomBadge }}</div>
+                        <sc-if value="{{ w.hoverActive }}" hint-placeholder-val="{{ false }}">
+                          <div style="position:absolute;top:0;bottom:0;width:1px;background:#7fdcf0;opacity:.55;pointer-events:none;left:{{ w.hxPct }}"></div>
+                          <div style="position:absolute;width:6px;height:6px;border-radius:50%;background:{{ w.accent }};border:1px solid #0a0e14;transform:translate(-50%,-50%);pointer-events:none;z-index:4;left:{{ w.hxPct }};top:{{ w.hyPct }}"></div>
+                          <div style="position:absolute;top:0;transform:translateX(-50%);pointer-events:none;background:#16202c;border:1px solid #2a3c50;border-radius:3px;padding:2px 5px;font:600 8.5px/1 'IBM Plex Mono';color:#e6edf5;white-space:nowrap;z-index:5;left:{{ w.tipLeftPct }}">{{ w.hVal }} <span style="color:#566273">{{ w.hT }}</span></div>
+                        </sc-if>
+                      </div>
+                    </sc-if>
+                  </div>
+                  </div></sc-if>
+                  <sc-if value="{{ w.canResize }}" hint-placeholder-val="{{ false }}"><div data-rzh="1" onPointerDown="{{ w.onResizeStart }}" style="position:absolute;right:0;bottom:0;width:18px;height:18px;cursor:nwse-resize;z-index:6;display:flex;align-items:flex-end;justify-content:flex-end;padding:3px"><svg viewBox="0 0 10 10" width="9" height="9"><path d="M9.5 1 L9.5 9.5 L1 9.5" fill="none" stroke="#6b7787" stroke-width="1.4"/></svg></div></sc-if>
+                </div>
+              </sc-for>
+        </div>
+      </div>
+      <sc-if value="{{ menuVis }}" hint-placeholder-val="{{ false }}">
+        <div style="position:fixed;left:{{ menuX }}px;top:{{ menuY }}px;z-index:200;background:#131a24;border:1px solid #2a3c50;border-radius:6px;padding:4px;box-shadow:0 8px 24px rgba(0,0,0,.55);min-width:132px">
+          <div style="padding:3px 10px 5px;font:600 8.5px/1 'IBM Plex Sans';letter-spacing:.08em;color:#566273;text-transform:uppercase">Time axis</div>
+          <div onClick="{{ menuZoomIn }}" style="padding:7px 10px;color:#cdd6e1;cursor:pointer;border-radius:4px;font:600 11px/1 'IBM Plex Sans';display:flex;justify-content:space-between" style-hover="background:#1b2734">Zoom in<span style="color:#566273;font-family:'IBM Plex Mono'">+</span></div>
+          <div onClick="{{ menuZoomOut }}" style="padding:7px 10px;color:#cdd6e1;cursor:pointer;border-radius:4px;font:600 11px/1 'IBM Plex Sans';display:flex;justify-content:space-between" style-hover="background:#1b2734">Zoom out<span style="color:#566273;font-family:'IBM Plex Mono'">&minus;</span></div>
+          <div onClick="{{ menuReset }}" style="padding:7px 10px;color:#9aa7b6;cursor:pointer;border-radius:4px;font:600 11px/1 'IBM Plex Sans'" style-hover="background:#1b2734">Reset (&times;1)</div>
+        </div>
+      </sc-if>
+
+      <!-- ---- TIMELINE STRIP ---- -->
+      <div style="flex:none;height:78px;background:#10151d;border:1px solid #1d2632;border-radius:7px;display:flex;align-items:stretch;overflow:hidden">
+        <div style="display:flex;align-items:center;gap:10px;padding:0 16px;border-right:1px solid #1d2632;background:#131a24">
+          <div style="display:flex;gap:4px">
+            <span style="width:26px;height:26px;border-radius:6px;background:#0c1119;border:1px solid #223044;display:flex;align-items:center;justify-content:center;color:#7e8c9d;font-size:10px">&#9198;</span>
+            <span style="width:26px;height:26px;border-radius:6px;background:#16202c;border:1px solid #2a3c50;display:flex;align-items:center;justify-content:center;color:#cbd5e1;font-size:11px">&#9208;</span>
+            <span style="width:26px;height:26px;border-radius:6px;background:#0c1119;border:1px solid #223044;display:flex;align-items:center;justify-content:center;color:#7e8c9d;font-size:10px">&#9197;</span>
+          </div>
+          <div style="font-family:'IBM Plex Mono',monospace"><div style="font-size:14px;color:#e6edf5;font-weight:600">11:33:26.878</div><div style="font-size:8.5px;color:#566273;letter-spacing:.06em">T+33:26.730 &middot; 1.0 s/s</div></div>
+        </div>
+        <div style="flex:1;position:relative;padding:14px 18px 10px">
+          <div style="position:absolute;left:18px;right:18px;top:24px;font:500 8.5px/1 'IBM Plex Mono';color:#46586b;display:flex;justify-content:space-between"><span>11:00</span><span>11:10</span><span>11:20</span><span>11:30</span><span>NOW</span></div>
+          <div style="position:absolute;left:18px;right:18px;bottom:18px;height:18px;background:#0b1018;border:1px solid #1a2532;border-radius:4px;overflow:hidden">
+            <div style="position:absolute;left:0;top:0;bottom:0;width:88%;background:linear-gradient(90deg,#10202c,#13283a)"></div>
+            <div style="position:absolute;left:8%;top:0;bottom:0;width:2px;background:#f5b440"></div>
+            <div style="position:absolute;left:24%;top:0;bottom:0;width:2px;background:#37c0dd"></div>
+            <div style="position:absolute;left:55%;top:0;bottom:0;width:2px;background:#f5b440"></div>
+            <div style="position:absolute;left:71%;top:0;bottom:0;width:2px;background:#ff4d52"></div>
+            <div style="position:absolute;left:86%;top:0;bottom:0;width:2px;background:#ff4d52"></div>
+            <div style="position:absolute;left:88%;top:-3px;bottom:-3px;width:2.5px;background:#e6edf5"></div>
+            <div style="position:absolute;left:88%;top:-7px;width:0;height:0;border-left:5px solid transparent;border-right:5px solid transparent;border-top:6px solid #e6edf5;transform:translateX(-4px)"></div>
+          </div>
+        </div>
+        <div style="display:flex;align-items:center;gap:18px;padding:0 18px;border-left:1px solid #1d2632;font-family:'IBM Plex Mono',monospace">
+          <div style="text-align:right"><div style="font-size:8.5px;color:#566273;letter-spacing:.08em">BUFFER</div><div style="font-size:12px;color:#cbd5e1">2:04:11</div></div>
+          <div style="text-align:right"><div style="font-size:8.5px;color:#566273;letter-spacing:.08em">SAMPLES</div><div style="font-size:12px;color:#cbd5e1">7,451</div></div>
+          <div style="text-align:right"><div style="font-size:8.5px;color:#566273;letter-spacing:.08em">DROPPED</div><div style="font-size:12px;color:#2fd17a">0</div></div>
+        </div>
+      </div>
+    </div>
+    </sc-if>
+
+    <!-- ============================================================ FLIGHT TRACK -->
+    <sc-if value="{{ isTrack }}" hint-placeholder-val="{{ false }}">
+    <div style="position:absolute;inset:0;display:grid;grid-template-columns:1fr 392px;gap:10px;padding:10px">
+      <!-- big map -->
+      <div style="background:#10151d;border:1px solid #1d2632;border-radius:7px;display:flex;flex-direction:column;overflow:hidden;min-height:0">
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:9px 14px;border-bottom:1px solid #1d2632;background:#131a24;flex:none">
+          <div style="font:600 12px/1 'IBM Plex Sans';letter-spacing:.09em;text-transform:uppercase;color:#a7b4c4;display:flex;align-items:center;gap:8px"><span style="width:5px;height:5px;background:#38c5e0;border-radius:1px"></span>Flight Track &middot; XY Plane</div>
+          <div style="display:flex;align-items:center;gap:14px;font-family:'IBM Plex Mono',monospace;font-size:11px;color:#7e8c9d"><div onClick="{{ toggleOsm }}" style="cursor:pointer;padding:4px 11px;border:1px solid #2a3c50;border-radius:5px;background:#0d1f2a;color:#7fdcf0;letter-spacing:.06em;user-select:none;font-weight:600;font-size:10px">{{ osmLabel }}</div><span>GRID &plusmn;14 / &minus;50 km</span><span style="padding:3px 8px;background:#0d1f2a;border:1px solid #1d3a48;border-radius:4px;color:#38c5e0">HOLDING PATTERN</span></div>
+        </div>
+        <div style="position:relative;flex:1;min-height:0;background:#091018">
+          <div id="osm-trk" style="position:absolute;inset:0;display:{{ osmDisplay }};z-index:3"></div>
+          <svg viewBox="55 145 480 350" preserveAspectRatio="xMidYMid meet" style="position:absolute;inset:0;width:100%;height:100%">
+            <defs><pattern id="gm2" width="29.5" height="29.5" patternUnits="userSpaceOnUse"><path d="M29.5 0V29.5M0 29.5H29.5" fill="none" stroke="#15212e" stroke-width="0.7"/></pattern></defs>
+            <rect x="55" y="145" width="480" height="350" fill="url(#gm2)" opacity="{{ gridOp }}"/>
+            <g opacity="{{ basemapOp }}">
+              <polygon points="55,145 100,145 92,210 104,272 90,332 100,392 92,452 100,495 55,495" fill="#0c2533" opacity="0.55"/>
+              <text x="78" y="330" fill="#35566a" font-size="9" font-family="monospace" letter-spacing="3" text-anchor="middle" transform="rotate(-90 78 330)">MEDITERRANEAN SEA</text>
+              <text x="252" y="298" fill="#5a7585" font-size="11" font-family="monospace" letter-spacing="1.5" text-anchor="middle">TEL AVIV-YAFO</text>
+              <text x="312" y="204" fill="#48626f" font-size="9" font-family="monospace" letter-spacing="1" text-anchor="middle">HERZLIYA</text>
+              <text x="438" y="250" fill="#48626f" font-size="9" font-family="monospace" letter-spacing="1" text-anchor="middle">PETAH TIKVA</text>
+              <text x="258" y="434" fill="#48626f" font-size="9" font-family="monospace" letter-spacing="1" text-anchor="middle">RISHON LEZIYYON</text>
+              <text x="168" y="360" fill="#3f5563" font-size="8.5" font-family="monospace" letter-spacing="1" text-anchor="middle">BAT YAM</text>
+              <text x="408" y="320" fill="#3f5563" font-size="8.5" font-family="monospace" letter-spacing="1" text-anchor="middle">RAMAT GAN</text>
+              <text x="470" y="486" fill="#314650" font-size="8" font-family="monospace" letter-spacing="1.5" text-anchor="end">GIS BASEMAP / DROP TILE LAYER</text>
+            </g>
+            <circle cx="320" cy="300" r="60" fill="none" stroke="#1c2c3a" stroke-width="0.8" opacity="{{ ringsOp }}"/>
+            <circle cx="320" cy="300" r="120" fill="none" stroke="#1c2c3a" stroke-width="0.8" opacity="{{ ringsOp }}"/>
+            <circle cx="320" cy="300" r="180" fill="none" stroke="#182734" stroke-width="0.8" stroke-dasharray="2 4" opacity="{{ ringsOp }}"/>
+            <line x1="320" y1="145" x2="320" y2="495" stroke="#16242f" stroke-width="0.8" opacity="{{ gridOp }}"/>
+            <line x1="55" y1="300" x2="535" y2="300" stroke="#16242f" stroke-width="0.8" opacity="{{ gridOp }}"/>
+            <path d="M89.3 470.9L223.7 374.1L457.1 299.2L454.5 323.5L447.9 343.2L437.5 359.5L416.8 379.6L400.9 394.0L376.0 406.2L352.3 407.9L327.3 413.3L300.3 412.8L272.5 409.1L251.2 398.5L228.2 388.2L210.7 373.6L194.3 352.5L180.5 336.7L176.9 312.2L177.8 291.8L182.5 266.1L192.8 245.5L208.1 228.9L226.8 213.4L246.3 195.7L270.3 190.0L299.0 179.9L326.4 182.8L351.7 180.7L380.4 188.3L406.2 201.5L423.8 218.3L444.8 236.1L457.7 253.3L460.6 274.5L463.7 295.9L464.2 321.0L453.6 344.2L442.5 362.4L426.2 378.2L407.4 395.9L380.3 405.6L353.3 411.5L326.5 417.6L304.2 416.6L277.9 410.6L250.2 404.0L229.6 391.2L209.2 372.8L197.3 352.2L187.1 331.7L182.8 314.4L182.1 289.9L186.2 270.5L196.3 252.0L211.2 235.2L231.0 218.4L250.1 205.6L275.6 195.5L296.4 191.4L326.1 190.9L348.4 196.0L373.7 202.6L395.8 208.7L408.8 225.8L428.0 242.8L437.1 257.6L444.1 275.4L444.2 297.3L442.6 317.1L434.3 337.1L423.6 353.1L411.5 368.7L392.6 378.0L373.3 390.4L353.4 396.0L328.2 398.4L303.8 397.6L284.0 390.9L262.5 383.3L246.5 372.1L232.5 359.2L218.6 345.8L207.2 331.9L202.7 313.6L207.2 293.1L211.1 277.4L219.9 259.2L226.3 247.2L240.8 230.5L261.5 220.0L278.0 216.2L302.5 210.4L319.6 205.1L343.4 209.1L364.7 215.2L380.8 222.2L400.2 232.9L409.2 249.1L422.5 265.5L430.0 281.7L432.6 295.5L429.6 315.4L425.0 332.8L417.8 348.2L402.4 358.1L389.2 372.2L368.6 379.5L353.8 388.3L327.7 394.6L308.7 392.3L286.1 388.7L269.8 383.8L247.5 373.9L234.0 361.3L222.2 348.7L211.6 333.8L204.9 315.1L202.5 295.5L206.1 279.1L212.2 262.1L225.3 242.1L238.1 230.8L253.5 214.8L273.5 207.9L296.6 202.8L319.2 197.7L345.0 204.4L363.4 204.2L387.9 212.5L405.3 227.8L422.8 238.3L430.9 258.4L443.1 277.8L445.9 296.4L444.6 314.4L442.7 334.7L431.8 349.2L417.2 369.6L399.4 385.0L379.0 396.3L360.0 403.6L333.6 404.3L310.9 405.3L286.9 406.2L260.5 393.3L240.8 383.2L219.1 371.2L205.8 354.4L192.8 338.4L186.8 319.4L188.4 298.9L192.1 277.3L200.1 255.4L208.1 237.0L227.5 224.8L248.6 206.4L270.5 196.8L293.1 194.5L319.3 188.0L341.6 190.3L364.5 197.2L389.7 205.7L409.0 219.7L426.4 232.7L438.8 251.4L445.4 274.4L452.2 292.4L449.8 310.7L446.9 332.3L435.2 349.3L421.0 368.3L400.7 381.8L379.1 391.7L356.6 402.1L334.7 403.4L313.4 402.4L288.2 399.1L262.1 395.2L243.8 380.5L225.3 369.9L212.3 351.1L205.0 336.6L198.9 313.9L196.8 300.7L203.3 278.8L208.4 262.6L219.3 243.3L237.3 229.0L253.8 219.8L274.5 213.9L297.1 206.0L316.7 206.2L339.5 210.4L360.4 211.0L379.8 219.0L397.2 231.7L408.7 247.8L420.6 260.4L425.7 276.2L428.9 295.6L426.4 312.0L421.9 327.9L416.7 342.2L399.9 356.8L390.9 363.2L368.3 372.5L352.1 381.7L336.0 384.3L312.3 385.5L295.7 379.0L279.2 377.8L257.9 368.2L248.8 356.3L231.8 342.8L227.2 328.5L223.0 312.4L219.3 297.9L224.4 282.9L229.1 271.3L234.1 253.7L247.4 241.2L263.0 232.7L280.2 225.8L295.8 219.0L317.9 218.0L333.6 217.5L352.6 220.6L369.3 229.2L387.4 238.8L397.2 248.7L409.3 264.5L416.1 277.5L421.6 293.6L421.8 308.5L416.7 325.3L411.0 339.8L396.6 351.0L387.0 363.9L371.9 372.8L353.3 376.8L332.2 384.5L312.3 386.2L296.6 382.3L279.1 379.2L260.6 369.8L246.3 362.6L231.8 345.2L219.8 331.5L213.6 315.9L214.6 297.9L210.5 282.2L219.2 269.5L228.6 250.1L240.2 236.0L252.9 223.4L273.5 214.2L294.0 207.9L312.2 208.2L337.1 206.0L353.9 208.9L374.9 215.7L393.3 225.4L412.2 241.5L424.2 255.2L430.8 274.1L438.6 287.4L439.9 305.6L433.5 324.6L423.7 341.1L415.4 359.9L397.5 370.6L379.3 383.3L363.4 395.2L339.2 394.6L315.8 398.6L295.5 395.1L270.0 393.1L254.5 384.4L236.6 369.8L218.3 355.4L208.4 337.6L199.4 321.8L198.3 298.7L198.7 284.3L207.4 265.2L219.5 249.0L233.7 235.9L248.1 220.0L269.8 211.9L288.4 206.3L313.8 200.6L334.7 204.7L353.5 209.1L374.5 216.8L398.2 226.2L408.6 238.2L424.5 255.6L431.5 270.3L432.9 290.6L434.8 306.8L432.2 324.1L424.6 342.5L409.5 358.5L396.1 370.8L375.8 376.0L359.1 383.6L339.7 391.7L319.4 391.6L296.6 390.5L278.9 383.7L261.4 374.5L247.7 363.3L233.4 349.3L221.1 332.1L218.2 318.5L215.9 304.9L219.9 286.7L221.4 273.9L230.2 256.2L244.2 247.8L259.0 234.0L278.4 228.5L296.1 221.1L309.2 218.2L329.8 223.0L345.6 225.6L364.5 229.3L376.7 242.2L394.0 248.0L403.9 262.5L407.8 273.8L411.1 289.9L411.1 303.9L405.5 318.4L399.4 331.5L394.6 343.1L383.2 356.4L368.5 358.8L354.9 365.5L337.7 368.8L317.7 373.0L303.8 371.8L285.8 366.4L271.6 357.1L259.1 350.6L248.6 341.1L239.7 330.5L235.5 315.9L232.6 302.5L235.1 288.1L236.6 278.8L246.5 266.6L254.1 254.0L264.6 243.8L280.3 238.0L296.6 229.4L310.7 226.3L328.1 228.4L346.5 229.9L360.0 238.8L375.0 243.7L387.7 253.1L395.5 260.7L403.9 275.4L409.5 288.4L409.0 303.2L405.7 318.6L400.1 332.8L393.5 341.9L384.4 357.4L369.6 365.8L356.2 371.2L338.9 376.6L318.3 380.1L301.0 378.7L283.2 375.7L268.0 367.2L253.3 355.8L241.2 348.9L232.3 335.5L223.2 319.4L220.0 304.1L222.0 288.6L227.4 271.2L231.5 261.4L239.9 244.2L255.2 232.5L272.9 227.2L290.4 220.3L307.7 212.7L329.7 215.5L347.1 216.8L364.0 221.3L385.0 233.6L397.6 244.7L411.4 253.2L418.5 271.7L427.4 288.4L429.8 303.8L427.3 316.5L417.9 335.2L407.0 351.8L395.4 364.7L381.2 373.3L363.9 381.3L343.8 389.0L321.8 388.7L304.3 385.1L282.9 381.5L264.0 375.6L246.4 366.1L233.1 355.4L221.3 336.7L215.0 321.2L215.8 307.9L214.9 290.5L220.8 274.5L286.5 226.0L380.7 209.3L486.5 190.3" fill="none" stroke="{{ accent }}" stroke-width="1" vector-effect="non-scaling-stroke" stroke-linejoin="round" opacity="0.9"/>
+            <circle cx="89.3" cy="470.9" r="5" fill="#091018" stroke="#2fd17a" stroke-width="1.8"/>
+            <rect x="240" y="248" width="15" height="11" rx="2" fill="#0d2a1c" stroke="#2fd17a" stroke-width="1"/>
+            <rect x="372" y="220" width="15" height="11" rx="2" fill="#0d1f2a" stroke="#38c5e0" stroke-width="1"/>
+            <rect x="298" y="345" width="15" height="11" rx="2" fill="#2a1d0a" stroke="#f5b440" stroke-width="1"/>
+            <circle cx="486.5" cy="190.3" r="11" fill="none" stroke="#ffffff" stroke-width="0.6" opacity="0.5"><animate attributeName="r" values="6;15" dur="2s" repeatCount="indefinite"/><animate attributeName="opacity" values="0.6;0" dur="2s" repeatCount="indefinite"/></circle>
+            <g transform="translate(486.5 190.3) rotate(-10.8)"><path d="M0 -9 L6 8 L0 4 L-6 8 Z" fill="#ffffff" stroke="#0a0e14" stroke-width="0.6"/></g>
+          </svg>
+          <div style="position:absolute;left:10px;top:8px;font:500 10px/1 'IBM Plex Mono';color:#46586b">+38</div>
+          <div style="position:absolute;left:10px;bottom:8px;font:500 10px/1 'IBM Plex Mono';color:#46586b">&minus;50</div>
+          <div style="position:absolute;right:10px;bottom:8px;font:500 10px/1 'IBM Plex Mono';color:#46586b">+14</div>
+        </div>
+      </div>
+
+      <!-- right: readouts + waypoints -->
+      <div style="display:flex;flex-direction:column;gap:10px;min-height:0">
+        <div style="background:#10151d;border:1px solid #1d2632;border-radius:7px;overflow:hidden;flex:none">
+          <div style="padding:9px 14px;border-bottom:1px solid #1d2632;background:#131a24;font:600 11px/1 'IBM Plex Sans';letter-spacing:.09em;text-transform:uppercase;color:#8b98a9">Present Position</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:1px;background:#1a2230">
+            <div style="background:#0e141d;padding:12px 14px"><div style="font:500 9px/1 'IBM Plex Sans';letter-spacing:.1em;color:#566273;margin-bottom:6px">LATITUDE</div><div style="font:600 18px/1 'IBM Plex Mono';color:#e6edf5">32.0853&deg;<span style="font-size:11px;color:#7e8c9d"> N</span></div></div>
+            <div style="background:#0e141d;padding:12px 14px"><div style="font:500 9px/1 'IBM Plex Sans';letter-spacing:.1em;color:#566273;margin-bottom:6px">LONGITUDE</div><div style="font:600 18px/1 'IBM Plex Mono';color:#e6edf5">34.7818&deg;<span style="font-size:11px;color:#7e8c9d"> E</span></div></div>
+            <div style="background:#160d0f;padding:12px 14px"><div style="font:500 9px/1 'IBM Plex Sans';letter-spacing:.1em;color:#8a6064;margin-bottom:6px">ALTITUDE &middot; ALARM</div><div style="font:600 18px/1 'IBM Plex Mono';color:#ff6b70">156.0<span style="font-size:11px;color:#8a6064"> m</span></div></div>
+            <div style="background:#0e141d;padding:12px 14px"><div style="font:500 9px/1 'IBM Plex Sans';letter-spacing:.1em;color:#566273;margin-bottom:6px">GROUND SPEED</div><div style="font:600 18px/1 'IBM Plex Mono';color:#e6edf5">1.51<span style="font-size:11px;color:#7e8c9d"> m/s</span></div></div>
+            <div style="background:#0e141d;padding:12px 14px"><div style="font:500 9px/1 'IBM Plex Sans';letter-spacing:.1em;color:#566273;margin-bottom:6px">TRACK &middot; TRUE</div><div style="font:600 18px/1 'IBM Plex Mono';color:#38d178">269.3&deg;</div></div>
+            <div style="background:#0e141d;padding:12px 14px"><div style="font:500 9px/1 'IBM Plex Sans';letter-spacing:.1em;color:#566273;margin-bottom:6px">CLIMB</div><div style="font:600 18px/1 'IBM Plex Mono';color:#f5c061">&minus;0.75<span style="font-size:11px;color:#7e8c9d"> m/s</span></div></div>
+          </div>
+        </div>
+        <div style="background:#10151d;border:1px solid #1d2632;border-radius:7px;display:flex;flex-direction:column;overflow:hidden;flex:1;min-height:0">
+          <div style="padding:9px 14px;border-bottom:1px solid #1d2632;background:#131a24;display:flex;align-items:center;justify-content:space-between;flex:none"><span style="font:600 11px/1 'IBM Plex Sans';letter-spacing:.09em;text-transform:uppercase;color:#8b98a9">Waypoints &amp; Legs</span><span style="font:500 10px/1 'IBM Plex Mono';color:#566273">5 ACTIVE</span></div>
+          <div style="flex:1;min-height:0;overflow-y:auto;padding:4px 0">
+            <div style="display:grid;grid-template-columns:14px 64px 1fr 70px;gap:10px;align-items:center;padding:8px 14px;border-bottom:1px solid #141b25;font-family:'IBM Plex Mono',monospace;font-size:11px"><span style="width:9px;height:9px;border-radius:2px;background:#2fd17a"></span><span style="color:#9aa7b6">WP&middot;START</span><span style="color:#c3ccd8;font-family:'IBM Plex Sans'">Ingress fix &middot; Rishon</span><span style="text-align:right;color:#7e8c9d">0.0 km</span></div>
+            <div style="display:grid;grid-template-columns:14px 64px 1fr 70px;gap:10px;align-items:center;padding:8px 14px;border-bottom:1px solid #141b25;font-family:'IBM Plex Mono',monospace;font-size:11px"><span style="width:9px;height:9px;border-radius:2px;background:#38c5e0"></span><span style="color:#9aa7b6">WP&middot;042</span><span style="color:#c3ccd8;font-family:'IBM Plex Sans'">Orbit center &middot; Tel Aviv</span><span style="text-align:right;color:#7e8c9d">6.4 km</span></div>
+            <div style="display:grid;grid-template-columns:14px 64px 1fr 70px;gap:10px;align-items:center;padding:8px 14px;border-bottom:1px solid #141b25;font-family:'IBM Plex Mono',monospace;font-size:11px"><span style="width:9px;height:9px;border-radius:2px;background:#f5b440"></span><span style="color:#9aa7b6">WP&middot;143</span><span style="color:#c3ccd8;font-family:'IBM Plex Sans'">Hold pattern entry</span><span style="text-align:right;color:#7e8c9d">9.8 km</span></div>
+            <div style="display:grid;grid-template-columns:14px 64px 1fr 70px;gap:10px;align-items:center;padding:8px 14px;border-bottom:1px solid #141b25;font-family:'IBM Plex Mono',monospace;font-size:11px"><span style="width:9px;height:9px;border-radius:2px;background:#38c5e0"></span><span style="color:#9aa7b6">WP&middot;446</span><span style="color:#c3ccd8;font-family:'IBM Plex Sans'">Outbound radial 088</span><span style="text-align:right;color:#7e8c9d">22.1 km</span></div>
+            <div style="display:grid;grid-template-columns:14px 64px 1fr 70px;gap:10px;align-items:center;padding:8px 14px;font-family:'IBM Plex Mono',monospace;font-size:11px"><span style="width:9px;height:9px;border-radius:50%;background:#ffffff;box-shadow:0 0 6px #fff"></span><span style="color:#e6edf5">AC&middot;NOW</span><span style="color:#e6edf5;font-family:'IBM Plex Sans'">Current position</span><span style="text-align:right;color:#7fdcf0">23.6 km</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+    </sc-if>
+
+    <!-- ============================================================ EVENTS -->
+    <sc-if value="{{ isEvents }}" hint-placeholder-val="{{ false }}">
+    <div style="position:absolute;inset:0;display:grid;grid-template-columns:1fr 360px;gap:10px;padding:10px">
+      <!-- event log -->
+      <div style="background:#10151d;border:1px solid #1d2632;border-radius:7px;display:flex;flex-direction:column;overflow:hidden;min-height:0">
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:9px 14px;border-bottom:1px solid #1d2632;background:#131a24;flex:none">
+          <div style="font:600 12px/1 'IBM Plex Sans';letter-spacing:.09em;text-transform:uppercase;color:#a7b4c4;display:flex;align-items:center;gap:8px"><span style="width:5px;height:5px;background:#ff4d52;border-radius:1px"></span>Event Log</div>
+          <div style="display:flex;align-items:center;gap:6px;font:500 10px/1 'IBM Plex Mono';color:#7e8c9d"><span style="padding:3px 8px;background:#1a0f12;border:1px solid #3a1d22;border-radius:4px;color:#ff6b70">ALARM 2</span><span style="padding:3px 8px;background:#171206;border:1px solid #3a2e10;border-radius:4px;color:#f5c061">CAUTION 2</span><span style="padding:3px 8px;background:#0c1119;border:1px solid #223044;border-radius:4px;color:#7e8c9d">INFO</span></div>
+        </div>
+        <div style="display:grid;grid-template-columns:108px 78px 96px 1fr 92px 54px;gap:10px;padding:7px 14px;background:#0c1119;border-bottom:1px solid #1d2632;font:600 8.5px/1 'IBM Plex Sans';letter-spacing:.1em;color:#566273;flex:none"><span>TIME</span><span>SEVERITY</span><span>PARAM</span><span>MESSAGE</span><span style="text-align:right">VALUE</span><span style="text-align:center">ACK</span></div>
+        <div style="flex:1;min-height:0;overflow-y:auto">
+          <div style="display:grid;grid-template-columns:108px 78px 96px 1fr 92px 54px;gap:10px;align-items:center;padding:9px 14px;border-bottom:1px solid #141b25;background:#160d0f;font-family:'IBM Plex Mono',monospace;font-size:11px"><span style="color:#9aa7b6">11:33:24.102</span><span style="display:flex;align-items:center;gap:6px;color:#ff6b70;font-weight:600"><span style="width:7px;height:7px;border-radius:50%;background:#ff4d52;box-shadow:0 0 6px #ff4d52"></span>ALARM</span><span style="color:#c3ccd8">I0125</span><span style="color:#e7c6c8;font-family:'IBM Plex Sans'">AltI exceeds lower envelope limit</span><span style="text-align:right;color:#ff6b70">156.000</span><span style="text-align:center;color:#5d6b7c">&mdash;</span></div>
+          <div style="display:grid;grid-template-columns:108px 78px 96px 1fr 92px 54px;gap:10px;align-items:center;padding:9px 14px;border-bottom:1px solid #141b25;background:#160d0f;font-family:'IBM Plex Mono',monospace;font-size:11px"><span style="color:#9aa7b6">11:33:19.880</span><span style="display:flex;align-items:center;gap:6px;color:#ff6b70;font-weight:600"><span style="width:7px;height:7px;border-radius:50%;background:#ff4d52;box-shadow:0 0 6px #ff4d52"></span>ALARM</span><span style="color:#c3ccd8">SkyM2</span><span style="color:#e7c6c8;font-family:'IBM Plex Sans'">SkyINUMode2 transitioned to CRITICAL</span><span style="text-align:right;color:#ff6b70">0x80</span><span style="text-align:center;color:#5d6b7c">&mdash;</span></div>
+          <div style="display:grid;grid-template-columns:108px 78px 96px 1fr 92px 54px;gap:10px;align-items:center;padding:9px 14px;border-bottom:1px solid #141b25;font-family:'IBM Plex Mono',monospace;font-size:11px"><span style="color:#9aa7b6">11:32:58.430</span><span style="display:flex;align-items:center;gap:6px;color:#f5c061;font-weight:600"><span style="width:7px;height:7px;border-radius:50%;background:#f5b440"></span>CAUTION</span><span style="color:#c3ccd8">Vclb</span><span style="color:#c3ccd8;font-family:'IBM Plex Sans'">Vclimb descent rate sustained &gt; 0.7</span><span style="text-align:right;color:#f5c061">&minus;0.751</span><span style="text-align:center;color:#2fd17a">&#10003;</span></div>
+          <div style="display:grid;grid-template-columns:108px 78px 96px 1fr 92px 54px;gap:10px;align-items:center;padding:9px 14px;border-bottom:1px solid #141b25;font-family:'IBM Plex Mono',monospace;font-size:11px"><span style="color:#9aa7b6">11:32:41.219</span><span style="display:flex;align-items:center;gap:6px;color:#f5c061;font-weight:600"><span style="width:7px;height:7px;border-radius:50%;background:#f5b440"></span>CAUTION</span><span style="color:#c3ccd8">I0126</span><span style="color:#c3ccd8;font-family:'IBM Plex Sans'">GCSErr drift approaching threshold</span><span style="text-align:right;color:#f5c061">&minus;0.978</span><span style="text-align:center;color:#2fd17a">&#10003;</span></div>
+          <div style="display:grid;grid-template-columns:108px 78px 96px 1fr 92px 54px;gap:10px;align-items:center;padding:9px 14px;border-bottom:1px solid #141b25;font-family:'IBM Plex Mono',monospace;font-size:11px"><span style="color:#9aa7b6">11:31:07.004</span><span style="display:flex;align-items:center;gap:6px;color:#7fdcf0;font-weight:600"><span style="width:7px;height:7px;border-radius:50%;background:#38c5e0"></span>INFO</span><span style="color:#c3ccd8">&mdash;</span><span style="color:#9aa7b6;font-family:'IBM Plex Sans'">Holding pattern entry confirmed</span><span style="text-align:right;color:#7e8c9d">WP143</span><span style="text-align:center;color:#5d6b7c">&mdash;</span></div>
+          <div style="display:grid;grid-template-columns:108px 78px 96px 1fr 92px 54px;gap:10px;align-items:center;padding:9px 14px;border-bottom:1px solid #141b25;font-family:'IBM Plex Mono',monospace;font-size:11px"><span style="color:#9aa7b6">11:29:52.770</span><span style="display:flex;align-items:center;gap:6px;color:#7fdcf0;font-weight:600"><span style="width:7px;height:7px;border-radius:50%;background:#38c5e0"></span>INFO</span><span style="color:#c3ccd8">SkyM1</span><span style="color:#9aa7b6;font-family:'IBM Plex Sans'">INU alignment NORMAL &middot; nav valid</span><span style="text-align:right;color:#7e8c9d">&mdash;</span><span style="text-align:center;color:#5d6b7c">&mdash;</span></div>
+          <div style="display:grid;grid-template-columns:108px 78px 96px 1fr 92px 54px;gap:10px;align-items:center;padding:9px 14px;border-bottom:1px solid #141b25;font-family:'IBM Plex Mono',monospace;font-size:11px"><span style="color:#9aa7b6">11:28:33.500</span><span style="display:flex;align-items:center;gap:6px;color:#7fdcf0;font-weight:600"><span style="width:7px;height:7px;border-radius:50%;background:#38c5e0"></span>INFO</span><span style="color:#c3ccd8">BIL00</span><span style="color:#9aa7b6;font-family:'IBM Plex Sans'">Built-in test trigger reset</span><span style="text-align:right;color:#7e8c9d">0</span><span style="text-align:center;color:#5d6b7c">&mdash;</span></div>
+          <div style="display:grid;grid-template-columns:108px 78px 96px 1fr 92px 54px;gap:10px;align-items:center;padding:9px 14px;font-family:'IBM Plex Mono',monospace;font-size:11px"><span style="color:#9aa7b6">11:26:11.940</span><span style="display:flex;align-items:center;gap:6px;color:#7fdcf0;font-weight:600"><span style="width:7px;height:7px;border-radius:50%;background:#38c5e0"></span>INFO</span><span style="color:#c3ccd8">&mdash;</span><span style="color:#9aa7b6;font-family:'IBM Plex Sans'">Telemetry link 1553B established</span><span style="text-align:right;color:#7e8c9d">OK</span><span style="text-align:center;color:#5d6b7c">&mdash;</span></div>
+        </div>
+      </div>
+      <!-- summary -->
+      <div style="display:flex;flex-direction:column;gap:10px;min-height:0">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;flex:none">
+          <div style="background:#160d0f;border:1px solid #3a1d22;border-radius:7px;padding:14px"><div style="font:500 9px/1 'IBM Plex Sans';letter-spacing:.1em;color:#8a6064;margin-bottom:8px">ACTIVE ALARMS</div><div style="font:600 30px/1 'IBM Plex Mono';color:#ff6b70">2</div></div>
+          <div style="background:#171206;border:1px solid #3a2e10;border-radius:7px;padding:14px"><div style="font:500 9px/1 'IBM Plex Sans';letter-spacing:.1em;color:#9a7d3a;margin-bottom:8px">CAUTIONS</div><div style="font:600 30px/1 'IBM Plex Mono';color:#f5c061">2</div></div>
+          <div style="background:#0e141d;border:1px solid #1d2632;border-radius:7px;padding:14px"><div style="font:500 9px/1 'IBM Plex Sans';letter-spacing:.1em;color:#566273;margin-bottom:8px">EVENTS / HR</div><div style="font:600 30px/1 'IBM Plex Mono';color:#e6edf5">41</div></div>
+          <div style="background:#0e141d;border:1px solid #1d2632;border-radius:7px;padding:14px"><div style="font:500 9px/1 'IBM Plex Sans';letter-spacing:.1em;color:#566273;margin-bottom:8px">UPTIME</div><div style="font:600 30px/1 'IBM Plex Mono';color:#2fd17a">2:04</div></div>
+        </div>
+        <div style="background:#10151d;border:1px solid #1d2632;border-radius:7px;display:flex;flex-direction:column;overflow:hidden;flex:1;min-height:0">
+          <div style="padding:9px 14px;border-bottom:1px solid #1d2632;background:#131a24;font:600 11px/1 'IBM Plex Sans';letter-spacing:.09em;text-transform:uppercase;color:#8b98a9;flex:none">Active Faults &middot; Acknowledge</div>
+          <div style="flex:1;min-height:0;overflow-y:auto;padding:12px;display:flex;flex-direction:column;gap:10px">
+            <div style="background:#160d0f;border:1px solid #3a1d22;border-radius:6px;padding:12px 13px">
+              <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px"><span style="font:600 11px/1 'IBM Plex Sans';color:#ff8084">I0125 &middot; AltI</span><span style="font:500 9px/1 'IBM Plex Mono';color:#8a6064">11:33:24</span></div>
+              <div style="font:400 11px/1.5 'IBM Plex Sans';color:#c3a9ac;margin-bottom:10px">Altitude below configured lower limit. Verify radar-alt source and envelope config.</div>
+              <div style="display:flex;gap:8px"><span style="flex:1;text-align:center;padding:7px;background:#2a1318;border:1px solid #4a2228;border-radius:5px;color:#ff8084;font:600 10px/1 'IBM Plex Sans';letter-spacing:.06em">ACKNOWLEDGE</span><span style="padding:7px 11px;background:#0c1119;border:1px solid #223044;border-radius:5px;color:#7e8c9d;font:600 10px/1 'IBM Plex Sans';letter-spacing:.06em">MUTE</span></div>
+            </div>
+            <div style="background:#160d0f;border:1px solid #3a1d22;border-radius:6px;padding:12px 13px">
+              <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px"><span style="font:600 11px/1 'IBM Plex Sans';color:#ff8084">SkyM2 &middot; SkyINUMode2</span><span style="font:500 9px/1 'IBM Plex Mono';color:#8a6064">11:33:19</span></div>
+              <div style="font:400 11px/1.5 'IBM Plex Sans';color:#c3a9ac;margin-bottom:10px">INU secondary mode reported CRITICAL. Cross-check primary alignment and BIT status.</div>
+              <div style="display:flex;gap:8px"><span style="flex:1;text-align:center;padding:7px;background:#2a1318;border:1px solid #4a2228;border-radius:5px;color:#ff8084;font:600 10px/1 'IBM Plex Sans';letter-spacing:.06em">ACKNOWLEDGE</span><span style="padding:7px 11px;background:#0c1119;border:1px solid #223044;border-radius:5px;color:#7e8c9d;font:600 10px/1 'IBM Plex Sans';letter-spacing:.06em">MUTE</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    </sc-if>
+
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1920,&quot;height&quot;:1080},&quot;accent&quot;:{&quot;editor&quot;:&quot;color&quot;,&quot;default&quot;:&quot;#37c0dd&quot;,&quot;options&quot;:[&quot;#37c0dd&quot;,&quot;#2fd17a&quot;,&quot;#f5b440&quot;,&quot;#a78bfa&quot;],&quot;tsType&quot;:&quot;string&quot;},&quot;showBasemap&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;},&quot;mapOverlay&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;grid&quot;,&quot;options&quot;:[&quot;both&quot;,&quot;rings&quot;,&quot;grid&quot;,&quot;none&quot;],&quot;tsType&quot;:&quot;string&quot;}}">
+class Component extends DCLogic {
+  state = {
+    screen: 'overview', osm: false, _id: 2, scales: true, menu: null,
+    widgets: [
+      { id: 0, type: 'map', cols: 4, rows: 4, col: 1, row: 1 },
+      { id: 1, type: 'gauge', name: 'Roll', value: 19.648448, unit: '\u00b0', cols: 1, rows: 1, col: 5, row: 1 },
+    ],
+  };
+  componentDidMount() { this.syncMaps(); this.bindDrag(); }
+  componentDidUpdate() { this.syncMaps(); }
+  trackLatLng() {
+    if (this._ll) return this._ll;
+    const cy = 32.085, cx = 34.80, pts = [];
+    for (let i = 0; i < 20; i++) pts.push([cy - 0.16 + i * 0.005, cx - 0.20 + i * 0.0075]);
+    for (let i = 0; i < 260; i++) { const a = i * 0.19, r = 0.095 - i * 0.0001; pts.push([cy + r * Math.sin(a) * 0.82, cx + r * Math.cos(a)]); }
+    const last = pts[pts.length - 1];
+    for (let i = 0; i < 26; i++) pts.push([last[0] + i * 0.0028, last[1] + i * 0.011]);
+    this._ll = pts; return pts;
+  }
+  syncMaps() {
+    if (!window.L) { clearTimeout(this._t); this._t = setTimeout(() => this.syncMaps(), 200); return; }
+    if (!this.state.osm) return;
+    const id = this.state.screen === 'track' ? 'osm-trk' : this.state.screen === 'overview' ? 'osm-ov' : null;
+    if (!id) return;
+    const el = document.getElementById(id);
+    if (!el) return;
+    this._maps = this._maps || {};
+    if (this._maps[id] && el._leaflet_id) { this._maps[id].invalidateSize(); return; }
+    const m = window.L.map(el, { attributionControl: true, zoomControl: true }).setView([32.0853, 34.7818], 11);
+    window.L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '&copy; OpenStreetMap' }).addTo(m);
+    const pts = this.trackLatLng();
+    const accent = this.props.accent || '#37c0dd';
+    const poly = window.L.polyline(pts, { color: accent, weight: 2.5, opacity: 0.95 }).addTo(m);
+    window.L.circleMarker(pts[0], { radius: 5, color: '#2fd17a', weight: 2, fill: false }).addTo(m).bindTooltip('START');
+    window.L.circleMarker(pts[pts.length - 1], { radius: 6, color: '#0a0e14', weight: 2, fillColor: '#ffffff', fillOpacity: 1 }).addTo(m).bindTooltip('AC \u00b7 NOW');
+    this._maps[id] = m;
+    setTimeout(() => { m.invalidateSize(); try { m.fitBounds(poly.getBounds().pad(0.18)); } catch (e) {} }, 90);
+  }
+  hashSeed(str) { let h = 2166136261; for (let i = 0; i < str.length; i++) { h ^= str.charCodeAt(i); h = Math.imul(h, 16777619); } return (h >>> 0) || 1; }
+  rng(seed) { let a = seed >>> 0; return () => { a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+  parseVal(s) { if (s == null) return NaN; return parseFloat(String(s).replace(/\u2212/g, '-').replace(/[^0-9.\-]/g, '')); }
+  fmt(v) { if (!isFinite(v)) return '\u2014'; const a = Math.abs(v); return a >= 100 ? v.toFixed(1) : a >= 1 ? v.toFixed(3) : v.toFixed(6); }
+  fmtScale(v) { if (v === 0) return '0'; const a = Math.abs(v); let s = a >= 100 ? v.toFixed(0) : a >= 1 ? v.toFixed(1) : a >= 0.1 ? v.toFixed(2) : v.toFixed(3); if (s.indexOf('.') >= 0) s = s.replace(/0+$/, '').replace(/\.$/, ''); return s; }
+  bindDrag() {
+    if (this._dragBound) return; this._dragBound = true;
+    const cl = (e, sel) => (e.target && e.target.closest) ? e.target.closest(sel) : null;
+    document.addEventListener('dragstart', (e) => {
+      if (this._resizing) { e.preventDefault(); return; }
+      const wEl = cl(e, '[data-widget]');
+      if (wEl) {
+        this._dragWidget = parseInt(wEl.getAttribute('data-widget'), 10); this._drag = null;
+        try { e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', 'w'); } catch (_) {}
+        return;
+      }
+      const row = cl(e, '[data-prow]');
+      if (row) {
+        const sp = row.querySelectorAll('span');
+        this._drag = { name: sp[2] ? sp[2].textContent.trim() : '', value: this.parseVal(sp[3] ? sp[3].textContent : ''), unit: sp[4] ? sp[4].textContent.trim() : '' };
+        this._dragWidget = null;
+        try { e.dataTransfer.effectAllowed = 'copy'; e.dataTransfer.setData('text/plain', 'p'); } catch (_) {}
+      }
+    });
+    document.addEventListener('dragover', (e) => {
+      if (cl(e, '[data-dropzone]')) {
+        e.preventDefault();
+        try { e.dataTransfer.dropEffect = this._dragWidget != null ? 'move' : 'copy'; } catch (_) {}
+      }
+    });
+    document.addEventListener('drop', (e) => {
+      const dz = cl(e, '[data-dropzone]');
+      if (!dz) return;
+      e.preventDefault();
+      const rect = dz.getBoundingClientRect();
+      const pitch = 168;
+      const col = Math.max(1, Math.floor((e.clientX - rect.left + dz.scrollLeft) / pitch) + 1);
+      const row = Math.max(1, Math.floor((e.clientY - rect.top + dz.scrollTop) / pitch) + 1);
+      if (this._dragWidget != null) { this.moveWidget(this._dragWidget, col, row); this._dragWidget = null; }
+      else if (this._drag) { this.addWidget(this._drag, col, row); this._drag = null; }
+    });
+    document.addEventListener('contextmenu', (e) => {
+      const wEl = cl(e, '[data-widget]');
+      if (!wEl) return;
+      const w = (this.state.widgets || []).find(x => x.id === parseInt(wEl.getAttribute('data-widget'), 10));
+      if (w && w.type === 'line') { e.preventDefault(); this.setState({ menu: { id: w.id, x: e.clientX, y: e.clientY } }); }
+    });
+    document.addEventListener('click', () => { if (this.state.menu) this.setState({ menu: null }); });
+    document.addEventListener('dragend', () => { this._drag = null; this._dragWidget = null; });
+  }
+  addWidget(d, col, row) {
+    if (!d) return;
+    this.setState(st => ({ _id: st._id + 1, widgets: st.widgets.concat([{ id: st._id, type: 'gauge', name: d.name, value: isFinite(d.value) ? d.value : 0, unit: d.unit || '', cols: 1, rows: 1, col: col || 1, row: row || 1 }]) }));
+  }
+  moveWidget(id, col, row) {
+    this.setState(st => ({ widgets: st.widgets.map(w => w.id !== id ? w : Object.assign({}, w, { col: col, row: row })) }));
+  }
+  zoomBy(id, f) { this.setState(st => ({ widgets: st.widgets.map(w => w.id !== id ? w : Object.assign({}, w, { zoom: Math.min(8, Math.max(1, (w.zoom || 1) * f)) })) })); }
+  resetZoom(id) { this.setState(st => ({ widgets: st.widgets.map(w => w.id !== id ? w : Object.assign({}, w, { zoom: 1 })) })); }
+  setSize(id, cols, rows) {
+    this.setState(st => ({ widgets: st.widgets.map(w => {
+      if (w.id !== id) return w;
+      let c = Math.min(8, Math.max(1, cols)), r = Math.min(6, Math.max(1, rows));
+      if (w.type === 'gauge') { c = Math.min(6, Math.max(c, r)); r = c; }
+      return Object.assign({}, w, { cols: c, rows: r });
+    }) }));
+  }
+  removeWidget(id) { this.setState(st => ({ widgets: st.widgets.filter(w => w.id !== id) })); }
+  addWidgetAt(d, targetId) {
+    if (!d) return;
+    this.setState(st => {
+      const ws = st.widgets.slice();
+      const ti = ws.findIndex(w => w.id === targetId);
+      const nw = { id: st._id, type: 'gauge', name: d.name, value: isFinite(d.value) ? d.value : 0, unit: d.unit || '', cols: 1, rows: 1 };
+      if (ti < 0) ws.push(nw); else ws.splice(ti, 0, nw);
+      return { _id: st._id + 1, widgets: ws };
+    });
+  }
+  reorderWidgets(draggedId, targetId) {
+    this.setState(st => {
+      const ws = st.widgets.slice();
+      const from = ws.findIndex(w => w.id === draggedId);
+      if (from < 0) return null;
+      const moved = ws.splice(from, 1)[0];
+      let ti = targetId == null ? ws.length : ws.findIndex(w => w.id === targetId);
+      if (ti < 0) ti = ws.length;
+      ws.splice(ti, 0, moved);
+      return { widgets: ws };
+    });
+  }
+  dropOnWidget(targetId) {
+    if (this._dragWidget != null && this._dragWidget !== targetId) { this.reorderWidgets(this._dragWidget, targetId); }
+    else if (this._drag) { this.addWidgetAt(this._drag, targetId); }
+    this._dragWidget = null; this._drag = null;
+  }
+  toggleType(id) {
+    this.setState(st => ({ widgets: st.widgets.map(w => w.id !== id ? w : (w.type === 'gauge' ? Object.assign({}, w, { type: 'line', cols: Math.max(2, w.cols), rows: Math.max(1, w.rows) }) : Object.assign({}, w, { type: 'gauge', cols: 1, rows: 1 }))) }));
+  }
+  resizeW(id, dc, dr) {
+    this.setState(st => ({ widgets: st.widgets.map(w => { if (w.id !== id || w.type === 'gauge') return w; return Object.assign({}, w, { cols: Math.min(6, Math.max(1, w.cols + dc)), rows: Math.min(4, Math.max(1, w.rows + dr)) }); }) }));
+  }
+  computeWidgets() {
+    const accent = this.props.accent || '#37c0dd';
+    return (this.state.widgets || []).map(w => {
+      const base = {
+        id: w.id, type: w.type, isGauge: w.type === 'gauge', isLine: w.type === 'line', isMap: w.type === 'map', notMap: w.type !== 'map', canResize: true,
+        gridStyle: 'grid-column:' + (w.col || 1) + ' / span ' + w.cols + ';grid-row:' + (w.row || 1) + ' / span ' + w.rows + ';',
+        name: w.name || '\u2014', unit: w.unit || '', accent: accent, typeLabel: w.type === 'gauge' ? 'LINE' : 'GAUGE', sizeLabel: w.cols + '\u00d7' + w.rows,
+        remove: () => this.removeWidget(w.id), toggle: () => this.toggleType(w.id),
+        wider: () => this.resizeW(w.id, 1, 0), narrower: () => this.resizeW(w.id, -1, 0),
+        taller: () => this.resizeW(w.id, 0, 1), shorter: () => this.resizeW(w.id, 0, -1),
+        onResizeStart: (e) => {
+          e.preventDefault(); e.stopPropagation();
+          this._resizing = true;
+          document.body.style.cursor = 'nwse-resize'; document.body.style.userSelect = 'none';
+          const sx = e.clientX, sy = e.clientY, sc = w.cols, sr = w.rows, id = w.id;
+          const step = (d) => d >= 0 ? Math.floor((d + 144) / 168) : Math.ceil((d - 144) / 168);
+          const mv = (ev) => { this.setSize(id, sc + step(ev.clientX - sx), sr + step(ev.clientY - sy)); };
+          const up = () => { this._resizing = false; document.body.style.cursor = ''; document.body.style.userSelect = ''; document.removeEventListener('pointermove', mv); document.removeEventListener('pointerup', up); };
+          document.addEventListener('pointermove', mv); document.addEventListener('pointerup', up);
+        },
+        onDragStart: (e) => { this._dragWidget = w.id; this._drag = null; try { e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', String(w.id)); } catch (_) {} },
+        onDragOver: (e) => { e.preventDefault(); try { e.dataTransfer.dropEffect = this._dragWidget != null ? 'move' : 'copy'; } catch (_) {} },
+        onWidgetDrop: (e) => { e.preventDefault(); e.stopPropagation(); this.dropOnWidget(w.id); },
+      };
+      const v = isFinite(w.value) ? w.value : 0;
+      base.value = this.fmt(v);
+      const raw = Math.max(Math.abs(v) * 1.3, 1e-6);
+      const ex = Math.floor(Math.log10(raw)); const ff = raw / Math.pow(10, ex);
+      const nf = ff <= 1 ? 1 : ff <= 2 ? 2 : ff <= 2.5 ? 2.5 : ff <= 5 ? 5 : 10;
+      const R = nf * Math.pow(10, ex);
+      const frac = Math.min(1, Math.max(0, (v + R) / (2 * R)));
+      const ang = (-135 + frac * 270) * Math.PI / 180;
+      base.nx = (40 + 28 * Math.sin(ang)).toFixed(1); base.ny = (40 - 28 * Math.cos(ang)).toFixed(1);
+      base.gMin = this.fmtScale(-R); base.gMax = this.fmtScale(R);
+      base.gQ1 = this.fmtScale(-R / 2); base.gQ3 = this.fmtScale(R / 2);
+      const lr = Math.max(0.5, Math.abs(v) * 0.5);
+      base.lHi = this.fmt(v + lr); base.lQ3 = this.fmt(v + lr / 2); base.lMid = this.fmt(v); base.lQ1 = this.fmt(v - lr / 2); base.lLo = this.fmt(v - lr);
+      const rnd = this.rng(this.hashSeed((w.name || 'x') + 'L')); const TOT = 256; const ser = []; let yacc = 0;
+      for (let i = 0; i < TOT; i++) { yacc = yacc * 0.8 + (rnd() - 0.5); ser.push(yacc); }
+      const z = Math.max(1, w.zoom || 1); const win = Math.max(8, Math.round(TOT / z)); const st0 = TOT - win;
+      const wsec = 60 / z, fts = (s) => (s < 10 ? s.toFixed(1) : s.toFixed(0));
+      let d = ''; const dispPts = [];
+      for (let i = 0; i < win; i++) {
+        const yv = Math.max(6, Math.min(74, 40 - ser[st0 + i] * 22));
+        const px = win > 1 ? (200 * i / (win - 1)) : 0;
+        d += (i ? 'L' : 'M') + px.toFixed(1) + ' ' + yv.toFixed(1);
+        const val = v + (40 - yv) / 34 * lr;
+        const ts = win > 1 ? -(wsec * (1 - i / (win - 1))) : 0;
+        dispPts.push({ px: px, yv: yv, val: val, ts: ts });
+      }
+      base.linePath = d;
+      base.lX0 = '-' + fts(wsec) + 's'; base.lXm = '-' + fts(wsec / 2) + 's'; base.lX1 = '0s';
+      base.zoomBadge = z > 1 ? ('\u00d7' + (Number.isInteger(z) ? z : z.toFixed(1))) : '';
+      base.onChartMove = (e) => {
+        const r = e.currentTarget.getBoundingClientRect();
+        const rel = r.width ? (e.clientX - r.left) / r.width : 0;
+        const idx = Math.round(Math.max(0, Math.min(1, rel)) * (win - 1));
+        const cur = this.state.hover;
+        if (!cur || cur.id !== w.id || cur.idx !== idx) this.setState({ hover: { id: w.id, idx: idx } });
+      };
+      base.onChartLeave = () => { if (this.state.hover && this.state.hover.id === w.id) this.setState({ hover: null }); };
+      const hov = this.state.hover && this.state.hover.id === w.id ? this.state.hover : null;
+      base.hoverActive = false;
+      if (hov) {
+        const p = dispPts[Math.max(0, Math.min(dispPts.length - 1, hov.idx))];
+        if (p) {
+          base.hoverActive = true;
+          base.hxPct = (p.px / 200 * 100).toFixed(2) + '%';
+          base.hyPct = (p.yv / 80 * 100).toFixed(2) + '%';
+          base.hVal = this.fmt(p.val) + (w.unit ? ' ' + w.unit : '');
+          const at = Math.abs(p.ts);
+          base.hT = '-' + (at < 10 ? at.toFixed(1) : at.toFixed(0)) + 's';
+          base.tipLeftPct = Math.max(20, Math.min(80, p.px / 200 * 100)).toFixed(2) + '%';
+        }
+      }
+      return base;
+    });
+  }
+  tab(active, accent) {
+    const base = "padding:7px 15px;border-radius:6px;font:600 11px/1 'IBM Plex Sans';letter-spacing:.08em;cursor:pointer;transition:all .12s;user-select:none;";
+    return active
+      ? base + "background:#1b2734;color:#e6edf5;box-shadow:inset 0 0 0 1px " + accent + ";"
+      : base + "background:transparent;color:#6b7787;";
+  }
+  renderVals() {
+    const s = this.state.screen;
+    const accent = this.props.accent || '#37c0dd';
+    const showBasemap = this.props.showBasemap !== false;
+    const overlay = this.props.mapOverlay || 'both';
+    const ringsOp = (overlay === 'both' || overlay === 'rings') ? 1 : 0;
+    const gridOp = (overlay === 'both' || overlay === 'grid') ? 1 : 0;
+    const widgets = this.computeWidgets();
+    return {
+      isOverview: s === 'overview',
+      isTrack: s === 'track',
+      isEvents: s === 'events',
+      tabOverview: this.tab(s === 'overview', accent),
+      tabTrack: this.tab(s === 'track', accent),
+      tabEvents: this.tab(s === 'events', accent),
+      goOverview: () => this.setState({ screen: 'overview' }),
+      goTrack: () => this.setState({ screen: 'track' }),
+      goEvents: () => this.setState({ screen: 'events' }),
+      accent: accent,
+      basemapOp: showBasemap ? 1 : 0,
+      ringsOp: ringsOp,
+      gridOp: gridOp,
+      osm: this.state.osm,
+      osmDisplay: this.state.osm ? 'block' : 'none',
+      osmLabel: this.state.osm ? 'GRID VIEW' : 'OSM MAP',
+      toggleOsm: () => this.setState(st => ({ osm: !st.osm })),
+      widgets: widgets,
+      hasWidgets: widgets.length > 0,
+      scalesOp: this.state.scales ? 1 : 0,
+      scalesLabel: this.state.scales ? 'SCALES ON' : 'SCALES OFF',
+      toggleScales: () => this.setState(st => ({ scales: !st.scales })),
+      menuVis: !!this.state.menu,
+      menuX: this.state.menu ? this.state.menu.x : 0,
+      menuY: this.state.menu ? this.state.menu.y : 0,
+      menuZoomIn: (e) => { if (e && e.stopPropagation) e.stopPropagation(); const m = this.state.menu; if (m) { this.zoomBy(m.id, 2); this.setState({ menu: null }); } },
+      menuZoomOut: (e) => { if (e && e.stopPropagation) e.stopPropagation(); const m = this.state.menu; if (m) { this.zoomBy(m.id, 0.5); this.setState({ menu: null }); } },
+      menuReset: (e) => { if (e && e.stopPropagation) e.stopPropagation(); const m = this.state.menu; if (m) { this.resetZoom(m.id); this.setState({ menu: null }); } },
+      onDashOver: (e) => { e.preventDefault(); try { e.dataTransfer.dropEffect = 'copy'; } catch (_) {} },
+      onDashDrop: (e) => { e.preventDefault(); if (this._dragWidget != null) { this.reorderWidgets(this._dragWidget, null); this._dragWidget = null; } else { this.addWidget(this._drag); this._drag = null; } },
+    };
+  }
+}
+</script>
+</body>
+</html>

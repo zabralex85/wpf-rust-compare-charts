@@ -70,3 +70,58 @@ cargo test
 
 All unit tests (frame serialization, Pacer arithmetic, DB loading, metrics
 sampler) and the integration test (`ws_integration`) run together.
+
+## Run the dashboard
+
+The dashboard UI is a Tauri 2 + React application that connects to the
+backend WebSocket server to display real-time telemetry data.
+
+### Prerequisites
+
+Generate a ride database:
+```
+python data/simulate.py
+```
+
+Or use the committed fixture for a quick run:
+```
+data/ride_small.db
+```
+
+### Launch the dashboard
+
+From the repository root or the `rust/` directory:
+```
+RIDE_DB=../../data/ride_small.db RIDE_SPEED=5 npm run tauri dev
+```
+
+**Note:** The `RIDE_DB` path is resolved relative to the Tauri binary working
+directory (`rust/src-tauri/`), so `../../data/ride_small.db` refers to the
+fixture at the repository root.
+
+### Frontend configuration
+
+The UI connects to the WebSocket server at `ws://127.0.0.1:9001` (default).
+Override by setting the `VITE_WS_URL` environment variable:
+```
+VITE_WS_URL=ws://your-host:9001 npm run tauri dev
+```
+
+### Dashboard layout
+
+The dashboard layout design is documented in
+[`docs/reference/dashboard-target.md`](../docs/reference/dashboard-target.md).
+
+### Testing
+
+**Frontend tests:**
+```
+cd rust
+npm test
+```
+
+**Backend tests:**
+```
+cd rust/src-tauri
+cargo test
+```
