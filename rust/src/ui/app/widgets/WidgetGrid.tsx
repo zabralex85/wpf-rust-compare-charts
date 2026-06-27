@@ -39,10 +39,12 @@ export function WidgetGrid({ store, scalesOn }: WidgetGridProps): React.JSX.Elem
           );
         } else if (w.kind === "line") {
           const { xs, ys } = store.series(w.channelId!)?.arrays() ?? { xs: [], ys: [] };
+          // Series timestamps are in ms; LineChart x-axis labels are in seconds.
+          const xsSec = xs.map((x) => x / 1000);
           inner = (
             <LineChart
               name={w.name}
-              xs={xs}
+              xs={xsSec}
               ys={ys}
               unit={chUnit}
               value={store.latest(w.channelId!) ?? 0}
