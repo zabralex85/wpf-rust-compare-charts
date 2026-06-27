@@ -6,7 +6,7 @@
 
   <ItemGroup>
     <PackageReference Include="Microsoft.AspNetCore.Components.WebView.Wpf" Version="8.0.100" />
-    <PackageReference Include="ScottPlot.Blazor" Version="5.1.59" />
+    <PackageReference Include="ScottPlot" Version="5.1.59" />
   </ItemGroup>
 
   <PropertyGroup>
