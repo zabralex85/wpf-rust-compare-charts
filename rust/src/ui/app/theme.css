@@ -29,8 +29,8 @@ body{background:var(--bg);color:var(--text);font-family:var(--sans);overflow:hid
 .tab:hover{color:var(--text)}
 .tab-on{color:var(--accent);border-bottom-color:var(--accent)}
 .pill{display:flex;align-items:center;gap:6px;padding:4px 8px;border-radius:12px;font-size:12px;font-weight:600}
-.pill-alarm{background:rgba(255,77,82,0.2);color:var(--red)}
-.pill-caution{background:rgba(245,180,64,0.2);color:var(--amber)}
+.pill-alarm{background:color-mix(in srgb, var(--red) 20%, transparent);color:var(--red)}
+.pill-caution{background:color-mix(in srgb, var(--amber) 20%, transparent);color:var(--amber)}
 .dot{display:inline-block;width:8px;height:8px;border-radius:50%}
 .dot-alarm{background:var(--red)}
 .dot-caution{background:var(--amber)}
