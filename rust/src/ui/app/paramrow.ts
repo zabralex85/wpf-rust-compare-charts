@@ -14,8 +14,6 @@ export function paramRow(ch: ChannelMeta, store: TelemetryStore): ParamRow {
   let severity: string | undefined;
   if (ch.type === "enum") {
     severity = decodeEnum(ch.id, v, idx)?.severity;
-  } else if (ch.max > ch.min) {
-    severity = v <= ch.min || v >= ch.max ? "critical" : "ok";
   } else {
     severity = "ok";
   }

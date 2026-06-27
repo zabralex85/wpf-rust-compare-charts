@@ -11,7 +11,7 @@ export function ParamPanel({ store }: { store: TelemetryStore }): React.JSX.Elem
         <div className="param-hd-title"><span className="param-hd-dot" />PARAMETERS</div>
         <div className="param-hd-meta"><span className="param-all">ALL</span><span className="param-ch">{store.channels().length} CH</span></div>
       </div>
-      <div className="param-colhd"><span /><span>ADDR</span><span>PARAMETER</span><span className="r">ENG·DATA</span><span /><span className="r">BUS</span></div>
+      <div className="param-colhd"><span /><span>PARAMETER</span><span className="r">ENG·DATA</span><span /><span className="r">BUS</span></div>
       <div className="param-rows">
         {groups.map((g) => (
           <div key={g.group}>
@@ -21,7 +21,6 @@ export function ParamPanel({ store }: { store: TelemetryStore }): React.JSX.Elem
               return (
                 <div key={ch.id} className={`param-row${r.critical ? " param-row-crit" : ""}`}>
                   <span className="param-dot" style={{ background: r.dotColor }} />
-                  <span className="param-addr">{ch.addr}</span>
                   <span className="param-name">{ch.name}</span>
                   <span className="param-val r" style={{ color: r.valueColor }}>{r.text}</span>
                   <span className="param-unit">{ch.unit}</span>
