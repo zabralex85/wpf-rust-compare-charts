@@ -16,4 +16,15 @@ describe("useTelemetry", () => {
     expect(result.current.store).toBeDefined();
     expect(["connecting", "open", "closed"]).toContain(result.current.status);
   });
+
+  it("uses the mock snapshot when ?mock=1 (no socket factory needed)", () => {
+    // jsdom default location has no query; set it
+    window.history.pushState({}, "", "/?mock=1");
+    try {
+      const { result } = renderHook(() => useTelemetry("ws://127.0.0.1:9999"));
+      expect(result.current.store.channels().length).toBe(30);
+    } finally {
+      window.history.pushState({}, "", "/");
+    }
+  });
 });

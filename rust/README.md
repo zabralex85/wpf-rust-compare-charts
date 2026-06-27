@@ -125,3 +125,43 @@ npm test
 cd rust/src-tauri
 cargo test
 ```
+
+## Tests
+
+The test suite consists of unit tests, backend tests, and end-to-end visual regression tests.
+
+### Unit and component tests
+
+```
+npm test
+```
+
+Runs vitest unit tests covering pure logic and jsdom component smoke tests. All tests are deterministic and do not require external services.
+
+### Backend tests
+
+```
+cd src-tauri && cargo test
+```
+
+Runs the Rust backend test suite, including frame serialization, Pacer arithmetic, database loading, metrics sampler, and WebSocket integration tests.
+
+### End-to-end tests
+
+```
+npm run e2e
+```
+
+Runs Playwright end-to-end tests with visual regression. Uses `?mock=1` for deterministic in-app mock telemetry (no backend needed). Automatically boots the Vite dev server. Tests verify both functional behavior and screenshot consistency against committed baselines.
+
+**Screenshot baselines**
+
+Baselines are OS- and browser-specific. The committed baselines target Chromium on Windows (`*-chromium-win32.png`). To refresh baselines after an intentional UI change:
+
+```
+npm run e2e:update
+```
+
+This updates the baseline screenshots. Always commit these changes along with your UI modifications.
+
+> **Stale-server footgun:** Before regenerating baselines, stop any running `npm run dev`/`tauri dev` server and clear the Vite cache (`rm -rf node_modules/.vite`) — Playwright's `reuseExistingServer` will otherwise screenshot stale code/cache.
