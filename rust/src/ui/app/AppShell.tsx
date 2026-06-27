@@ -28,7 +28,6 @@ export function AppShell(): React.JSX.Element {
   const now = Date.now();
   const clock = formatClock(now);
   const status = deriveStatus(store);
-  const rideMs = store.lastEmitUnixMs() > 0 ? store.lastEmitUnixMs() : 0;
   const rideTag = formatRideTag(0); // ride ts wiring refined in a later phase
   const channels = store.channels();
   const rateHz = 10;
@@ -44,7 +43,7 @@ export function AppShell(): React.JSX.Element {
         {screen === "events" && <EventsView store={store} />}
       </div>
       <TransportBar clock={clock} rideTag={rideTag} rateHz={rateHz}
-        samples={samples} elapsedMs={now - (now - rideMs)} scrubberFrac={0.88} />
+        samples={samples} elapsedMs={(samples * 1000) / rateHz} scrubberFrac={0.88} />
     </div>
   );
 }
