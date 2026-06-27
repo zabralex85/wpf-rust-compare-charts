@@ -7,7 +7,7 @@ import type { MetaMessage } from "../types";
 
 function store(): TelemetryStore {
   const s = new TelemetryStore();
-  const meta: MetaMessage = { type: "meta", rate_hz: 10, enum_values: [], channels: [
+  const meta: MetaMessage = { type: "meta", rate_hz: 10, duration_s: 60, enum_values: [], channels: [
     { id: 1, name: "Roll", column_name: "roll", unit: "deg", type: "real", min: -180, max: 180, widget: "strip", display_order: 1, addr: "I_01" }] };
   s.applyMeta(meta);
   s.applyFrame({ type: "frame", ts_ms: 0, emit_unix_ms: 1000, values: [1] });

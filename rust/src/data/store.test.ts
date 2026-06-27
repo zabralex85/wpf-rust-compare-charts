@@ -6,6 +6,7 @@ function meta(): MetaMessage {
   return {
     type: "meta",
     rate_hz: 10,
+    duration_s: 600,
     enum_values: [{ channel_id: 3, code: 1, label: "Critical", severity: "critical" }],
     channels: [
       { id: 1, name: "Roll", column_name: "roll", unit: "deg", type: "real", min: -180, max: 180, widget: "strip", display_order: 1, addr: "I_01" },
@@ -85,5 +86,16 @@ describe("TelemetryStore", () => {
     s.applyMeta(meta());
     expect(s.metrics()).toBeUndefined();
     expect(s.lastEmitUnixMs()).toBe(0);
+  });
+
+  it("tracks last ride ts, rate, and duration", () => {
+    const s = new TelemetryStore();
+    s.applyMeta({ type: "meta", rate_hz: 10, duration_s: 600, enum_values: [],
+      channels: [{ id: 1, name: "Roll", column_name: "roll", unit: "deg", type: "real", min: -180, max: 180, widget: "strip", display_order: 1, addr: "I_01" }] });
+    expect(s.rateHz()).toBe(10);
+    expect(s.durationMs()).toBe(600_000);
+    expect(s.lastTsMs()).toBe(0);
+    s.applyFrame({ type: "frame", ts_ms: 4200, emit_unix_ms: 1, values: [1] });
+    expect(s.lastTsMs()).toBe(4200);
   });
 });

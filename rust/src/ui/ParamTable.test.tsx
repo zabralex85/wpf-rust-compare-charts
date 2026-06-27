@@ -8,7 +8,7 @@ import type { MetaMessage } from "../types";
 function store(): TelemetryStore {
   const s = new TelemetryStore();
   const meta: MetaMessage = {
-    type: "meta", rate_hz: 10,
+    type: "meta", rate_hz: 10, duration_s: 60,
     enum_values: [{ channel_id: 2, code: 1, label: "Critical", severity: "critical" }],
     channels: [
       { id: 1, name: "Roll", column_name: "roll", unit: "deg", type: "real", min: -180, max: 180, widget: "table", display_order: 1, addr: "I_01" },

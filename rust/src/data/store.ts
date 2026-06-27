@@ -14,6 +14,9 @@ export class TelemetryStore {
   private _lastEmit = 0;
   private _metrics: MetricsMessage | undefined;
   private _idToIndex = new Map<number, number>();
+  private _rateHz = 0;
+  private _durationMs = 0;
+  private _lastTs = 0;
 
   constructor(private readonly windowMs = 60_000) {}
 
@@ -30,6 +33,9 @@ export class TelemetryStore {
     this._latIdx = -1;
     this._lonIdx = -1;
     this._idToIndex.clear();
+    this._rateHz = m.rate_hz;
+    this._durationMs = m.duration_s * 1000;
+    this._lastTs = 0;
     m.channels.forEach((ch, i) => {
       if (ch.widget === "strip") this._series.set(ch.id, new ChannelSeries(this.windowMs));
       if (ch.widget === "map_lat") this._latIdx = i;
@@ -42,6 +48,7 @@ export class TelemetryStore {
     if (f.values.length !== this._channels.length) return;
     this._latest = f.values;
     this._lastEmit = f.emit_unix_ms;
+    this._lastTs = f.ts_ms;
     this._channels.forEach((ch, i) => {
       const series = this._series.get(ch.id);
       if (series) series.push(f.ts_ms, f.values[i]);
@@ -83,5 +90,17 @@ export class TelemetryStore {
 
   metrics(): MetricsMessage | undefined {
     return this._metrics;
+  }
+
+  lastTsMs(): number {
+    return this._lastTs;
+  }
+
+  rateHz(): number {
+    return this._rateHz;
+  }
+
+  durationMs(): number {
+    return this._durationMs;
   }
 }

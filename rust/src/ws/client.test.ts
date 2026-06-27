@@ -17,7 +17,7 @@ describe("createWsClient", () => {
     const onMeta = vi.fn(), onFrame = vi.fn(), onMetrics = vi.fn();
     createWsClient({ url: "ws://x", onMeta, onFrame, onMetrics, socketFactory: () => sock });
     sock.onopen?.();
-    sock.emit({ type: "meta", channels: [], enum_values: [], rate_hz: 10 });
+    sock.emit({ type: "meta", channels: [], enum_values: [], rate_hz: 10, duration_s: 60 });
     sock.emit({ type: "frame", ts_ms: 0, emit_unix_ms: 1, values: [1] });
     sock.emit({ type: "metrics", cpu_pct: 1, ram_mb: 2 });
     expect(onMeta).toHaveBeenCalledOnce();

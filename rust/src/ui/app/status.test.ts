@@ -5,7 +5,7 @@ import type { MetaMessage } from "../../types";
 
 function meta(): MetaMessage {
   return {
-    type: "meta", rate_hz: 10,
+    type: "meta", rate_hz: 10, duration_s: 60,
     enum_values: [
       { channel_id: 1, code: 0, label: "Normal", severity: "ok" },
       { channel_id: 1, code: 1, label: "Critical", severity: "critical" },

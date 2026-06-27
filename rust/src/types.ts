@@ -23,6 +23,7 @@ export interface MetaMessage {
   channels: ChannelMeta[];
   enum_values: EnumValue[];
   rate_hz: number;
+  duration_s: number;
 }
 
 export interface FrameMessage {
