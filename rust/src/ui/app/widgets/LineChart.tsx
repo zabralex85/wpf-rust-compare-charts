@@ -1,4 +1,5 @@
 import type React from "react";
+import { useId } from "react";
 import { lineViz } from "./linePath";
 
 interface LineChartProps {
@@ -18,6 +19,7 @@ export function LineChart({
   value,
   scalesOn,
 }: LineChartProps): React.JSX.Element {
+  const gridId = useId();
   const viz = lineViz(xs, ys);
 
   return (
@@ -30,7 +32,7 @@ export function LineChart({
         >
           <defs>
             <pattern
-              id="lc-grid"
+              id={gridId}
               width="20"
               height="13.33"
               patternUnits="userSpaceOnUse"
@@ -50,7 +52,7 @@ export function LineChart({
               y="0"
               width="200"
               height="80"
-              fill="url(#lc-grid)"
+              fill={`url(#${gridId})`}
               className="linechart-grid-rect"
             />
           )}
