@@ -114,3 +114,13 @@ body{background:var(--bg);color:var(--text);font-family:var(--sans);overflow:hid
 .linechart-x-labels{position:absolute;left:2px;right:2px;bottom:-1px;display:flex;justify-content:space-between;font:500 8px/1 var(--mono);color:var(--dim);pointer-events:none}
 .linechart-scale-label{line-height:1}
 .linechart-name{font-size:10px;color:var(--title);font-family:var(--mono);text-align:center;line-height:1.1;flex:none}
+.mapwidget-container{position:relative;width:100%;height:100%}
+.mapwidget-svg{width:100%;height:100%;display:block}
+.mapwidget-grid-path{fill:none;stroke:var(--border);stroke-width:0.7}
+.mapwidget-grid-rect{opacity:0.85}
+.mapwidget-axis{stroke:var(--border2);stroke-width:0.8}
+.mapwidget-ring{fill:none;stroke:var(--border2);stroke-width:0.8}
+.mapwidget-ring-outer{stroke-dasharray:2 4}
+.mapwidget-tick{stroke:var(--dim);stroke-width:1.2;stroke-linecap:round}
+.mapwidget-track{fill:none;stroke:var(--accent);stroke-width:1.5;stroke-linejoin:round;opacity:0.92}
+.mapwidget-marker{fill:none;stroke:var(--green);stroke-width:1.8}
