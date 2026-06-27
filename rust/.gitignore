@@ -12,6 +12,9 @@ dist/
 dist-ssr
 *.local
 src-tauri/target/
+test-results/
+playwright-report/
+playwright/.cache/
 
 # Editor directories and files
 .vscode/*
