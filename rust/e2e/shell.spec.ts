@@ -18,6 +18,6 @@ test("top bar + tabs + param panel render the mock data", async ({ page }) => {
 
 test("overview matches the visual baseline", async ({ page }) => {
   // let fonts settle
-  await page.waitForTimeout(400);
+  await page.evaluate(() => document.fonts.ready);
   await expect(page).toHaveScreenshot("overview.png", { fullPage: false });
 });

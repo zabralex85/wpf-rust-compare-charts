@@ -163,3 +163,5 @@ npm run e2e:update
 ```
 
 This updates the baseline screenshots. Always commit these changes along with your UI modifications.
+
+> **Stale-server footgun:** Before regenerating baselines, stop any running `npm run dev`/`tauri dev` server and clear the Vite cache (`rm -rf node_modules/.vite`) — Playwright's `reuseExistingServer` will otherwise screenshot stale code/cache.

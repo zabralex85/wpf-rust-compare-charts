@@ -27,6 +27,7 @@ export function useTelemetry(url: string): TelemetrySnapshot {
     const store = storeRef.current!;
     const meter = meterRef.current!;
     const mock =
+      import.meta.env.DEV &&
       typeof window !== "undefined" &&
       new URLSearchParams(window.location.search).has("mock");
 

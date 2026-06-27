@@ -20,8 +20,11 @@ describe("useTelemetry", () => {
   it("uses the mock snapshot when ?mock=1 (no socket factory needed)", () => {
     // jsdom default location has no query; set it
     window.history.pushState({}, "", "/?mock=1");
-    const { result } = renderHook(() => useTelemetry("ws://127.0.0.1:9999"));
-    expect(result.current.store.channels().length).toBe(30);
-    window.history.pushState({}, "", "/");
+    try {
+      const { result } = renderHook(() => useTelemetry("ws://127.0.0.1:9999"));
+      expect(result.current.store.channels().length).toBe(30);
+    } finally {
+      window.history.pushState({}, "", "/");
+    }
   });
 });
