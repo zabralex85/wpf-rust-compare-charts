@@ -16,4 +16,7 @@ describe("formatters", () => {
   it("formats elapsed as H:MM:SS", () => {
     expect(formatElapsed((2 * 3600 + 4 * 60 + 11) * 1000)).toBe("2:04:11");
   });
+  it("clamps negative elapsed to zero", () => {
+    expect(formatElapsed(-1000)).toBe("0:00:00");
+  });
 });

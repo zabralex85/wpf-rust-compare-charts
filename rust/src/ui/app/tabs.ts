@@ -11,7 +11,7 @@ export function formatCount(n: number): string {
 }
 
 export function formatElapsed(ms: number): string {
-  const total = Math.floor(ms / 1000);
+  const total = Math.floor(Math.max(0, ms) / 1000);
   const h = Math.floor(total / 3600);
   const m = Math.floor((total % 3600) / 60);
   const s = total % 60;
