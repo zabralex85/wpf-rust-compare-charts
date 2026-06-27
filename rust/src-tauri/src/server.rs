@@ -57,8 +57,10 @@ async fn handle_client(
         let enums = load_enum_values(&conn)?;
         let rate: i64 =
             conn.query_row("SELECT rate_hz FROM ride_meta", [], |r| r.get(0))?;
+        let duration_s: i64 =
+            conn.query_row("SELECT duration_s FROM ride_meta", [], |r| r.get(0))?;
         let samples = load_samples(&conn, &channels)?;
-        let meta = MetaMessage::new(channels, enums, rate);
+        let meta = MetaMessage::new(channels, enums, rate, duration_s);
         Ok::<_, rusqlite::Error>((serde_json::to_string(&meta).unwrap(), samples))
     })
     .await??;
