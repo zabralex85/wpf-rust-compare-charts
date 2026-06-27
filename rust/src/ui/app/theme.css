@@ -5,6 +5,7 @@
   --text:#cdd6e1; --text2:#c3ccd8; --dim:#566273; --dim2:#5d6b7c; --addr:#4f5a68;
   --title:#8b98a9; --accent:#38c5e0; --green:#2fd17a; --green2:#38d178;
   --amber:#f5b440; --amber2:#f5c061; --red:#ff4d52; --red2:#ff6b70; --critbg:#1a0e11;
+  --gauge-track:#2a3848;
   --sans:'IBM Plex Sans',system-ui,sans-serif; --mono:'IBM Plex Mono',monospace;
 }
 *{box-sizing:border-box}
@@ -90,7 +91,7 @@ body{background:var(--bg);color:var(--text);font-family:var(--sans);overflow:hid
 .gauge-container{position:relative;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;width:100%;height:100%}
 .gauge-svg{width:100%;height:auto;aspect-ratio:1}
 .gauge-face{fill:var(--panel2);stroke:var(--border);stroke-width:1.5}
-.gauge-arc{fill:none;stroke:#2a3848;stroke-width:2.4}
+.gauge-arc{fill:none;stroke:var(--gauge-track);stroke-width:2.4}
 .gauge-ticks{stroke:var(--dim);stroke-linecap:round}
 .gauge-tick{stroke-width:1.1}
 .gauge-needle{stroke:var(--accent);stroke-width:2;stroke-linecap:round}

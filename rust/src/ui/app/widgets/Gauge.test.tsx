@@ -27,6 +27,8 @@ describe("Gauge component", () => {
       const x2 = needleLine.getAttribute("x2");
       // Should be approximately 40 for value=0
       expect(x2).toBe(String(viz.nx));
+      const y2 = needleLine.getAttribute("y2");
+      expect(parseFloat(y2 || "")).toBeCloseTo(viz.ny);
     }
   });
 
