@@ -30,8 +30,9 @@ export function AppShell(): React.JSX.Element {
   const status = deriveStatus(store);
   const rideTag = formatRideTag(0); // ride ts wiring refined in a later phase
   const channels = store.channels();
-  const rateHz = 10;
-  const samples = channels.length > 0 ? store.series(channels[0].id)?.len() ?? 0 : 0;
+  const rateHz = 10; // TODO(later phase): source from meta.rate_hz when exposed
+  // buffered samples = longest strip series (robust to channel order / widget mix)
+  const samples = channels.reduce((m, c) => Math.max(m, store.series(c.id)?.len() ?? 0), 0);
 
   return (
     <div className="app-shell">
