@@ -14,5 +14,6 @@
 .gauge-label,.gauge-value{fill:#eee;font-size:7px}
 .gps-map{height:280px;width:100%}
 .strip-chart{background:#000;flex:1;min-height:160px}.strip-title{color:#ddd;padding:1px 4px}
+.strip-img{width:100%;height:auto;display:block}
 .hud{position:fixed;top:8px;right:8px;z-index:1000;background:rgba(0,0,0,.75);color:#0f0;padding:6px 10px}
 .hud b{color:#fff}
