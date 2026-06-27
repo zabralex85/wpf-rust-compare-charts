@@ -45,8 +45,8 @@ export function fmtScale(v: number): string {
   } else {
     result = v.toFixed(3);
   }
-  // Strip trailing zeros and trailing "."
-  result = result.replace(/\.?0+$/, "");
+  // Strip trailing zeros and trailing "." (only if there's a decimal point)
+  if (result.includes(".")) result = result.replace(/0+$/, "").replace(/\.$/, "");
   return result;
 }
 

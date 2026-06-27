@@ -19,6 +19,15 @@ describe("gaugeViz", () => {
     expect(fmtScale(2.5)).toBe("2.5");
     expect(fmtScale(0)).toBe("0");
   });
+  it("does not mangle integer scale labels >= 100", () => {
+    expect(fmtScale(100)).toBe("100");
+    expect(fmtScale(200)).toBe("200");
+    expect(fmtScale(500)).toBe("500");
+  });
+  it("gaugeViz handles large values (scale >= 100)", () => {
+    // value 300 -> raw 390 -> ex 2 ff 3.9 nf 5 -> R 500
+    expect(gaugeViz(300).gMax).toBe("500");
+  });
   it("fmtNum formats numbers with appropriate precision", () => {
     expect(fmtNum(123.456)).toBe("123.5"); // a >= 100 → toFixed(1)
     expect(fmtNum(12.3456789)).toBe("12.346"); // a >= 1 → toFixed(3)
