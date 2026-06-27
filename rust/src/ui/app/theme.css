@@ -140,3 +140,9 @@ body{background:var(--bg);color:var(--text);font-family:var(--sans);overflow:hid
 .widget-cell-resize{position:absolute;right:0;bottom:0;width:18px;height:18px;cursor:nwse-resize;z-index:6;display:flex;align-items:flex-end;justify-content:flex-end;padding:3px}
 .widget-cell-resize-glyph{fill:none;stroke:var(--dim);stroke-width:1.4}
 .widget-cell-body{flex:1;min-height:0;padding:6px;overflow:hidden}
+.line-menu{position:fixed;z-index:200;background:var(--panelhdr);border:1px solid var(--border2);border-radius:6px;padding:4px;box-shadow:0 8px 24px rgba(0,0,0,.55);min-width:132px}
+.line-menu-title{padding:3px 10px 5px;font:600 8.5px/1 var(--mono);letter-spacing:.08em;color:var(--dim);text-transform:uppercase}
+.line-menu-item{padding:7px 10px;color:var(--text);cursor:pointer;border-radius:4px;font:600 11px/1 var(--mono);display:flex;justify-content:space-between}
+.line-menu-item:hover{background:var(--panel2)}
+.line-menu-reset{color:var(--title)}
+.line-menu-key{color:var(--dim)}

@@ -12,8 +12,6 @@ interface LineChartProps {
   value: number;
   scalesOn: boolean;
   zoom?: number;
-  onZoomBy?: (f: number) => void;
-  onResetZoom?: () => void;
 }
 
 export function LineChart({
@@ -24,8 +22,6 @@ export function LineChart({
   value,
   scalesOn,
   zoom,
-  onZoomBy: _onZoomBy,
-  onResetZoom: _onResetZoom,
 }: LineChartProps): React.JSX.Element {
   const gridId = useId();
   const [hoverRel, setHoverRel] = useState<number | null>(null);

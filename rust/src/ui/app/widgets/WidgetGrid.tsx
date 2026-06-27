@@ -1,5 +1,5 @@
 import type React from "react";
-import { useRef } from "react";
+import { useRef, useState } from "react";
 import type { TelemetryStore } from "../../../data/store";
 import { useWidgets } from "./useWidgets";
 import { cellFromPoint, resizeStep } from "./dropGrid";
@@ -7,6 +7,7 @@ import type { DragPayload, LayoutWidget } from "./widgetModel";
 import { Gauge } from "./Gauge";
 import { LineChart } from "./LineChart";
 import { MapWidget } from "./MapWidget";
+import { LineMenu } from "./LineMenu";
 
 interface WidgetGridProps { store: TelemetryStore; scalesOn: boolean }
 
@@ -26,6 +27,7 @@ function parsePayload(dt: DataTransfer): DragPayload | null {
 export function WidgetGrid({ store, scalesOn }: WidgetGridProps): React.JSX.Element {
   const wm = useWidgets(store.channels());
   const dragId = useRef<string | null>(null);
+  const [menu, setMenu] = useState<{ id: string; x: number; y: number } | null>(null);
 
   const onDropGrid = (e: React.DragEvent<HTMLDivElement>): void => {
     e.preventDefault();
@@ -62,6 +64,7 @@ export function WidgetGrid({ store, scalesOn }: WidgetGridProps): React.JSX.Elem
       data-dropzone
       onDragOver={(e) => { e.preventDefault(); }}
       onDrop={onDropGrid}
+      onClick={() => { if (menu) setMenu(null); }}
     >
       {wm.widgets.map((w) => {
         let inner: React.JSX.Element;
@@ -86,8 +89,6 @@ export function WidgetGrid({ store, scalesOn }: WidgetGridProps): React.JSX.Elem
               value={store.latest(w.channelId!) ?? 0}
               scalesOn={scalesOn}
               zoom={w.zoom}
-              onZoomBy={(f) => { wm.zoomBy(w.id, f); }}
-              onResetZoom={() => { wm.resetZoom(w.id); }}
             />
           );
         } else {
@@ -103,6 +104,7 @@ export function WidgetGrid({ store, scalesOn }: WidgetGridProps): React.JSX.Elem
             draggable
             onDragStart={() => { dragId.current = w.id; }}
             onDragEnd={() => { dragId.current = null; }}
+            onContextMenu={w.kind === "line" ? (e) => { e.preventDefault(); setMenu({ id: w.id, x: e.clientX, y: e.clientY }); } : undefined}
             style={{
               gridColumn: `${w.col} / span ${w.cols}`,
               gridRow: `${w.row} / span ${w.rows}`,
@@ -144,6 +146,15 @@ export function WidgetGrid({ store, scalesOn }: WidgetGridProps): React.JSX.Elem
           </div>
         );
       })}
+      {menu && (
+        <LineMenu
+          x={menu.x}
+          y={menu.y}
+          onZoomIn={() => { wm.zoomBy(menu.id, 2); setMenu(null); }}
+          onZoomOut={() => { wm.zoomBy(menu.id, 0.5); setMenu(null); }}
+          onReset={() => { wm.resetZoom(menu.id); setMenu(null); }}
+        />
+      )}
     </div>
   );
 }

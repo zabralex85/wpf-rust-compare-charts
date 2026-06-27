@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, it, expect, afterEach } from "vitest";
-import { render, cleanup, fireEvent } from "@testing-library/react";
+import { render, cleanup, fireEvent, screen } from "@testing-library/react";
 import { WidgetGrid } from "./WidgetGrid";
 import { TelemetryStore } from "../../../data/store";
 import { applyMockSnapshot } from "../../mock/fixture";
@@ -76,6 +76,16 @@ describe("WidgetGrid", () => {
     fireEvent.dragOver(dz, { dataTransfer: dt });
     fireEvent.drop(dz, { dataTransfer: dt, clientX: 5, clientY: 5 });
     expect(container.querySelectorAll('[data-testid="gauge"]').length).toBe(before + 1);
+  });
+
+  it("right-click on a line widget opens the zoom menu", () => {
+    const store = makeStore();
+    const { container } = render(<WidgetGrid store={store} scalesOn={true} />);
+    const lineChart = container.querySelector('[data-widget] [data-testid="linechart"]');
+    expect(lineChart).not.toBeNull();
+    const cell = lineChart!.closest("[data-widget]") as HTMLElement;
+    fireEvent.contextMenu(cell, { clientX: 50, clientY: 60 });
+    expect(screen.getByTestId("line-menu")).toBeTruthy();
   });
 
   it("× removes a widget and toggle switches a gauge to a line", () => {
