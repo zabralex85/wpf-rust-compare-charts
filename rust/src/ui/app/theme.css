@@ -5,6 +5,7 @@
   --text:#cdd6e1; --text2:#c3ccd8; --dim:#566273; --dim2:#5d6b7c; --addr:#4f5a68;
   --title:#8b98a9; --accent:#38c5e0; --green:#2fd17a; --green2:#38d178;
   --amber:#f5b440; --amber2:#f5c061; --red:#ff4d52; --red2:#ff6b70; --critbg:#1a0e11;
+  --gauge-track:#2a3848;
   --sans:'IBM Plex Sans',system-ui,sans-serif; --mono:'IBM Plex Mono',monospace;
 }
 *{box-sizing:border-box}
@@ -86,4 +87,45 @@ body{background:var(--bg);color:var(--text);font-family:var(--sans);overflow:hid
 .r{text-align:right}
 .overview{display:grid;grid-template-columns:474px 1fr;gap:10px;height:100%;padding:10px}
 .overview-left{overflow:hidden}
-.overview-dash{background:var(--panel);border:1px solid var(--border);border-radius:4px;display:flex;align-items:center;justify-content:center;color:var(--title);font-family:var(--mono)}
+.overview-dash{background:var(--panel);border:1px solid var(--border);border-radius:4px;overflow:hidden}
+.gauge-container{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;width:100%;height:100%}
+.gauge-dial{position:relative;width:100%;aspect-ratio:1;max-height:100%;container-type:size}
+.gauge-svg{position:absolute;inset:0;width:100%;height:100%}
+.gauge-face{fill:var(--panel2);stroke:var(--border);stroke-width:1.5}
+.gauge-arc{fill:none;stroke:var(--gauge-track);stroke-width:2.4}
+.gauge-ticks{stroke:var(--dim);stroke-linecap:round}
+.gauge-tick{stroke-width:1.1}
+.gauge-needle{stroke:var(--accent);stroke-width:2;stroke-linecap:round}
+.gauge-hub{fill:var(--accent)}
+.gauge-labels{position:absolute;inset:0;pointer-events:none}
+.gauge-scale-label{font-weight:600;font-size:clamp(7px,5.5cqmin,15px);font-family:var(--mono);color:var(--dim);line-height:1;position:absolute}
+.gauge-info{text-align:center;font-family:var(--mono);line-height:1.1}
+.gauge-value{font-size:13px;font-weight:600;color:var(--text)}
+.gauge-unit{font-size:8px;color:var(--dim);margin-left:2px}
+.gauge-name{font-size:10px;color:var(--title);margin-top:2px}
+.linechart-container{position:relative;display:flex;flex-direction:column;width:100%;height:100%;gap:4px}
+.linechart-chart{position:relative;flex:1;min-height:0}
+.linechart-svg{width:100%;height:100%;display:block}
+.linechart-grid-path{fill:none;stroke:var(--border);stroke-width:0.5}
+.linechart-mid-line{stroke:var(--border);stroke-width:0.6;stroke-dasharray:3 4}
+.linechart-path{fill:none;stroke:var(--accent);stroke-width:1.4;stroke-linejoin:round}
+.linechart-value-overlay{position:absolute;right:4px;top:2px;font:600 12px/1 var(--mono);color:var(--text);pointer-events:none}
+.linechart-unit{font-size:8px;color:var(--dim);margin-left:2px}
+.linechart-y-labels{position:absolute;left:0;top:0;bottom:9px;display:flex;flex-direction:column;justify-content:space-between;font:500 8px/1 var(--mono);color:var(--dim);pointer-events:none}
+.linechart-x-labels{position:absolute;left:2px;right:2px;bottom:-1px;display:flex;justify-content:space-between;font:500 8px/1 var(--mono);color:var(--dim);pointer-events:none}
+.linechart-scale-label{line-height:1}
+.linechart-name{font-size:10px;color:var(--title);font-family:var(--mono);text-align:center;line-height:1.1;flex:none}
+.mapwidget-container{position:relative;width:100%;height:100%}
+.mapwidget-svg{width:100%;height:100%;display:block}
+.mapwidget-grid-path{fill:none;stroke:var(--border);stroke-width:0.7}
+.mapwidget-grid-rect{opacity:0.85}
+.mapwidget-axis{stroke:var(--border2);stroke-width:0.8}
+.mapwidget-ring{fill:none;stroke:var(--border2);stroke-width:0.8}
+.mapwidget-ring-outer{stroke-dasharray:2 4}
+.mapwidget-tick{stroke:var(--dim);stroke-width:1.2;stroke-linecap:round}
+.mapwidget-track{fill:none;stroke:var(--accent);stroke-width:1.5;stroke-linejoin:round;opacity:0.92}
+.mapwidget-marker{fill:none;stroke:var(--green);stroke-width:1.8}
+.widgetgrid{display:grid;grid-template-columns:repeat(auto-fill,158px);gap:10px;padding:8px;align-content:start;width:100%;height:100%;overflow:auto}
+.widget-cell{background:var(--panel2);border:1px solid var(--border);border-radius:4px;display:flex;flex-direction:column;overflow:hidden}
+.widget-cell-header{font-size:10px;font-weight:600;color:var(--title);text-transform:uppercase;letter-spacing:0.5px;padding:4px 8px;background:var(--panelhdr);border-bottom:1px solid var(--border);flex:none}
+.widget-cell-body{flex:1;min-height:0;padding:6px;overflow:hidden}
