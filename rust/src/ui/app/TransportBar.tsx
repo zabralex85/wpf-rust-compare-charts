@@ -5,7 +5,7 @@ export function TransportBar({ clock, rideTag, rateHz, samples, elapsedMs, scrub
   clock: { hms: string; ms: string }; rideTag: string; rateHz: number;
   samples: number; elapsedMs: number; scrubberFrac: number;
 }): React.JSX.Element {
-  const pct = `${Math.min(100, Math.max(0, scrubberFrac * 100))}%`;
+  const pct = `${parseFloat(Math.min(100, Math.max(0, scrubberFrac * 100)).toFixed(2))}%`;
   return (
     <div className="transport">
       <div className="transport-ctrl">
