@@ -1,0 +1,18 @@
+/* rust/src/ui/app/theme.css */
+:root{
+  --bg:#0a0e14; --panel:#10151d; --panel2:#0c121a; --panelhdr:#131a24;
+  --border:#1d2632; --border2:#1a2230; --colhdr:#0c1119;
+  --text:#cdd6e1; --text2:#c3ccd8; --dim:#566273; --dim2:#5d6b7c; --addr:#4f5a68;
+  --title:#8b98a9; --accent:#38c5e0; --green:#2fd17a; --green2:#38d178;
+  --amber:#f5b440; --amber2:#f5c061; --red:#ff4d52; --red2:#ff6b70; --critbg:#1a0e11;
+  --sans:'IBM Plex Sans',system-ui,sans-serif; --mono:'IBM Plex Mono',monospace;
+}
+*{box-sizing:border-box}
+html,body,#root{height:100%;margin:0}
+body{background:var(--bg);color:var(--text);font-family:var(--sans);overflow:hidden}
+::-webkit-scrollbar{width:9px;height:9px}
+::-webkit-scrollbar-track{background:#0b1018}
+::-webkit-scrollbar-thumb{background:#222d3c;border-radius:5px}
+::-webkit-scrollbar-thumb:hover{background:#30404f}
+@keyframes blink{0%,55%{opacity:1}56%,100%{opacity:.2}}
+.mono{font-family:var(--mono)}
