@@ -60,3 +60,6 @@ body{background:var(--bg);color:var(--text);font-family:var(--sans);overflow:hid
 .t-val{color:var(--text)}
 .t-ok{color:var(--green)}
 .dim{color:var(--dim)}
+.app-shell{height:100vh;display:flex;flex-direction:column;overflow:hidden}
+.app-body{flex:1;min-height:0;position:relative;overflow:hidden}
+.view-stub{padding:16px;color:var(--title);font-family:var(--mono)}
