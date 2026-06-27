@@ -16,13 +16,13 @@ export function Gauge({
 }: GaugeProps): React.JSX.Element {
   const v = gaugeViz(value);
 
-  // Tick mark positions (5 ticks at -135, -90, -45, 0, 45 degrees)
+  // Tick mark positions (5 ticks symmetric about the 270° arc: -135, -90, 0, 90, 135)
   const ticks = [
     { angle: -135, length: 4 },
     { angle: -90, length: 5 },
-    { angle: -45, length: 4 },
     { angle: 0, length: 5 },
-    { angle: 45, length: 4 },
+    { angle: 90, length: 5 },
+    { angle: 135, length: 4 },
   ];
 
   return (

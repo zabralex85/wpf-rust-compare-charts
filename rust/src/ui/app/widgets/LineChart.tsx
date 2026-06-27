@@ -1,6 +1,7 @@
 import type React from "react";
 import { useId } from "react";
 import { lineViz } from "./linePath";
+import { fmtNum } from "./gaugeViz";
 
 interface LineChartProps {
   name: string;
@@ -77,7 +78,7 @@ export function LineChart({
 
         {/* Value + unit — top-right overlay */}
         <div className="linechart-value-overlay">
-          {value}
+          {fmtNum(value)}
           <span className="linechart-unit"> {unit}</span>
         </div>
 
