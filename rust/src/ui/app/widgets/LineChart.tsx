@@ -21,7 +21,7 @@ export function LineChart({
   scalesOn,
 }: LineChartProps): React.JSX.Element {
   const gridId = useId();
-  const viz = lineViz(xs, ys);
+  const viz = lineViz(xs, ys, value);
 
   return (
     <div data-testid="linechart" className="linechart-container">
@@ -82,11 +82,13 @@ export function LineChart({
           <span className="linechart-unit"> {unit}</span>
         </div>
 
-        {/* Y-axis labels — left edge, shown only when scalesOn */}
+        {/* Y-axis labels — left edge, 5 value-centered labels, shown only when scalesOn */}
         {scalesOn && (
           <div className="linechart-y-labels">
             <span className="linechart-scale-label">{viz.yHi}</span>
+            <span className="linechart-scale-label">{viz.yQ3}</span>
             <span className="linechart-scale-label">{viz.yMid}</span>
+            <span className="linechart-scale-label">{viz.yQ1}</span>
             <span className="linechart-scale-label">{viz.yLo}</span>
           </div>
         )}

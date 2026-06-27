@@ -1,5 +1,5 @@
 import type React from "react";
-import { gaugeViz } from "./gaugeViz";
+import { gaugeViz, fmtGaugeValue } from "./gaugeViz";
 
 interface GaugeProps {
   name: string;
@@ -27,110 +27,113 @@ export function Gauge({
 
   return (
     <div data-testid="gauge" className="gauge-container">
-      <svg viewBox="0 0 80 80" className="gauge-svg">
-        {/* Face circle */}
-        <circle cx="40" cy="40" r="36" className="gauge-face" />
+      {/* Square dial box: SVG fills it; scale labels overlay it */}
+      <div className="gauge-dial">
+        <svg viewBox="0 0 80 80" className="gauge-svg">
+          {/* Face circle */}
+          <circle cx="40" cy="40" r="36" className="gauge-face" />
 
-        {/* Arc track (270° from -135 to 135) */}
-        <path d="M20.2 59.8 A28 28 0 1 1 59.8 59.8" className="gauge-arc" />
+          {/* Arc track (270° from -135 to 135) */}
+          <path d="M20.2 59.8 A28 28 0 1 1 59.8 59.8" className="gauge-arc" />
 
-        {/* Tick marks (shown only when scalesOn) */}
+          {/* Tick marks (shown only when scalesOn) */}
+          {scalesOn && (
+            <g className="gauge-ticks">
+              {ticks.map((tick, idx) => {
+                const angleRad = (tick.angle * Math.PI) / 180;
+                const r1 = 31; // outer radius
+                const r2 = r1 - tick.length; // inner radius
+                const x1 = 40 + r1 * Math.sin(angleRad);
+                const y1 = 40 - r1 * Math.cos(angleRad);
+                const x2 = 40 + r2 * Math.sin(angleRad);
+                const y2 = 40 - r2 * Math.cos(angleRad);
+                return (
+                  <line
+                    key={idx}
+                    x1={x1}
+                    y1={y1}
+                    x2={x2}
+                    y2={y2}
+                    className="gauge-tick"
+                  />
+                );
+              })}
+            </g>
+          )}
+
+          {/* Needle */}
+          <line x1="40" y1="40" x2={v.nx} y2={v.ny} className="gauge-needle" />
+
+          {/* Hub */}
+          <circle cx="40" cy="40" r="3" className="gauge-hub" />
+        </svg>
+
+        {/* Scale labels overlaid on the dial square (shown only when scalesOn) */}
         {scalesOn && (
-          <g className="gauge-ticks">
-            {ticks.map((tick, idx) => {
-              const angleRad = (tick.angle * Math.PI) / 180;
-              const r1 = 31; // outer radius
-              const r2 = r1 - tick.length; // inner radius
-              const x1 = 40 + r1 * Math.sin(angleRad);
-              const y1 = 40 - r1 * Math.cos(angleRad);
-              const x2 = 40 + r2 * Math.sin(angleRad);
-              const y2 = 40 - r2 * Math.cos(angleRad);
-              return (
-                <line
-                  key={idx}
-                  x1={x1}
-                  y1={y1}
-                  x2={x2}
-                  y2={y2}
-                  className="gauge-tick"
-                />
-              );
-            })}
-          </g>
+          <div className="gauge-labels">
+            <div
+              className="gauge-scale-label"
+              style={{
+                position: "absolute",
+                left: "18.9%",
+                top: "81.1%",
+                transform: "translate(-50%, -50%)",
+              }}
+            >
+              {v.gMin}
+            </div>
+            <div
+              className="gauge-scale-label"
+              style={{
+                position: "absolute",
+                left: "9.4%",
+                top: "33.2%",
+                transform: "translate(-50%, -50%)",
+              }}
+            >
+              {v.gQ1}
+            </div>
+            <div
+              className="gauge-scale-label"
+              style={{
+                position: "absolute",
+                left: "50%",
+                top: "6%",
+                transform: "translate(-50%, -50%)",
+              }}
+            >
+              0
+            </div>
+            <div
+              className="gauge-scale-label"
+              style={{
+                position: "absolute",
+                left: "90.6%",
+                top: "33.2%",
+                transform: "translate(-50%, -50%)",
+              }}
+            >
+              {v.gQ3}
+            </div>
+            <div
+              className="gauge-scale-label"
+              style={{
+                position: "absolute",
+                left: "81.1%",
+                top: "81.1%",
+                transform: "translate(-50%, -50%)",
+              }}
+            >
+              {v.gMax}
+            </div>
+          </div>
         )}
+      </div>
 
-        {/* Needle */}
-        <line x1="40" y1="40" x2={v.nx} y2={v.ny} className="gauge-needle" />
-
-        {/* Hub */}
-        <circle cx="40" cy="40" r="3" className="gauge-hub" />
-      </svg>
-
-      {/* Scale labels (shown only when scalesOn) */}
-      {scalesOn && (
-        <div className="gauge-labels">
-          <div
-            className="gauge-scale-label"
-            style={{
-              position: "absolute",
-              left: "18.9%",
-              top: "81.1%",
-              transform: "translate(-50%, -50%)",
-            }}
-          >
-            {v.gMin}
-          </div>
-          <div
-            className="gauge-scale-label"
-            style={{
-              position: "absolute",
-              left: "9.4%",
-              top: "33.2%",
-              transform: "translate(-50%, -50%)",
-            }}
-          >
-            {v.gQ1}
-          </div>
-          <div
-            className="gauge-scale-label"
-            style={{
-              position: "absolute",
-              left: "50%",
-              top: "6%",
-              transform: "translate(-50%, -50%)",
-            }}
-          >
-            0
-          </div>
-          <div
-            className="gauge-scale-label"
-            style={{
-              position: "absolute",
-              left: "90.6%",
-              top: "33.2%",
-              transform: "translate(-50%, -50%)",
-            }}
-          >
-            {v.gQ3}
-          </div>
-          <div
-            className="gauge-scale-label"
-            style={{
-              position: "absolute",
-              left: "81.1%",
-              top: "81.1%",
-              transform: "translate(-50%, -50%)",
-            }}
-          >
-            {v.gMax}
-          </div>
-        </div>
-      )}
-
-      {/* Value text and name */}
+      {/* Value text and name — sibling below the dial box */}
       <div className="gauge-info">
         <div className="gauge-value">
-          {v.valueText} <span className="gauge-unit">{unit}</span>
+          {fmtGaugeValue(value)} <span className="gauge-unit">{unit}</span>
         </div>
         <div className="gauge-name">{name}</div>
       </div>

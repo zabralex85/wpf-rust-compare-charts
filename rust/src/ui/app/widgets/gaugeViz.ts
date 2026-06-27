@@ -51,6 +51,17 @@ export function fmtScale(v: number): string {
 }
 
 /**
+ * Format a number for the gauge big-value display.
+ * - If not finite → "—"
+ * - |v| >= 100 → toFixed(1)
+ * - else → toFixed(3)
+ */
+export function fmtGaugeValue(v: number): string {
+  if (!isFinite(v)) return "—";
+  return Math.abs(v) >= 100 ? v.toFixed(1) : v.toFixed(3);
+}
+
+/**
  * Compute gauge visualization: needle angle, position, and scale labels.
  */
 export interface GaugeViz {

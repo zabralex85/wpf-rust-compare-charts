@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { gaugeViz, fmtScale, fmtNum } from "./gaugeViz";
+import { gaugeViz, fmtScale, fmtNum, fmtGaugeValue } from "./gaugeViz";
 
 describe("gaugeViz", () => {
   it("centers the needle at value 0 (angle -? ... mid)", () => {
@@ -33,5 +33,12 @@ describe("gaugeViz", () => {
     expect(fmtNum(12.3456789)).toBe("12.346"); // a >= 1 → toFixed(3)
     expect(fmtNum(0.0001234)).toBe("0.000123"); // a < 1 → toFixed(6)
     expect(fmtNum(Infinity)).toBe("—"); // non-finite
+  });
+  it("fmtGaugeValue: |v|<100 → 3 decimals, |v|>=100 → 1 decimal, non-finite → em-dash", () => {
+    expect(fmtGaugeValue(0.481389)).toBe("0.481");
+    expect(fmtGaugeValue(19.648)).toBe("19.648");
+    expect(fmtGaugeValue(156.0)).toBe("156.0");
+    expect(fmtGaugeValue(Infinity)).toBe("—");
+    expect(fmtGaugeValue(NaN)).toBe("—");
   });
 });

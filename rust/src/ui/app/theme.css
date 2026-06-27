@@ -88,16 +88,17 @@ body{background:var(--bg);color:var(--text);font-family:var(--sans);overflow:hid
 .overview{display:grid;grid-template-columns:474px 1fr;gap:10px;height:100%;padding:10px}
 .overview-left{overflow:hidden}
 .overview-dash{background:var(--panel);border:1px solid var(--border);border-radius:4px;overflow:hidden}
-.gauge-container{position:relative;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;width:100%;height:100%}
-.gauge-svg{width:100%;height:auto;aspect-ratio:1}
+.gauge-container{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;width:100%;height:100%}
+.gauge-dial{position:relative;width:100%;aspect-ratio:1;max-height:100%;container-type:size}
+.gauge-svg{position:absolute;inset:0;width:100%;height:100%}
 .gauge-face{fill:var(--panel2);stroke:var(--border);stroke-width:1.5}
 .gauge-arc{fill:none;stroke:var(--gauge-track);stroke-width:2.4}
 .gauge-ticks{stroke:var(--dim);stroke-linecap:round}
 .gauge-tick{stroke-width:1.1}
 .gauge-needle{stroke:var(--accent);stroke-width:2;stroke-linecap:round}
 .gauge-hub{fill:var(--accent)}
-.gauge-labels{position:relative;width:100%;height:100%;pointer-events:none}
-.gauge-scale-label{font-weight:600;font-size:9px;font-family:var(--mono);color:var(--dim);line-height:1}
+.gauge-labels{position:absolute;inset:0;pointer-events:none}
+.gauge-scale-label{font-weight:600;font-size:clamp(7px,5.5cqmin,15px);font-family:var(--mono);color:var(--dim);line-height:1;position:absolute}
 .gauge-info{text-align:center;font-family:var(--mono);line-height:1.1}
 .gauge-value{font-size:13px;font-weight:600;color:var(--text)}
 .gauge-unit{font-size:8px;color:var(--dim);margin-left:2px}

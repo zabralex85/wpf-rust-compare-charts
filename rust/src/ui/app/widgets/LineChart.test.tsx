@@ -47,11 +47,21 @@ describe("LineChart component", () => {
     expect(scaleLabels.length).toBe(0);
   });
 
-  it("axis scale labels present when scalesOn is true", () => {
+  it("shows exactly 5 y-axis scale labels when scalesOn is true", () => {
     const { container } = render(
       <LineChart name="Speed" xs={xs} ys={ys} unit="m/s" value={21} scalesOn={true} />
     );
-    const scaleLabels = container.querySelectorAll(".linechart-scale-label");
-    expect(scaleLabels.length).toBeGreaterThan(0);
+    const yLabels = container.querySelectorAll(
+      ".linechart-y-labels .linechart-scale-label"
+    );
+    expect(yLabels.length).toBe(5);
+  });
+
+  it("value overlay uses fmtNum of value prop", () => {
+    const { container } = render(
+      <LineChart name="Speed" xs={xs} ys={ys} unit="m/s" value={21} scalesOn={true} />
+    );
+    // fmtNum(21) = "21.000" (a>=1 → toFixed(3))
+    expect(container.textContent).toContain("21.000");
   });
 });
