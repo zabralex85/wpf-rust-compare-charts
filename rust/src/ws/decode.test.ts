@@ -8,6 +8,7 @@ describe("decodeMessage", () => {
       channels: [{ id: 1, name: "Roll", column_name: "roll", unit: "deg", type: "real", min: -180, max: 180, widget: "strip", display_order: 1, addr: "I_01" }],
       enum_values: [{ channel_id: 15, code: 1, label: "Critical", severity: "critical" }],
       rate_hz: 10,
+      duration_s: 600,
     });
     const m = decodeMessage(json);
     expect(m.type).toBe("meta");

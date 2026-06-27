@@ -21,6 +21,8 @@ async fn client_receives_meta_then_frames() {
     let v: serde_json::Value = serde_json::from_str(first.to_text().unwrap()).unwrap();
     assert_eq!(v["type"], "meta");
     assert_eq!(v["channels"].as_array().unwrap().len(), 30);
+    assert!(v["rate_hz"].as_i64().unwrap() >= 1);
+    assert!(v["duration_s"].as_i64().unwrap() >= 1); // ride length present
 
     // collect all messages until the server closes the stream
     let mut last_ts = -1i64;

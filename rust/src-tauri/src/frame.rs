@@ -8,11 +8,12 @@ pub struct MetaMessage {
     pub channels: Vec<ChannelMeta>,
     pub enum_values: Vec<EnumValue>,
     pub rate_hz: i64,
+    pub duration_s: i64,
 }
 
 impl MetaMessage {
-    pub fn new(channels: Vec<ChannelMeta>, enum_values: Vec<EnumValue>, rate_hz: i64) -> Self {
-        Self { type_: "meta", channels, enum_values, rate_hz }
+    pub fn new(channels: Vec<ChannelMeta>, enum_values: Vec<EnumValue>, rate_hz: i64, duration_s: i64) -> Self {
+        Self { type_: "meta", channels, enum_values, rate_hz, duration_s }
     }
 }
 
@@ -62,10 +63,11 @@ mod tests {
 
     #[test]
     fn meta_serializes_with_type_tag() {
-        let m = MetaMessage::new(vec![], vec![], 10);
+        let m = MetaMessage::new(vec![], vec![], 10, 5);
         let v: serde_json::Value = serde_json::from_str(&serde_json::to_string(&m).unwrap()).unwrap();
         assert_eq!(v["type"], "meta");
         assert_eq!(v["rate_hz"], 10);
+        assert_eq!(v["duration_s"], 5);
     }
 
     #[test]

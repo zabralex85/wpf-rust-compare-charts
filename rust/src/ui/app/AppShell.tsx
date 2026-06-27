@@ -14,9 +14,10 @@ import { TransportBar } from "./TransportBar";
 import { OverviewView } from "./views/OverviewView";
 import { TrackView } from "./views/TrackView";
 import { EventsView } from "./views/EventsView";
-import { formatClock, formatRideTag } from "./clock";
+import { formatRideTag } from "./clock";
 import { deriveStatus } from "./status";
 import type { Screen } from "./tabs";
+import { rideClock, rideProgress } from "./ridetime";
 
 const WS_URL = (import.meta.env.VITE_WS_URL as string | undefined) ?? "ws://127.0.0.1:9001";
 
@@ -25,14 +26,15 @@ export function AppShell(): React.JSX.Element {
   const [screen, setScreen] = useState<Screen>("overview");
   const [scalesOn, setScalesOn] = useState(true);
 
-  const now = Date.now();
-  const clock = formatClock(now);
+  const tsMs = store.lastTsMs();
+  const clock = rideClock(tsMs);
   const status = deriveStatus(store);
-  const rideTag = formatRideTag(0); // ride ts wiring refined in a later phase
+  const rideTag = formatRideTag(tsMs);
   const channels = store.channels();
-  const rateHz = 10; // TODO(later phase): source from meta.rate_hz when exposed
+  const rateHz = store.rateHz() || 10;
   // buffered samples = longest strip series (robust to channel order / widget mix)
   const samples = channels.reduce((m, c) => Math.max(m, store.series(c.id)?.len() ?? 0), 0);
+  const scrubberFrac = rideProgress(tsMs, store.durationMs());
 
   return (
     <div className="app-shell">
@@ -44,7 +46,7 @@ export function AppShell(): React.JSX.Element {
         {screen === "events" && <EventsView store={store} />}
       </div>
       <TransportBar clock={clock} rideTag={rideTag} rateHz={rateHz}
-        samples={samples} elapsedMs={(samples * 1000) / rateHz} scrubberFrac={0.88} />
+        samples={samples} elapsedMs={tsMs} scrubberFrac={scrubberFrac} />
     </div>
   );
 }
