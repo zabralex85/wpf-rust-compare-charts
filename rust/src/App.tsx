@@ -1,5 +1,5 @@
-import { Dashboard } from "./ui/Dashboard";
+import { AppShell } from "./ui/app/AppShell";
 
 export default function App() {
-  return <Dashboard />;
+  return <AppShell />;
 }
