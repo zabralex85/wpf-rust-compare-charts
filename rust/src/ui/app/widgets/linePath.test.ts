@@ -25,7 +25,7 @@ describe("lineViz", () => {
   // i=1: ys=15  y=clamp(40-(15-10)/5*34,6,74)=clamp(6,6,74)=6  x=100 → L100.0 6.0
   // i=2: ys=0   y=clamp(40-(0-10)/5*34,6,74)=clamp(108,6,74)=74 x=200 → L200.0 74.0
   it("produces the exact path for a known 3-point input", () => {
-    const r = lineViz([0, 1, 2], [10, 15, 0], 10, 200, 80);
+    const r = lineViz([0, 1, 2], [10, 15, 0], 10, 1, 200, 80);
     expect(r.path).toBe("M0.0 40.0L100.0 6.0L200.0 74.0");
   });
 
@@ -33,13 +33,13 @@ describe("lineViz", () => {
 
   it("point at value maps to mid y (40) for default viewH=80", () => {
     // v=10 lr=5 mid=40; ys[0]=10 → y=40
-    const r = lineViz([0], [10], 10, 200, 80);
+    const r = lineViz([0], [10], 10, 1, 200, 80);
     expect(r.path).toMatch(/^M0\.0 40\.0$/);
   });
 
   it("point at value+lr maps to top y (6) for default viewH=80", () => {
     // v=10 lr=5; ys=15=v+lr → y=6
-    const r = lineViz([0, 1], [15, 15], 10, 200, 80);
+    const r = lineViz([0, 1], [15, 15], 10, 1, 200, 80);
     const yCoords = [...r.path.matchAll(/[ML]\S+ (\S+)/g)].map((m) =>
       parseFloat(m[1])
     );
@@ -48,7 +48,7 @@ describe("lineViz", () => {
 
   it("ys far above value clamp to top (6)", () => {
     // v=10 lr=5; ys=999 → clamped to 6
-    const r = lineViz([0, 1], [999, -999], 10, 200, 80);
+    const r = lineViz([0, 1], [999, -999], 10, 1, 200, 80);
     expect(r.path).toBe("M0.0 6.0L200.0 74.0");
   });
 
@@ -127,5 +127,33 @@ describe("lineViz", () => {
       parseFloat(m[1])
     );
     yCoords.forEach((y) => expect(y).toBeCloseTo(40, 5));
+  });
+});
+
+describe("lineViz zoom + points", () => {
+  const ys = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
+  const xs = ys.map((_, i) => i); // seconds
+
+  it("returns one display point per sample at zoom 1", () => {
+    const r = lineViz(xs, ys, 5, 1);
+    expect(r.points).toHaveLength(10);
+    expect(r.points[0]).toMatchObject({ px: 0 });
+    expect(r.points[9].px).toBeCloseTo(200, 5);
+    // ts is relative seconds, last = 0
+    expect(r.points[9].ts).toBe(0);
+    expect(r.points[0].ts).toBe(-9);
+  });
+
+  it("zoom 2 keeps only the last half (5 samples)", () => {
+    const r = lineViz(xs, ys, 5, 2);
+    expect(r.points).toHaveLength(5);
+    expect(r.points.map((p) => p.val)).toEqual([5, 6, 7, 8, 9]);
+    expect(r.path.startsWith("M")).toBe(true);
+  });
+
+  it("empty series → empty points + path", () => {
+    const r = lineViz([], [], 0, 1);
+    expect(r.points).toEqual([]);
+    expect(r.path).toBe("");
   });
 });
