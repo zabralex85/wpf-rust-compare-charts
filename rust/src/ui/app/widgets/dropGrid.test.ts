@@ -15,11 +15,15 @@ describe("cellFromPoint (pitch 168)", () => {
 });
 
 describe("resizeStep (pitch 168)", () => {
-  it("0 within deadzone → 0 steps; >144 → +1; < -144 → -1", () => {
+  it("matches the sample: 24px deadzone then ±1 per pitch", () => {
     expect(resizeStep(0)).toBe(0);
-    expect(resizeStep(100)).toBe(0);
+    expect(resizeStep(20)).toBe(0);    // inside 24px deadzone
+    expect(resizeStep(24)).toBe(1);    // first step at 24px
+    expect(resizeStep(100)).toBe(1);
     expect(resizeStep(150)).toBe(1);
+    expect(resizeStep(192)).toBe(2);   // 168 + 24
+    expect(resizeStep(-20)).toBe(0);
+    expect(resizeStep(-24)).toBe(-1);
     expect(resizeStep(-150)).toBe(-1);
-    expect(resizeStep(2 * 168)).toBe(2);
   });
 });

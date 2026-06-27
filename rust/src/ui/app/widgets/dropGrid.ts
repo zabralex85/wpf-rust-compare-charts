@@ -14,8 +14,7 @@ export function cellFromPoint(
 }
 
 export function resizeStep(delta: number, pitch: number = PITCH): number {
-  const dead = pitch - 24; // 144 at pitch 168 (sample's deadzone)
-  if (Math.abs(delta) < dead) return 0;
-  if (delta > 0) return Math.floor((delta - dead) / pitch) + 1;
-  return Math.ceil((delta + dead) / pitch) - 1;
+  const dead = pitch - 24; // 144 at pitch 168 — sample's offset
+  const result = delta >= 0 ? Math.floor((delta + dead) / pitch) : Math.ceil((delta - dead) / pitch);
+  return result + 0; // normalize -0 to 0
 }
