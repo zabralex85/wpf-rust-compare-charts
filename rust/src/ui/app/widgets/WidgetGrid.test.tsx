@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, it, expect, afterEach } from "vitest";
-import { render, cleanup } from "@testing-library/react";
+import { render, cleanup, fireEvent } from "@testing-library/react";
 import { WidgetGrid } from "./WidgetGrid";
 import { TelemetryStore } from "../../../data/store";
 import { applyMockSnapshot } from "../../mock/fixture";
@@ -64,5 +64,33 @@ describe("WidgetGrid", () => {
     const { container } = render(<WidgetGrid store={store} scalesOn={false} />);
     // When scalesOn is false Gauge renders no .gauge-ticks group
     expect(container.querySelectorAll(".gauge-ticks").length).toBe(0);
+  });
+
+  it("dropping a param payload on the grid adds a gauge cell", () => {
+    const store = makeStore();
+    const { container } = render(<WidgetGrid store={store} scalesOn={true} />);
+    const before = container.querySelectorAll('[data-testid="gauge"]').length;
+    const dz = container.querySelector('[data-dropzone]') as HTMLElement;
+    const payload = JSON.stringify({ channelId: 1, name: "Roll", unit: "deg" });
+    const dt = { getData: () => payload, dropEffect: "", types: ["text/plain"] };
+    fireEvent.dragOver(dz, { dataTransfer: dt });
+    fireEvent.drop(dz, { dataTransfer: dt, clientX: 5, clientY: 5 });
+    expect(container.querySelectorAll('[data-testid="gauge"]').length).toBe(before + 1);
+  });
+
+  it("× removes a widget and toggle switches a gauge to a line", () => {
+    const store = makeStore();
+    const { container } = render(<WidgetGrid store={store} scalesOn={true} />);
+    // Find first non-map cell (has a toggle button) — map widget has no [data-act="toggle"]
+    const toggle0 = container.querySelector('[data-act="toggle"]') as HTMLElement;
+    const cell = toggle0.closest('[data-widget]') as HTMLElement;
+    const id = cell.getAttribute("data-widget")!;
+    // toggle: gauge → line
+    fireEvent.click(toggle0);
+    expect(container.querySelector(`[data-widget="${id}"] [data-testid="linechart"]`)).toBeTruthy();
+    // remove it
+    const rm = container.querySelector(`[data-widget="${id}"] [data-act="remove"]`) as HTMLElement;
+    fireEvent.click(rm);
+    expect(container.querySelector(`[data-widget="${id}"]`)).toBeNull();
   });
 });
