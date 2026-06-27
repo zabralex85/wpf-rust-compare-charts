@@ -84,3 +84,6 @@ body{background:var(--bg);color:var(--text);font-family:var(--sans);overflow:hid
 .param-unit{color:var(--dim2);font-size:10px}
 .param-bus{color:var(--addr);font-size:11px}
 .r{text-align:right}
+.overview{display:grid;grid-template-columns:474px 1fr;gap:10px;height:100%;padding:10px}
+.overview-left{overflow:hidden}
+.overview-dash{background:var(--panel);border:1px solid var(--border);border-radius:4px;display:flex;align-items:center;justify-content:center;color:var(--title);font-family:var(--mono)}
