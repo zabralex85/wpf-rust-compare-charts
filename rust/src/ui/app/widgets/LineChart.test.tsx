@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, it, expect, afterEach } from "vitest";
-import { render, cleanup } from "@testing-library/react";
+import { render, cleanup, fireEvent, screen } from "@testing-library/react";
 import { LineChart } from "./LineChart";
 
 afterEach(cleanup);
@@ -63,5 +63,38 @@ describe("LineChart component", () => {
     );
     // fmtNum(21) = "21.000" (a>=1 → toFixed(3))
     expect(container.textContent).toContain("21.000");
+  });
+
+  it("shows a hover tooltip on mouse move and a zoom badge when zoom>1", () => {
+    render(
+      <LineChart
+        name="Roll"
+        xs={[0, 1, 2]}
+        ys={[5, 7, 9]}
+        unit="deg"
+        value={9}
+        scalesOn={true}
+        zoom={2}
+      />
+    );
+    // zoom badge renders ×2 as the complete text of the badge span
+    expect(screen.getByText("×2")).toBeTruthy();
+
+    const surface = document.querySelector(
+      '[data-testid="linechart"] [data-hover-surface]'
+    ) as HTMLElement;
+
+    // clientX >= rect.right (0 in jsdom) → rel clamped to 1 → last sample (val=9)
+    fireEvent.mouseMove(surface, { clientX: 9999, clientY: 0 });
+
+    // tooltip element appears; check via className to avoid multiple-match from
+    // getByText (value overlay + y-label yMid also contain "9.000")
+    const tooltip = document.querySelector(".linechart-tooltip") as HTMLElement;
+    expect(tooltip).not.toBeNull();
+    expect(tooltip.textContent).toMatch(/9\.000/);
+
+    fireEvent.mouseLeave(surface);
+    // tooltip disappears after mouseLeave
+    expect(document.querySelector(".linechart-tooltip")).toBeNull();
   });
 });

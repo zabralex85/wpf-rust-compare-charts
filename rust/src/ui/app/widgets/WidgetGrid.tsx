@@ -85,6 +85,9 @@ export function WidgetGrid({ store, scalesOn }: WidgetGridProps): React.JSX.Elem
               unit={w.unit}
               value={store.latest(w.channelId!) ?? 0}
               scalesOn={scalesOn}
+              zoom={w.zoom}
+              onZoomBy={(f) => { wm.zoomBy(w.id, f); }}
+              onResetZoom={() => { wm.resetZoom(w.id); }}
             />
           );
         } else {
