@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { TelemetryStore } from "../data/store";
 import { FpsMeter } from "../hud/fps";
 import { createWsClient, type WsStatus } from "../ws/client";
+import { applyMockSnapshot } from "./mock/fixture";
 
 export interface TelemetrySnapshot {
   store: TelemetryStore;
@@ -25,13 +26,23 @@ export function useTelemetry(url: string): TelemetrySnapshot {
   useEffect(() => {
     const store = storeRef.current!;
     const meter = meterRef.current!;
-    const client = createWsClient({
-      url,
-      onMeta: (m) => store.applyMeta(m),
-      onFrame: (f) => store.applyFrame(f),
-      onMetrics: (m) => store.applyMetrics(m),
-      onStatus: setStatus,
-    });
+    const mock =
+      typeof window !== "undefined" &&
+      new URLSearchParams(window.location.search).has("mock");
+
+    let client: ReturnType<typeof createWsClient> | undefined;
+    if (mock) {
+      applyMockSnapshot(store);
+      setStatus("open");
+    } else {
+      client = createWsClient({
+        url,
+        onMeta: (m) => store.applyMeta(m),
+        onFrame: (f) => store.applyFrame(f),
+        onMetrics: (m) => store.applyMetrics(m),
+        onStatus: setStatus,
+      });
+    }
 
     let raf = 0;
     const loop = (t: number) => {
@@ -45,7 +56,7 @@ export function useTelemetry(url: string): TelemetrySnapshot {
 
     return () => {
       cancelAnimationFrame(raf);
-      client.stop();
+      client?.stop();
     };
   }, [url]);
 
