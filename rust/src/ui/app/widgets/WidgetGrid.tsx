@@ -110,15 +110,17 @@ export function WidgetGrid({ store, scalesOn }: WidgetGridProps): React.JSX.Elem
               gridRow: `${w.row} / span ${w.rows}`,
             }}
           >
-            {/* Only the header is the widget drag handle — leaves the body free
-                for the interactive map (pan) / charts. */}
-            <div
-              className="widget-cell-header"
-              draggable
-              onDragStart={() => { dragId.current = w.id; }}
-              onDragEnd={() => { dragId.current = null; }}
-            >
-              <span className="widget-cell-grip">☰ {w.name}</span>
+            <div className="widget-cell-header">
+              {/* Only the ☰ grip is the drag handle — keeps the toggle/× buttons
+                  clickable and leaves the body free for map pan / charts. */}
+              <span
+                className="widget-cell-grip"
+                draggable
+                onDragStart={() => { dragId.current = w.id; }}
+                onDragEnd={() => { dragId.current = null; }}
+              >
+                ☰ {w.name}
+              </span>
               {w.kind !== "map" && (
                 <span className="widget-cell-actions">
                   <span
