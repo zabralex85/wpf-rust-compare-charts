@@ -1,3 +1,4 @@
+pub mod control;
 pub mod db;
 pub mod frame;
 pub mod metrics;
