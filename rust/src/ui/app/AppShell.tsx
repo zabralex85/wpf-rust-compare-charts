@@ -45,8 +45,10 @@ export function AppShell(): React.JSX.Element {
         {screen === "track" && <TrackView store={store} />}
         {screen === "events" && <EventsView store={store} />}
       </div>
+      {/* TODO(Task 6): replace no-op props with real play/pause + seek wiring */}
       <TransportBar clock={clock} rideTag={rideTag} rateHz={rateHz}
-        samples={samples} elapsedMs={tsMs} scrubberFrac={scrubberFrac} />
+        samples={samples} elapsedMs={tsMs} scrubberFrac={scrubberFrac}
+        paused={false} onPlayPause={() => {}} onSeek={() => {}} />
     </div>
   );
 }
