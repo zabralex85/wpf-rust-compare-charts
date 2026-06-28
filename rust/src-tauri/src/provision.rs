@@ -81,24 +81,23 @@ where
 pub async fn ensure_mbtiles(cfg: ProvisionCfg) -> Option<String> {
     ensure_mbtiles_with(
         |p| std::path::Path::new(p).exists(),
-        download_to,
+        download_mbtiles_to, // Fix 5: MBTiles-specific downloader with validation
         |cfg| Box::pin(run_tilemaker_real(cfg)),
         &cfg,
     )
     .await
 }
 
-/// Download `url` to `dest` via a streaming GET, writing to `dest.part` first,
-/// then atomically renaming on success. Reports progress via `eprintln!` at
-/// ~5% intervals to avoid flooding the log on large files.
-/// Never panics; propagates all errors via `anyhow::Result`.
-async fn download_to(url: String, dest: String) -> anyhow::Result<()> {
+/// Stream a `reqwest` response body into `file`, logging progress at ~5%
+/// intervals. Returns the total bytes written. `file` is flushed before
+/// returning.
+async fn stream_to_file(
+    resp: reqwest::Response,
+    file: &mut tokio::fs::File,
+) -> anyhow::Result<u64> {
     use futures_util::StreamExt;
     use tokio::io::AsyncWriteExt;
-    let tmp = format!("{dest}.part");
-    let resp = reqwest::get(&url).await?.error_for_status()?;
     let total = resp.content_length().unwrap_or(0);
-    let mut file = tokio::fs::File::create(&tmp).await?;
     let mut stream = resp.bytes_stream();
     let mut got: u64 = 0;
     let mut last_logged_pct: i64 = -5; // force first log at 0%
@@ -114,29 +113,109 @@ async fn download_to(url: String, dest: String) -> anyhow::Result<()> {
             }
         }
     }
-    // Always log the final done line
-    eprintln!("[provision] 100% done — {got} bytes written to {dest}");
     file.flush().await?;
+    Ok(got)
+}
+
+/// Build a `reqwest::Client` with a 30 s connect timeout and a 600 s
+/// whole-download cap so a stalled server cannot block the caller indefinitely.
+fn build_client() -> anyhow::Result<reqwest::Client> {
+    Ok(reqwest::Client::builder()
+        .connect_timeout(std::time::Duration::from_secs(30))
+        .timeout(std::time::Duration::from_secs(600))
+        .build()?)
+}
+
+/// Download `url` to `dest` via a streaming GET, writing to `dest.part` first,
+/// then atomically renaming on success. Reports progress via `eprintln!` at
+/// ~5% intervals to avoid flooding the log on large files.
+///
+/// On any streaming / flush error the `{dest}.part` temp file is removed
+/// before propagating the error (Fix 4). Never panics; propagates all errors
+/// via `anyhow::Result`.
+async fn download_to(url: String, dest: String) -> anyhow::Result<()> {
+    let tmp = format!("{dest}.part");
+    let client = build_client()?; // Fix 1: connect + whole-download timeouts
+    let resp = client.get(&url).send().await?.error_for_status()?;
+    let mut file = tokio::fs::File::create(&tmp).await?;
+    // Fix 4: remove .part on any streaming/flush error
+    let got = match stream_to_file(resp, &mut file).await {
+        Ok(n) => n,
+        Err(e) => {
+            let _ = tokio::fs::remove_file(&tmp).await;
+            return Err(e);
+        }
+    };
+    eprintln!("[provision] 100% done — {got} bytes written to {dest}");
+    tokio::fs::rename(&tmp, &dest).await?;
+    Ok(())
+}
+
+/// Like [`download_to`] but also validates the downloaded content is a real
+/// MBTiles database before the atomic rename (Fix 5). A misconfigured URL
+/// that returns 200 with an HTML error page will be caught here rather than
+/// cached as a permanently broken basemap.
+async fn download_mbtiles_to(url: String, dest: String) -> anyhow::Result<()> {
+    let tmp = format!("{dest}.part");
+    let client = build_client()?; // Fix 1: connect + whole-download timeouts
+    let resp = client.get(&url).send().await?.error_for_status()?;
+    let mut file = tokio::fs::File::create(&tmp).await?;
+    // Fix 4: remove .part on any streaming/flush error
+    let got = match stream_to_file(resp, &mut file).await {
+        Ok(n) => n,
+        Err(e) => {
+            let _ = tokio::fs::remove_file(&tmp).await;
+            return Err(e);
+        }
+    };
+    eprintln!("[provision] 100% done — {got} bytes written to {dest}");
+    // Fix 5: validate as a real MBTiles before the rename
+    let mbtiles_ok = crate::tiles::MbTiles::open(&tmp)
+        .ok()
+        .and_then(|mb| mb.metadata().ok())
+        .is_some();
+    if !mbtiles_ok {
+        let _ = tokio::fs::remove_file(&tmp).await;
+        anyhow::bail!("downloaded file is not a valid mbtiles");
+    }
     tokio::fs::rename(&tmp, &dest).await?;
     Ok(())
 }
 
 /// Run `tilemaker` to convert a PBF file into the MBTiles at `cfg.mbtiles_path`.
 /// Downloads the PBF from `cfg.pbf_url` if it is not already present locally.
+///
+/// Fix 2: probes tilemaker on PATH BEFORE downloading the multi-GB PBF so a
+/// missing binary aborts early without wasting bandwidth.
+/// Fix 3: default config/process paths are `../../tiles/{config,process}` to
+/// match the app CWD (`rust/src-tauri`), consistent with the mbtiles default.
+///
 /// Returns an error if tilemaker is unavailable, config files are missing, or
 /// the command exits non-zero.
 async fn run_tilemaker_real(cfg: &ProvisionCfg) -> anyhow::Result<()> {
+    // Fix 3: align defaults to ../../tiles/ (CWD is rust/src-tauri)
     let config = cfg
         .tilemaker_config
         .clone()
-        .unwrap_or_else(|| "tiles/config.json".into());
+        .unwrap_or_else(|| "../../tiles/config.json".into());
     let process = cfg
         .tilemaker_process
         .clone()
-        .unwrap_or_else(|| "tiles/process.lua".into());
+        .unwrap_or_else(|| "../../tiles/process.lua".into());
+
     if !std::path::Path::new(&config).exists() || !std::path::Path::new(&process).exists() {
         anyhow::bail!("tilemaker config/process not found ({config} / {process})");
     }
+
+    // Fix 2: probe tilemaker BEFORE downloading the multi-GB PBF
+    let probe = tokio::process::Command::new("tilemaker")
+        .arg("--help")
+        .output()
+        .await;
+    if probe.is_err() {
+        anyhow::bail!("tilemaker not on PATH");
+    }
+
     let pbf_url = cfg
         .pbf_url
         .clone()
