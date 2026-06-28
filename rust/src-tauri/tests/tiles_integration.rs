@@ -23,6 +23,7 @@ async fn serves_tiles_tilejson_and_204() {
     let t = reqwest::get(format!("{}/tiles/1/0/1.pbf", base)).await.unwrap();
     assert_eq!(t.status(), 200);
     assert_eq!(t.headers().get("content-encoding").unwrap(), "gzip");
+    assert_eq!(t.headers().get("content-type").unwrap(), "application/x-protobuf");
 
     // absent tile → 204
     let miss = reqwest::get(format!("{}/tiles/1/5/5.pbf", base)).await.unwrap();

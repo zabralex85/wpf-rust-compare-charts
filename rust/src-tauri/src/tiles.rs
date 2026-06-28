@@ -81,6 +81,7 @@ use std::sync::{Arc, Mutex};
 struct AppState {
     mbtiles: Option<Arc<Mutex<MbTiles>>>,
     glyphs: Option<String>,
+    tile_base: String,
 }
 
 pub async fn serve(
@@ -101,7 +102,9 @@ pub async fn serve_with_listener(
         Some(p) => MbTiles::open(&p).ok().map(|m| Arc::new(Mutex::new(m))),
         None => None,
     };
-    let state = AppState { mbtiles: mb, glyphs };
+    let local = listener.local_addr()?;
+    let tile_base = format!("http://{}", local);
+    let state = AppState { mbtiles: mb, glyphs, tile_base };
     let app = Router::new()
         .route("/tiles.json", get(tilejson_handler))
         .route("/tiles/:z/:x/:y", get(tile_handler))
@@ -114,10 +117,11 @@ pub async fn serve_with_listener(
 async fn tilejson_handler(State(s): State<AppState>) -> impl IntoResponse {
     match &s.mbtiles {
         Some(m) => {
+            let tiles_url = format!("{}/tiles/{{z}}/{{x}}/{{y}}.pbf", s.tile_base);
             let tj = m
                 .lock()
                 .unwrap()
-                .tilejson("http://127.0.0.1:9002/tiles/{z}/{x}/{y}.pbf");
+                .tilejson(&tiles_url);
             axum::Json(tj).into_response()
         }
         None => axum::Json(serde_json::json!({})).into_response(),
@@ -155,8 +159,11 @@ async fn glyph_handler(
         Some(d) => d,
         None => return StatusCode::NOT_FOUND.into_response(),
     };
+    if fontstack.contains("..") || range.contains("..") || fontstack.contains('/') || range.contains('/') {
+        return StatusCode::NOT_FOUND.into_response();
+    }
     let path = std::path::Path::new(dir).join(&fontstack).join(&range);
-    match std::fs::read(path) {
+    match tokio::fs::read(&path).await {
         Ok(bytes) => (
             StatusCode::OK,
             [(header::CONTENT_TYPE, "application/x-protobuf")],
