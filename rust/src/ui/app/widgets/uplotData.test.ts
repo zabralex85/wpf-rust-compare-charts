@@ -1,0 +1,47 @@
+import { describe, it, expect } from "vitest";
+import { toUPlotData, scrollWindow, fmtElapsed, fmtElapsedMs } from "./uplotData";
+
+describe("toUPlotData", () => {
+  it("converts ms→s, index-aligned", () => {
+    expect(toUPlotData([0, 1000, 2000], [1, 2, 3])).toEqual([[0, 1, 2], [1, 2, 3]]);
+  });
+  it("min-length guards + empty", () => {
+    expect(toUPlotData([0, 1000], [9])).toEqual([[0], [9]]);
+    expect(toUPlotData([], [])).toEqual([[], []]);
+  });
+});
+describe("scrollWindow", () => {
+  it("is [last-window, last] in seconds once the span exceeds the window", () => {
+    expect(scrollWindow([0, 5000, 10000], 4000)).toEqual([6, 10]); // (10000-4000)/1000 .. 10000/1000
+  });
+  it("anchors left to first sample while data is shorter than the window", () => {
+    // 5.3s of data in a 60s window → fill the width [first, last], do not pin to the right
+    expect(scrollWindow([0, 1000, 5300], 60000)).toEqual([0, 5.3]);
+  });
+  it("empty → [0, window s]", () => {
+    expect(scrollWindow([], 60000)).toEqual([0, 60]);
+  });
+});
+describe("fmtElapsed", () => {
+  it("formats elapsed seconds as m:ss", () => {
+    expect(fmtElapsed(0)).toBe("0:00");
+    expect(fmtElapsed(5)).toBe("0:05");
+    expect(fmtElapsed(70)).toBe("1:10");
+    expect(fmtElapsed(600)).toBe("10:00");
+  });
+  it("floors sub-seconds and clamps negatives", () => {
+    expect(fmtElapsed(12.9)).toBe("0:12");
+    expect(fmtElapsed(-3)).toBe("0:00");
+  });
+});
+describe("fmtElapsedMs", () => {
+  it("formats elapsed time as m:ss.mmm", () => {
+    expect(fmtElapsedMs(0)).toBe("0:00.000");
+    expect(fmtElapsedMs(27.3)).toBe("0:27.300");
+    expect(fmtElapsedMs(70.05)).toBe("1:10.050");
+    expect(fmtElapsedMs(600)).toBe("10:00.000");
+  });
+  it("clamps negatives", () => {
+    expect(fmtElapsedMs(-1)).toBe("0:00.000");
+  });
+});

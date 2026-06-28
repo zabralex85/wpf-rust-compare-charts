@@ -81,12 +81,12 @@ export function WidgetGrid({ store, scalesOn }: WidgetGridProps): React.JSX.Elem
             />
           );
         } else if (w.kind === "line") {
+          // xs are ms-from-ride-start; LineChart (uPlot) converts ms→s internally.
           const { xs, ys } = store.series(w.channelId!)?.arrays() ?? { xs: [], ys: [] };
-          const xsSec = xs.map((x) => x / 1000);
           inner = (
             <LineChart
               name={w.name}
-              xs={xsSec}
+              xs={xs}
               ys={ys}
               unit={w.unit}
               value={store.latest(w.channelId!) ?? 0}
