@@ -62,6 +62,7 @@ export function MapWidget({ lat, lon }: MapWidgetProps): React.JSX.Element {
     if (!osm) return;
     const el = elRef.current;
     if (!el || el.clientWidth === 0 || el.clientHeight === 0) return;
+    let cancelled = false;
     const map = new maplibregl.Map({
       container: el,
       style: mapStyle(TILES_BASE),
@@ -70,6 +71,7 @@ export function MapWidget({ lat, lon }: MapWidgetProps): React.JSX.Element {
       // attributionControl defaults to showing attribution in MapLibre v5
     });
     map.on("load", () => {
+      if (cancelled) return;
       map.addSource("track", { type: "geojson", data: trackToGeoJSON(lat, lon) });
       map.addLayer({
         id: "track-line",
@@ -93,6 +95,7 @@ export function MapWidget({ lat, lon }: MapWidgetProps): React.JSX.Element {
     });
     mapRef.current = map;
     return () => {
+      cancelled = true;
       map.remove();
       mapRef.current = null;
     };
