@@ -6,6 +6,7 @@ export interface SocketLike {
   onmessage: ((ev: { data: string }) => void) | null;
   onclose: (() => void) | null;
   onerror: (() => void) | null;
+  send(data: string): void;
   close(): void;
 }
 
@@ -22,7 +23,7 @@ export interface WsClientOptions {
   reconnectDelayMs?: number;
 }
 
-export function createWsClient(opts: WsClientOptions): { stop(): void } {
+export function createWsClient(opts: WsClientOptions): { stop(): void; send(json: string): void } {
   const factory = opts.socketFactory ?? ((u) => new WebSocket(u) as unknown as SocketLike);
   const schedule = opts.schedule ?? ((fn, ms) => setTimeout(fn, ms));
   const delay = opts.reconnectDelayMs ?? 1000;
@@ -48,5 +49,8 @@ export function createWsClient(opts: WsClientOptions): { stop(): void } {
   };
 
   connect();
-  return { stop() { stopped = true; current?.close(); } };
+  return {
+    stop() { stopped = true; current?.close(); },
+    send(json: string) { current?.send(json); },
+  };
 }

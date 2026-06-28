@@ -7,6 +7,7 @@ class FakeSocket implements SocketLike {
   onclose: (() => void) | null = null;
   onerror: (() => void) | null = null;
   closed = false;
+  send = vi.fn();
   close() { this.closed = true; }
   emit(data: unknown) { this.onmessage?.({ data: JSON.stringify(data) }); }
 }
@@ -56,5 +57,13 @@ describe("createWsClient", () => {
     createWsClient({ url: "ws://x", onMeta: vi.fn(), onFrame: vi.fn(), onMetrics: vi.fn(), socketFactory: () => sock });
     sock.onerror?.();
     expect(sock.closed).toBe(true);
+  });
+
+  it("client.send() forwards to the socket", () => {
+    const sock = new FakeSocket();
+    const client = createWsClient({ url: "ws://x", onMeta: vi.fn(), onFrame: vi.fn(), onMetrics: vi.fn(), socketFactory: () => sock });
+    client.send('{"type":"cmd"}');
+    expect(sock.send).toHaveBeenCalledWith('{"type":"cmd"}');
+    expect(sock.send).toHaveBeenCalledOnce();
   });
 });
