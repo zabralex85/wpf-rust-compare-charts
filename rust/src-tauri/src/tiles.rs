@@ -68,6 +68,105 @@ impl MbTiles {
     }
 }
 
+use axum::{
+    extract::{Path, State},
+    http::{header, StatusCode},
+    response::IntoResponse,
+    routing::get,
+    Router,
+};
+use std::sync::{Arc, Mutex};
+
+#[derive(Clone)]
+struct AppState {
+    mbtiles: Option<Arc<Mutex<MbTiles>>>,
+    glyphs: Option<String>,
+}
+
+pub async fn serve(
+    addr: std::net::SocketAddr,
+    mbtiles: Option<String>,
+    glyphs: Option<String>,
+) -> anyhow::Result<()> {
+    let listener = tokio::net::TcpListener::bind(addr).await?;
+    serve_with_listener(listener, mbtiles, glyphs).await
+}
+
+pub async fn serve_with_listener(
+    listener: tokio::net::TcpListener,
+    mbtiles: Option<String>,
+    glyphs: Option<String>,
+) -> anyhow::Result<()> {
+    let mb = match mbtiles {
+        Some(p) => MbTiles::open(&p).ok().map(|m| Arc::new(Mutex::new(m))),
+        None => None,
+    };
+    let state = AppState { mbtiles: mb, glyphs };
+    let app = Router::new()
+        .route("/tiles.json", get(tilejson_handler))
+        .route("/tiles/:z/:x/:y", get(tile_handler))
+        .route("/glyphs/:fontstack/:range", get(glyph_handler))
+        .with_state(state);
+    axum::serve(listener, app).await?;
+    Ok(())
+}
+
+async fn tilejson_handler(State(s): State<AppState>) -> impl IntoResponse {
+    match &s.mbtiles {
+        Some(m) => {
+            let tj = m
+                .lock()
+                .unwrap()
+                .tilejson("http://127.0.0.1:9002/tiles/{z}/{x}/{y}.pbf");
+            axum::Json(tj).into_response()
+        }
+        None => axum::Json(serde_json::json!({})).into_response(),
+    }
+}
+
+async fn tile_handler(
+    State(s): State<AppState>,
+    Path((z, x, y)): Path<(u32, u32, String)>,
+) -> impl IntoResponse {
+    let y = y.trim_end_matches(".pbf").parse::<u32>().unwrap_or(u32::MAX);
+    let blob = s
+        .mbtiles
+        .as_ref()
+        .and_then(|m| m.lock().unwrap().tile_xyz(z, x, y).ok().flatten());
+    match blob {
+        Some(bytes) => (
+            StatusCode::OK,
+            [
+                (header::CONTENT_TYPE, "application/x-protobuf"),
+                (header::CONTENT_ENCODING, "gzip"),
+            ],
+            bytes,
+        )
+            .into_response(),
+        None => StatusCode::NO_CONTENT.into_response(),
+    }
+}
+
+async fn glyph_handler(
+    State(s): State<AppState>,
+    Path((fontstack, range)): Path<(String, String)>,
+) -> impl IntoResponse {
+    let dir = match &s.glyphs {
+        Some(d) => d,
+        None => return StatusCode::NOT_FOUND.into_response(),
+    };
+    let path = std::path::Path::new(dir).join(&fontstack).join(&range);
+    match std::fs::read(path) {
+        Ok(bytes) => (
+            StatusCode::OK,
+            [(header::CONTENT_TYPE, "application/x-protobuf")],
+            bytes,
+        )
+            .into_response(),
+        Err(_) => StatusCode::NOT_FOUND.into_response(),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
