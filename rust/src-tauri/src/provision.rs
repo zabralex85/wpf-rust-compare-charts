@@ -5,7 +5,11 @@
 //! [`ensure_mbtiles`] wires the real side-effects.
 
 use std::future::Future;
-use std::process::Command;
+use std::pin::Pin;
+
+/// Boxed future returned by the `convert` injectable — avoids lifetime-parameter
+/// complications that arise when an async fn borrows its `&ProvisionCfg` arg.
+type ConvertFut<'a> = Pin<Box<dyn Future<Output = anyhow::Result<()>> + 'a>>;
 
 /// Configuration for the tileset provisioning chain.
 pub struct ProvisionCfg {
@@ -26,6 +30,9 @@ pub struct ProvisionCfg {
 ///
 /// `download` takes owned `String` params (not `&str`) to avoid higher-ranked
 /// trait bound lifetime complications with async closures.
+/// `convert` returns a `Pin<Box<dyn Future>>` (see [`ConvertFut`]) so it can
+/// borrow `cfg` across await points without requiring a lifetime-parameterized
+/// generic type.
 pub(crate) async fn ensure_mbtiles_with<EF, DF, DFut, CF>(
     exists: EF,
     download: DF,
@@ -36,7 +43,7 @@ where
     EF: Fn(&str) -> bool,
     DF: Fn(String, String) -> DFut,
     DFut: Future<Output = anyhow::Result<()>>,
-    CF: Fn(&ProvisionCfg) -> anyhow::Result<()>,
+    CF: for<'a> Fn(&'a ProvisionCfg) -> ConvertFut<'a>,
 {
     let path = cfg.mbtiles_path.as_str();
 
@@ -56,7 +63,7 @@ where
 
     // Step 3 — build from source via tilemaker
     eprintln!("[provision] attempting tilemaker convert");
-    match convert(cfg) {
+    match convert(cfg).await {
         Ok(()) => return Some(path.to_string()),
         Err(e) => eprintln!("[provision] convert unavailable: {e}"),
     }
@@ -74,15 +81,16 @@ where
 pub async fn ensure_mbtiles(cfg: ProvisionCfg) -> Option<String> {
     ensure_mbtiles_with(
         |p| std::path::Path::new(p).exists(),
-        |u, d| download_to(u, d),
-        run_tilemaker_real,
+        download_to,
+        |cfg| Box::pin(run_tilemaker_real(cfg)),
         &cfg,
     )
     .await
 }
 
 /// Download `url` to `dest` via a streaming GET, writing to `dest.part` first,
-/// then atomically renaming on success. Reports progress via `eprintln!`.
+/// then atomically renaming on success. Reports progress via `eprintln!` at
+/// ~5% intervals to avoid flooding the log on large files.
 /// Never panics; propagates all errors via `anyhow::Result`.
 async fn download_to(url: String, dest: String) -> anyhow::Result<()> {
     use futures_util::StreamExt;
@@ -93,19 +101,21 @@ async fn download_to(url: String, dest: String) -> anyhow::Result<()> {
     let mut file = tokio::fs::File::create(&tmp).await?;
     let mut stream = resp.bytes_stream();
     let mut got: u64 = 0;
+    let mut last_logged_pct: i64 = -5; // force first log at 0%
     while let Some(chunk) = stream.next().await {
         let chunk = chunk?;
         file.write_all(&chunk).await?;
         got += chunk.len() as u64;
         if total > 0 {
-            eprintln!(
-                "[provision] {:.0}% ({}/{} bytes)",
-                got as f64 / total as f64 * 100.0,
-                got,
-                total
-            );
+            let pct = (got as f64 / total as f64 * 100.0) as i64;
+            if pct >= last_logged_pct + 5 {
+                last_logged_pct = pct;
+                eprintln!("[provision] {pct}% ({got}/{total} bytes)");
+            }
         }
     }
+    // Always log the final done line
+    eprintln!("[provision] 100% done — {got} bytes written to {dest}");
     file.flush().await?;
     tokio::fs::rename(&tmp, &dest).await?;
     Ok(())
@@ -115,7 +125,7 @@ async fn download_to(url: String, dest: String) -> anyhow::Result<()> {
 /// Downloads the PBF from `cfg.pbf_url` if it is not already present locally.
 /// Returns an error if tilemaker is unavailable, config files are missing, or
 /// the command exits non-zero.
-fn run_tilemaker_real(cfg: &ProvisionCfg) -> anyhow::Result<()> {
+async fn run_tilemaker_real(cfg: &ProvisionCfg) -> anyhow::Result<()> {
     let config = cfg
         .tilemaker_config
         .clone()
@@ -131,14 +141,21 @@ fn run_tilemaker_real(cfg: &ProvisionCfg) -> anyhow::Result<()> {
         .pbf_url
         .clone()
         .ok_or_else(|| anyhow::anyhow!("no pbf_url configured"))?;
-    let pbf = "tiles/israel-and-palestine-latest.osm.pbf";
-    if !std::path::Path::new(pbf).exists() {
-        tauri_blocking_download(&pbf_url, pbf)?;
+
+    // Derive the PBF path next to the mbtiles output file
+    let mbtiles_parent = std::path::Path::new(&cfg.mbtiles_path)
+        .parent()
+        .unwrap_or_else(|| std::path::Path::new("."));
+    let pbf_path = mbtiles_parent.join("israel-and-palestine-latest.osm.pbf");
+    let pbf = pbf_path.to_string_lossy().into_owned();
+
+    if !std::path::Path::new(&pbf).exists() {
+        download_to(pbf_url, pbf.clone()).await?;
     }
-    let status = Command::new("tilemaker")
+    let status = tokio::process::Command::new("tilemaker")
         .args([
             "--input",
-            pbf,
+            &pbf,
             "--output",
             &cfg.mbtiles_path,
             "--config",
@@ -147,18 +164,12 @@ fn run_tilemaker_real(cfg: &ProvisionCfg) -> anyhow::Result<()> {
             &process,
         ])
         .status()
+        .await
         .map_err(|e| anyhow::anyhow!("tilemaker not runnable: {e}"))?;
     if !status.success() {
         anyhow::bail!("tilemaker exited with {status}");
     }
     Ok(())
-}
-
-/// Blocking shim: runs `download_to` from synchronous code using Tauri's runtime.
-fn tauri_blocking_download(url: &str, dest: &str) -> anyhow::Result<()> {
-    let url = url.to_string();
-    let dest = dest.to_string();
-    tauri::async_runtime::block_on(download_to(url, dest))
 }
 
 #[cfg(test)]
@@ -186,7 +197,7 @@ mod tests {
                 c.lock().unwrap().push("dl");
                 async { Ok(()) }
             },
-            |_cfg| Ok(()),
+            |_cfg| Box::pin(async { Ok(()) }),
             &cfg(Some("http://x")),
         )
         .await;
@@ -199,7 +210,7 @@ mod tests {
         let out = ensure_mbtiles_with(
             |_p| false,
             |_u, _d| async { Ok(()) },
-            |_cfg| Err(anyhow::anyhow!("no tilemaker")),
+            |_cfg| Box::pin(async { Err(anyhow::anyhow!("no tilemaker")) }),
             &cfg(Some("http://x")),
         )
         .await;
@@ -211,7 +222,7 @@ mod tests {
         let out = ensure_mbtiles_with(
             |_p| false,
             |_u, _d| async { Err(anyhow::anyhow!("unused")) },
-            |_cfg| Ok(()),
+            |_cfg| Box::pin(async { Ok(()) }),
             &cfg(None),
         )
         .await;
@@ -223,7 +234,7 @@ mod tests {
         let out = ensure_mbtiles_with(
             |_p| false,
             |_u, _d| async { Err(anyhow::anyhow!("dl fail")) },
-            |_cfg| Err(anyhow::anyhow!("no tilemaker")),
+            |_cfg| Box::pin(async { Err(anyhow::anyhow!("no tilemaker")) }),
             &cfg(Some("http://x")),
         )
         .await;
