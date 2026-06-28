@@ -59,3 +59,8 @@ nunit-*.xml
 # Agent tooling scratch
 .agentic-security/
 .superpowers/
+
+# Tile pipeline (gitignored production builds; test fixture committed)
+tiles/israel.mbtiles
+tiles/*.osm.pbf
+tiles/glyphs/
