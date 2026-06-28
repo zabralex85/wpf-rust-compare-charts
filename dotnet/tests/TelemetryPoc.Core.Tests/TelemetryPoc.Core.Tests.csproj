@@ -22,6 +22,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\TelemetryPoc.Core\TelemetryPoc.Core.csproj" />
+    <ProjectReference Include="..\..\src\TelemetryPoc.App.Viz\TelemetryPoc.App.Viz.csproj" />
   </ItemGroup>
 
 </Project>
