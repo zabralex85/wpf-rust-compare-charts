@@ -12,17 +12,6 @@ fn greet(name: &str) -> String {
     format!("Hello, {}! You've been greeted from Rust!", name)
 }
 
-/// Auto-resolve the MBTiles path: prefer the full Israel build, fall back to the
-/// committed test fixture, else None (the tile server then serves 204s).
-fn resolve_default_mbtiles() -> Option<String> {
-    for cand in ["../../tiles/israel.mbtiles", "../../tiles/fixture.mbtiles"] {
-        if std::path::Path::new(cand).exists() {
-            return Some(cand.to_string());
-        }
-    }
-    None
-}
-
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -54,9 +43,21 @@ pub fn run() {
                 .ok()
                 .and_then(|s| s.parse().ok())
                 .unwrap_or(9002);
-            let mbtiles = std::env::var("RIDE_MBTILES")
-                .ok()
-                .or_else(resolve_default_mbtiles);
+            // Ensure the offline tileset exists (blocking on first run):
+            // local file → download RIDE_MBTILES_URL → tilemaker convert → none.
+            let mbtiles = tauri::async_runtime::block_on(crate::provision::ensure_mbtiles(
+                crate::provision::ProvisionCfg {
+                    mbtiles_path: std::env::var("RIDE_MBTILES")
+                        .unwrap_or_else(|_| "../../tiles/israel.mbtiles".into()),
+                    mbtiles_url: std::env::var("RIDE_MBTILES_URL").ok(),
+                    pbf_url: Some(std::env::var("RIDE_PBF_URL").unwrap_or_else(|_| {
+                        "https://download.geofabrik.de/asia/israel-and-palestine-latest.osm.pbf"
+                            .into()
+                    })),
+                    tilemaker_config: std::env::var("RIDE_TILEMAKER_CONFIG").ok(),
+                    tilemaker_process: std::env::var("RIDE_TILEMAKER_PROCESS").ok(),
+                },
+            ));
             let glyphs = std::env::var("RIDE_GLYPHS")
                 .ok()
                 .or_else(|| Some("../../tiles/glyphs".to_string()));
