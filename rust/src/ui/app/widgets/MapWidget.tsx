@@ -25,6 +25,24 @@ const TICK = 8;
 /** Local tile server base URL — matches the Rust default RIDE_TILES_PORT=9002 */
 const TILES_BASE = "http://127.0.0.1:9002";
 
+/** Fit the map to the flight track's bounding box (with padding); no-op when empty.
+ * Without this the track can be a sub-pixel dot at the fixed initial zoom. */
+function fitTrack(map: maplibregl.Map, lat: number[], lon: number[]): void {
+  const n = Math.min(lat.length, lon.length);
+  if (n === 0) return;
+  let minLa = Infinity, maxLa = -Infinity, minLo = Infinity, maxLo = -Infinity;
+  for (let i = 0; i < n; i++) {
+    if (lat[i] < minLa) minLa = lat[i];
+    if (lat[i] > maxLa) maxLa = lat[i];
+    if (lon[i] < minLo) minLo = lon[i];
+    if (lon[i] > maxLo) maxLo = lon[i];
+  }
+  map.fitBounds(
+    [[minLo, minLa], [maxLo, maxLa]],
+    { padding: 40, maxZoom: 15, duration: 0 },
+  );
+}
+
 /** WebGL available? jsdom (unit tests) returns false → MapLibre is never constructed there.
  * A real browser / WebView2 returns true even if the container is momentarily 0-size. */
 function hasWebGL(): boolean {
@@ -114,7 +132,8 @@ export function MapWidget({ lat, lon }: MapWidgetProps): React.JSX.Element {
         id: "track-line",
         type: "line",
         source: "track",
-        paint: { "line-color": "#38c5e0", "line-width": 2.5 },
+        layout: { "line-cap": "round", "line-join": "round" },
+        paint: { "line-color": "#38c5e0", "line-width": 4 },
       });
       // live-position marker: a point source + circle layer at the last point
       map.addSource("pos", { type: "geojson", data: posPoint(lat, lon) });
@@ -129,6 +148,9 @@ export function MapWidget({ lat, lon }: MapWidgetProps): React.JSX.Element {
           "circle-stroke-width": 2,
         },
       });
+      // Zoom/centre to the flight track (it can span only a few hundred metres —
+      // the fixed initial zoom would render it sub-pixel). The SVG map auto-fits too.
+      fitTrack(map, lat, lon);
     });
     mapRef.current = map;
     return () => {
@@ -147,7 +169,9 @@ export function MapWidget({ lat, lon }: MapWidgetProps): React.JSX.Element {
     const ps = map.getSource("pos") as maplibregl.GeoJSONSource | undefined;
     if (ts) ts.setData(trackToGeoJSON(lat, lon));
     if (ps) ps.setData(posPoint(lat, lon));
-  }, [lat, lon, osm]);
+    // `lat.length` is the live trigger: the store mutates the SAME array in place,
+    // so the array ref never changes — only the length grows as points arrive.
+  }, [lat, lon, lat.length, lon.length, osm]);
 
   return (
     <div data-testid="mapwidget" className="mapwidget-container">
