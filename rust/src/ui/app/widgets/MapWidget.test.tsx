@@ -72,5 +72,6 @@ describe("MapWidget component", () => {
     expect(document.querySelector(".mapwidget-osm")).not.toBeNull(); // overlay div present (leaflet itself no-ops in jsdom)
     fireEvent.click(screen.getByText("GRID VIEW"));
     expect(screen.getByText("OSM MAP")).toBeTruthy();
+    expect(document.querySelector(".mapwidget-osm")).toBeNull();
   });
 });

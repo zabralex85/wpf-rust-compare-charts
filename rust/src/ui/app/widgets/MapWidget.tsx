@@ -49,8 +49,9 @@ export function MapWidget({ lat, lon }: MapWidgetProps): React.JSX.Element {
       fillOpacity: 1,
     }).addTo(map);
     mapRef.current = map;
-    setTimeout(() => map.invalidateSize(), 60);
+    const sizeTimer = setTimeout(() => map.invalidateSize(), 60);
     return () => {
+      clearTimeout(sizeTimer);
       map.remove();
       mapRef.current = null;
       lineRef.current = null;
