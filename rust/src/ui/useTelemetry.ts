@@ -15,10 +15,23 @@ export interface TelemetrySnapshot {
 export function useTelemetry(url: string): TelemetrySnapshot {
   const storeRef = useRef<TelemetryStore | undefined>(undefined);
   const meterRef = useRef<FpsMeter | undefined>(undefined);
-  if (!storeRef.current) storeRef.current = new TelemetryStore();
+
+  // Detect mock mode once (pure read of URL, safe in render).
+  const isMock =
+    import.meta.env.DEV &&
+    typeof window !== "undefined" &&
+    new URLSearchParams(window.location.search).has("mock");
+
+  // Apply mock snapshot synchronously on first store creation so that
+  // child components (e.g., WidgetGrid → useWidgets) see populated channels
+  // on their very first mount.  The useEffect below re-applies it (idempotent).
+  if (!storeRef.current) {
+    storeRef.current = new TelemetryStore();
+    if (isMock) applyMockSnapshot(storeRef.current);
+  }
   if (!meterRef.current) meterRef.current = new FpsMeter();
 
-  const [status, setStatus] = useState<WsStatus>("connecting");
+  const [status, setStatus] = useState<WsStatus>(isMock ? "open" : "connecting");
   const [version, setVersion] = useState(0);
   const fpsRef = useRef(0);
   const ftRef = useRef(0);
@@ -26,10 +39,7 @@ export function useTelemetry(url: string): TelemetrySnapshot {
   useEffect(() => {
     const store = storeRef.current!;
     const meter = meterRef.current!;
-    const mock =
-      import.meta.env.DEV &&
-      typeof window !== "undefined" &&
-      new URLSearchParams(window.location.search).has("mock");
+    const mock = isMock;
 
     let client: ReturnType<typeof createWsClient> | undefined;
     if (mock) {
@@ -59,7 +69,8 @@ export function useTelemetry(url: string): TelemetrySnapshot {
       cancelAnimationFrame(raf);
       client?.stop();
     };
-  }, [url]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [url]); // isMock is a constant derived from window.location (never changes)
 
   return {
     store: storeRef.current,
