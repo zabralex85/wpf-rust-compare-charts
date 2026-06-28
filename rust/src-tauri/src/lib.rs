@@ -1,6 +1,7 @@
 pub mod db;
 pub mod frame;
 pub mod metrics;
+pub mod provision;
 pub mod replay;
 pub mod server;
 pub mod tiles;
