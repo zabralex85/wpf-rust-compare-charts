@@ -98,17 +98,24 @@ pub async fn serve_with_listener(
     mbtiles: Option<String>,
     glyphs: Option<String>,
 ) -> anyhow::Result<()> {
-    let mb = match mbtiles {
-        Some(p) => MbTiles::open(&p).ok().map(|m| Arc::new(Mutex::new(m))),
+    let mb = match &mbtiles {
+        Some(p) => MbTiles::open(p).ok().map(|m| Arc::new(Mutex::new(m))),
         None => None,
     };
     let local = listener.local_addr()?;
+    eprintln!(
+        "[tiles] server on {local} — mbtiles={} ({})",
+        mbtiles.as_deref().unwrap_or("<none>"),
+        if mb.is_some() { "open" } else { "absent/unreadable → 204" }
+    );
     let tile_base = format!("http://{}", local);
     let state = AppState { mbtiles: mb, glyphs, tile_base };
     let app = Router::new()
         .route("/tiles.json", get(tilejson_handler))
         .route("/tiles/:z/:x/:y", get(tile_handler))
         .route("/glyphs/:fontstack/:range", get(glyph_handler))
+        // MapLibre fetches tiles cross-origin (UI :1420 → tiles :9002); allow it.
+        .layer(tower_http::cors::CorsLayer::permissive())
         .with_state(state);
     axum::serve(listener, app).await?;
     Ok(())
