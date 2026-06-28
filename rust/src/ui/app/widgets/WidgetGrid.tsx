@@ -135,17 +135,16 @@ export function WidgetGrid({ store, scalesOn }: WidgetGridProps): React.JSX.Elem
               )}
             </div>
             <div className="widget-cell-body">{inner}</div>
-            {w.kind !== "map" && (
-              <div
-                className="widget-cell-resize"
-                onPointerDown={startResize(w)}
-                aria-label="resize"
-              >
-                <svg viewBox="0 0 10 10" width="9" height="9">
-                  <path d="M9.5 1 L9.5 9.5 L1 9.5" className="widget-cell-resize-glyph" />
-                </svg>
-              </div>
-            )}
+            {/* resize handle — all widget kinds (gauge square / line / map free) */}
+            <div
+              className="widget-cell-resize"
+              onPointerDown={startResize(w)}
+              aria-label="resize"
+            >
+              <svg viewBox="0 0 10 10" width="9" height="9">
+                <path d="M9.5 1 L9.5 9.5 L1 9.5" className="widget-cell-resize-glyph" />
+              </svg>
+            </div>
           </div>
         );
       })}

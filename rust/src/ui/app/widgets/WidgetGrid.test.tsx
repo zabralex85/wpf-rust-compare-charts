@@ -88,6 +88,17 @@ describe("WidgetGrid", () => {
     expect(screen.getByTestId("line-menu")).toBeTruthy();
   });
 
+  it("map cells have a resize handle but no toggle/remove", () => {
+    const store = makeStore();
+    const { container } = render(<WidgetGrid store={store} scalesOn={true} />);
+    const mapWidget = container.querySelector('[data-testid="mapwidget"]');
+    expect(mapWidget).not.toBeNull();
+    const mapCell = mapWidget!.closest("[data-widget]") as HTMLElement;
+    expect(mapCell.querySelector(".widget-cell-resize")).not.toBeNull();
+    expect(mapCell.querySelector('[data-act="toggle"]')).toBeNull();
+    expect(mapCell.querySelector('[data-act="remove"]')).toBeNull();
+  });
+
   it("× removes a widget and toggle switches a gauge to a line", () => {
     const store = makeStore();
     const { container } = render(<WidgetGrid store={store} scalesOn={true} />);
