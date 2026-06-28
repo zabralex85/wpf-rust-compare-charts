@@ -79,6 +79,9 @@ export function reorderWidgets(ws: LayoutWidget[], draggedId: string, targetId: 
 export function setSize(ws: LayoutWidget[], id: string, cols: number, rows: number): LayoutWidget[] {
   return ws.map((w) => {
     if (w.id !== id) return w;
+    if (w.kind === "map") {
+      return { ...w, cols: clamp(cols, 2, 8), rows: clamp(rows, 2, 6) };
+    }
     if (w.kind === "gauge") {
       const s = clamp(Math.max(cols, rows), 1, GAUGE_MAX);
       return { ...w, cols: s, rows: s };
