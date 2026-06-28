@@ -27,6 +27,9 @@ public sealed class RideSession : INotifyPropertyChanged
 
     public string? Error { get; private set; }
 
+    public event Action? MetaLoaded;
+    public event Action? Ticked;
+
     public void Start()
     {
         try
@@ -42,6 +45,7 @@ public sealed class RideSession : INotifyPropertyChanged
             var enums = TelemetryDb.LoadEnumValues(conn);
             var samples = TelemetryDb.LoadSamples(conn, channels);
             Store.ApplyMeta(channels, enums);
+            MetaLoaded?.Invoke();
             _player = new ReplayPlayer(samples, Store, _speed);
 
             _sw.Start();
@@ -72,6 +76,7 @@ public sealed class RideSession : INotifyPropertyChanged
 
         ClockText = MissionClock.Format(rideMs);
         TPlusText = MissionClock.FormatTPlus(rideMs);
+        Ticked?.Invoke();
     }
 
     public event PropertyChangedEventHandler? PropertyChanged;
