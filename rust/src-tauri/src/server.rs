@@ -85,7 +85,7 @@ async fn handle_client(
                 if let Message::Text(t) = msg {
                     if let Some(cmd) = crate::control::parse_command(&t) {
                         rc.lock().unwrap().apply(&cmd);
-                        rn.notify_waiters();
+                        rn.notify_one();
                     }
                 }
             }
@@ -127,9 +127,7 @@ async fn handle_client(
         if paused {
             let pause_start = now_ms();
             // Wait until any command arrives, then re-check paused.
-            // Using notify.notified() inside the loop: tokio's Notify captures
-            // any notify_waiters() call that happens between notified() creation
-            // and the first poll, so this pattern is safe against lost wakeups.
+            // notify_one() stores a permit even if no task is waiting, so a resume/seek that fires before we reach notified().await is not lost.
             loop {
                 notify.notified().await;
                 if !control.lock().unwrap().paused {
