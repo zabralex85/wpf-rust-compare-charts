@@ -20,7 +20,13 @@ tilemaker --input israel-and-palestine-latest.osm.pbf \
 `config.json` / `process.lua`: tilemaker's OpenMapTiles-compatible resources.
 
 ## Glyphs (offline labels, gitignored)
-Noto Sans Regular/Bold glyph PBFs from the openmaptiles/fonts build → `tiles/glyphs/<fontstack>/<range>.pbf`
+The map style renders text from glyph PBFs (tilemaker does NOT produce them). Fetch the
+Noto Sans set into `tiles/glyphs/<fontstack>/<range>.pbf`:
+```bash
+./fetch-glyphs.sh          # downloads openmaptiles/fonts noto-sans.zip → tiles/glyphs/
+```
+The style's `place`/`transportation_name` labels use the romanized `name:latin`
+attribute (`Noto Sans Regular` has no Hebrew glyphs), falling back to the native `name`.
 
 ## Wire the app
 ```bash
