@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, it, expect, afterEach } from "vitest";
-import { render, cleanup } from "@testing-library/react";
+import { render, cleanup, fireEvent, screen } from "@testing-library/react";
 import { MapWidget } from "./MapWidget";
 
 afterEach(cleanup);
@@ -55,5 +55,23 @@ describe("MapWidget component", () => {
     const circles = container.querySelectorAll("circle");
     // at minimum the 3 range rings + 1 marker circle = 4
     expect(circles.length).toBeGreaterThanOrEqual(3);
+  });
+
+  it("renders compass, coords readout, and scale bar", () => {
+    const { getByText } = render(<MapWidget lat={[32.0853]} lon={[34.7818]} />);
+    expect(getByText("N↑")).toBeTruthy();
+    expect(getByText("32.0853°N 34.7818°E")).toBeTruthy();
+    expect(getByText("2 km")).toBeTruthy();
+  });
+
+  it("toggles the OSM button label and shows the leaflet overlay container", () => {
+    render(<MapWidget lat={[32.08]} lon={[34.78]} />);
+    const btn = screen.getByText("OSM MAP");
+    fireEvent.click(btn);
+    expect(screen.getByText("GRID VIEW")).toBeTruthy();
+    expect(document.querySelector(".mapwidget-osm")).not.toBeNull(); // overlay div present (leaflet itself no-ops in jsdom)
+    fireEvent.click(screen.getByText("GRID VIEW"));
+    expect(screen.getByText("OSM MAP")).toBeTruthy();
+    expect(document.querySelector(".mapwidget-osm")).toBeNull();
   });
 });

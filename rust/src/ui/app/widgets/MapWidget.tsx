@@ -1,6 +1,9 @@
 import type React from "react";
-import { useId } from "react";
+import { useId, useState, useEffect, useRef } from "react";
+import L from "leaflet";
+import "leaflet/dist/leaflet.css";
 import { projectTrack } from "./mapProj";
+import { fmtCoord } from "./geoFormat";
 
 interface MapWidgetProps {
   lat: number[];
@@ -20,9 +23,62 @@ const TICK = 8;
 export function MapWidget({ lat, lon }: MapWidgetProps): React.JSX.Element {
   const gridId = useId();
   const { path, last } = projectTrack(lat, lon);
+  const [osm, setOsm] = useState(false);
+  const elRef = useRef<HTMLDivElement>(null);
+  const mapRef = useRef<L.Map | null>(null);
+  const lineRef = useRef<L.Polyline | null>(null);
+  const markerRef = useRef<L.CircleMarker | null>(null);
+
+  // Mount/teardown Leaflet only while OSM is on AND the container has real size
+  // (jsdom reports 0 → unit tests never instantiate a real map).
+  useEffect(() => {
+    if (!osm) return;
+    const el = elRef.current;
+    if (!el || el.clientWidth === 0 || el.clientHeight === 0) return;
+    const map = L.map(el, { zoomControl: true, attributionControl: true }).setView([32.0853, 34.7818], 11);
+    L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
+      attribution: "© OpenStreetMap contributors",
+      maxZoom: 19,
+    }).addTo(map);
+    lineRef.current = L.polyline([], { color: "#38c5e0", weight: 2.5, opacity: 0.95 }) // #38c5e0 == --accent (Leaflet needs a literal, not a CSS var)
+      .addTo(map);
+    markerRef.current = L.circleMarker([32.0853, 34.7818], {
+      radius: 6,
+      color: "#0a0e14",
+      weight: 2,
+      fillColor: "#ffffff",
+      fillOpacity: 1,
+    }).addTo(map);
+    mapRef.current = map;
+    const sizeTimer = setTimeout(() => map.invalidateSize(), 60);
+    return () => {
+      clearTimeout(sizeTimer);
+      map.remove();
+      mapRef.current = null;
+      lineRef.current = null;
+      markerRef.current = null;
+    };
+  }, [osm]);
+
+  // Update the polyline + marker as the track grows
+  useEffect(() => {
+    const line = lineRef.current;
+    const marker = markerRef.current;
+    const map = mapRef.current;
+    if (!line || !marker || !map || lat.length === 0) return;
+    const pts: [number, number][] = lat.map((la, i) => [la, lon[i]]);
+    line.setLatLngs(pts);
+    const lastPt = pts[pts.length - 1];
+    marker.setLatLng(lastPt);
+    if (!map.getBounds().contains(lastPt)) map.panTo(lastPt, { animate: false });
+  }, [lat, lon, osm]);
 
   return (
     <div data-testid="mapwidget" className="mapwidget-container">
+      <button className="mapwidget-osm-toggle" onClick={() => setOsm((v) => !v)}>
+        {osm ? "GRID VIEW" : "OSM MAP"}
+      </button>
+      {osm && <div ref={elRef} className="mapwidget-osm" />}
       {/*
        * ViewBox: "55 145 480 350"
        * Covers (55,145)→(535,495), giving a 5 px margin around the
@@ -137,6 +193,10 @@ export function MapWidget({ lat, lon }: MapWidgetProps): React.JSX.Element {
           />
         )}
       </svg>
+      {/* geographic chrome overlays */}
+      <div className="mapwidget-compass">N↑</div>
+      <div className="mapwidget-coords">{fmtCoord(lat, lon)}</div>
+      <div className="mapwidget-scale"><span className="mapwidget-scale-bar" />2 km</div>
     </div>
   );
 }

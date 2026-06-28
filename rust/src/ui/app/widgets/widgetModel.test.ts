@@ -62,6 +62,15 @@ describe("setSize", () => {
   });
 });
 
+describe("setSize map", () => {
+  it("clamps a map to cols[2,8]/rows[2,6], free aspect", () => {
+    const m = (over = {}) => ({ id: "m", kind: "map" as const, name: "Map", unit: "", cols: 4, rows: 4, col: 1, row: 1, zoom: 1, ...over });
+    expect(setSize([m()], "m", 99, 99)[0]).toMatchObject({ cols: 8, rows: 6 });
+    expect(setSize([m()], "m", 1, 1)[0]).toMatchObject({ cols: 2, rows: 2 });
+    expect(setSize([m()], "m", 5, 3)[0]).toMatchObject({ cols: 5, rows: 3 }); // not forced square
+  });
+});
+
 describe("resizeW", () => {
   it("is a no-op on gauges and relative+clamped on lines", () => {
     expect(resizeW([g("a")], "a", 2, 2)[0]).toMatchObject({ cols: 1, rows: 1 });
