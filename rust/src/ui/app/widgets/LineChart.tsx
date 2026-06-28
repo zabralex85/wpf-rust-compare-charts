@@ -3,7 +3,7 @@ import { useRef, useEffect } from "react";
 import uPlot from "uplot";
 import "uplot/dist/uPlot.min.css";
 import { fmtNum } from "./gaugeViz";
-import { toUPlotData, scrollWindow, fmtElapsed } from "./uplotData";
+import { toUPlotData, scrollWindow, fmtElapsedMs } from "./uplotData";
 import { lineOpts } from "./uplotOpts";
 
 const BASE_WINDOW_MS = 60_000; // 60s default scrolling window
@@ -32,7 +32,7 @@ function tooltipPlugin(unit: string): uPlot.Plugin {
         const xv = u.data[0][idx];
         const yv = u.data[1][idx];
         if (xv == null || yv == null) { tip.style.display = "none"; return; }
-        tip.textContent = `${fmtElapsed(xv)} · ${fmtNum(yv)} ${unit}`;
+        tip.textContent = `${fmtElapsedMs(xv)} · ${fmtNum(yv)} ${unit}`;
         tip.style.display = "block";
         tip.style.left = `${left}px`;
         tip.style.top = `${top}px`;

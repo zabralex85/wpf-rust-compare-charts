@@ -15,6 +15,16 @@ export function fmtElapsed(sec: number): string {
   return m + ":" + String(r).padStart(2, "0");
 }
 
+// Same as fmtElapsed but with millisecond precision — for the hover readout
+// where 10 Hz samples are 100 ms apart.
+export function fmtElapsedMs(sec: number): string {
+  const totalMs = Math.max(0, Math.round(sec * 1000));
+  const m = Math.floor(totalMs / 60000);
+  const s = Math.floor((totalMs % 60000) / 1000);
+  const ms = totalMs % 1000;
+  return m + ":" + String(s).padStart(2, "0") + "." + String(ms).padStart(3, "0");
+}
+
 export function scrollWindow(xsMs: number[], windowMs: number): [number, number] {
   const w = Math.max(1, windowMs);
   if (xsMs.length === 0) return [0, w / 1000];
