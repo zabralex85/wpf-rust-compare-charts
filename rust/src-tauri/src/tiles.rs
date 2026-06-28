@@ -151,6 +151,20 @@ async fn tile_handler(
     }
 }
 
+/// Whitelist guard for glyph path segments.
+///
+/// Accepts only non-empty strings whose every character is ASCII alphanumeric,
+/// space, underscore, hyphen, or dot — AND that do not contain "..".
+/// Rejects backslashes, forward slashes, percent signs, and every other
+/// character that could be used for path traversal (including URL-decoded
+/// variants such as `\` from `%5c` and `/` from `%2f`).
+pub(crate) fn safe_seg(s: &str) -> bool {
+    !s.is_empty()
+        && s.chars()
+            .all(|c| c.is_ascii_alphanumeric() || matches!(c, ' ' | '_' | '-' | '.'))
+        && !s.contains("..")
+}
+
 async fn glyph_handler(
     State(s): State<AppState>,
     Path((fontstack, range)): Path<(String, String)>,
@@ -159,7 +173,7 @@ async fn glyph_handler(
         Some(d) => d,
         None => return StatusCode::NOT_FOUND.into_response(),
     };
-    if fontstack.contains("..") || range.contains("..") || fontstack.contains('/') || range.contains('/') {
+    if !safe_seg(&fontstack) || !safe_seg(&range) {
         return StatusCode::NOT_FOUND.into_response();
     }
     let path = std::path::Path::new(dir).join(&fontstack).join(&range);
@@ -178,6 +192,50 @@ async fn glyph_handler(
 mod tests {
     use super::*;
     const FIX: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/../../tiles/fixture.mbtiles");
+
+    // --- safe_seg whitelist ---
+
+    #[test]
+    fn safe_seg_accepts_valid_fontstack_and_range() {
+        assert!(safe_seg("Noto Sans Regular"));
+        assert!(safe_seg("0-255.pbf"));
+        assert!(safe_seg("Open_Sans-Bold"));
+        assert!(safe_seg("a"));
+    }
+
+    #[test]
+    fn safe_seg_rejects_dotdot() {
+        assert!(!safe_seg(".."));
+        assert!(!safe_seg("../etc"));
+        assert!(!safe_seg("foo..bar"));
+    }
+
+    #[test]
+    fn safe_seg_rejects_slash() {
+        assert!(!safe_seg("a/b"));
+        assert!(!safe_seg("/etc/passwd"));
+    }
+
+    #[test]
+    fn safe_seg_rejects_backslash() {
+        // Windows path-traversal vector: backslash causes Path::join to treat
+        // the segment as drive-relative on Windows.
+        assert!(!safe_seg(r"\windows\system32"));
+        assert!(!safe_seg(r"a\b"));
+    }
+
+    #[test]
+    fn safe_seg_rejects_percent() {
+        // URL-encoded traversal (%2f = '/', %5c = '\') must be rejected even
+        // after axum's URL-decoding, because '%' itself is not in the whitelist.
+        assert!(!safe_seg("%2f"));
+        assert!(!safe_seg("%5c"));
+    }
+
+    #[test]
+    fn safe_seg_rejects_empty() {
+        assert!(!safe_seg(""));
+    }
 
     #[test]
     fn reads_present_tile_with_yflip() {

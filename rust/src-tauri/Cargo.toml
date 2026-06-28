@@ -32,5 +32,5 @@ axum = "0.7"
 
 [dev-dependencies]
 tokio = { version = "1", features = ["rt-multi-thread", "macros", "sync", "time", "net"] }
-reqwest = "0.12"
+reqwest = { version = "0.12", default-features = false }
 
