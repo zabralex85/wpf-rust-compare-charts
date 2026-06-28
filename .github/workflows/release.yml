@@ -1,0 +1,75 @@
+name: Release
+
+# Auto-build release artifacts for both stacks when a version tag is pushed.
+# Tag a release:  git tag v0.1.0 && git push origin v0.1.0
+# (workflow_dispatch is provided for manual test runs; real releases come from tags.)
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+permissions:
+  contents: write # needed to create/update the GitHub Release
+
+jobs:
+  # ---- Rust / Tauri desktop app → Windows installer (.msi + NSIS .exe) ----
+  release-rust:
+    name: Release Rust (Tauri)
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      # Cache cargo to keep the (slow) first Tauri build reasonable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: rust/src-tauri
+
+      - name: Install frontend dependencies
+        working-directory: rust
+        run: npm ci
+
+      - name: Build + publish Tauri installers
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          projectPath: rust
+          tagName: ${{ github.ref_name }}
+          releaseName: "INU-MONITOR ${{ github.ref_name }}"
+          releaseDraft: false
+          prerelease: false
+
+  # ---- .NET / WPF app → framework-dependent win-x64 publish (zipped) ----
+  release-dotnet:
+    name: Release .NET (WPF)
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Publish WPF app (win-x64, framework-dependent)
+        run: >
+          dotnet publish dotnet/src/TelemetryPoc.App/TelemetryPoc.App.csproj
+          -c Release -r win-x64 --self-contained false
+          -o publish/TelemetryPoc.App
+
+      - name: Zip the published app
+        run: Compress-Archive -Path publish/TelemetryPoc.App/* -DestinationPath TelemetryPoc.App-${{ github.ref_name }}-win-x64.zip
+
+      - name: Attach to the GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          files: TelemetryPoc.App-${{ github.ref_name }}-win-x64.zip
+          draft: false
+          prerelease: false
