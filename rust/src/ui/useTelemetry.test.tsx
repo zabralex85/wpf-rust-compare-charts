@@ -27,4 +27,26 @@ describe("useTelemetry", () => {
       window.history.pushState({}, "", "/");
     }
   });
+
+  it("exposes a send function on the snapshot", () => {
+    window.history.pushState({}, "", "/?mock=1");
+    try {
+      const { result } = renderHook(() => useTelemetry("ws://127.0.0.1:9999"));
+      expect(typeof result.current.send).toBe("function");
+    } finally {
+      window.history.pushState({}, "", "/");
+    }
+  });
+
+  it("send is a no-op in mock mode and does not throw", () => {
+    window.history.pushState({}, "", "/?mock=1");
+    try {
+      const { result } = renderHook(() => useTelemetry("ws://127.0.0.1:9999"));
+      expect(() =>
+        result.current.send('{"type":"cmd","action":"pause"}')
+      ).not.toThrow();
+    } finally {
+      window.history.pushState({}, "", "/");
+    }
+  });
 });
