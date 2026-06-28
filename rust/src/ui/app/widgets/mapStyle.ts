@@ -36,7 +36,7 @@ export function mapStyle(tilesBase: string): StyleSpecification {
         source: "basemap",
         "source-layer": "water",
         paint: {
-          "fill-color": "#0d1a24",
+          "fill-color": "#16384f",
         },
       },
       // ── Landcover (parks, vegetation) ──────────────────────────────────────
@@ -80,7 +80,7 @@ export function mapStyle(tilesBase: string): StyleSpecification {
         source: "basemap",
         "source-layer": "transportation",
         paint: {
-          "line-color": "#2a2f3a",
+          "line-color": "#5b6470",
           "line-width": 1.5,
         },
       },
@@ -91,8 +91,8 @@ export function mapStyle(tilesBase: string): StyleSpecification {
         source: "basemap",
         "source-layer": "building",
         paint: {
-          "fill-color": "#141c24",
-          "fill-opacity": 0.7,
+          "fill-color": "#232d38",
+          "fill-opacity": 0.8,
         },
       },
     ],

@@ -25,6 +25,17 @@ const TICK = 8;
 /** Local tile server base URL — matches the Rust default RIDE_TILES_PORT=9002 */
 const TILES_BASE = "http://127.0.0.1:9002";
 
+/** WebGL available? jsdom (unit tests) returns false → MapLibre is never constructed there.
+ * A real browser / WebView2 returns true even if the container is momentarily 0-size. */
+function hasWebGL(): boolean {
+  try {
+    const c = document.createElement("canvas");
+    return !!(c.getContext("webgl2") || c.getContext("webgl"));
+  } catch {
+    return false;
+  }
+}
+
 type PointFeature = {
   type: "Feature";
   properties: Record<string, never>;
@@ -56,12 +67,14 @@ export function MapWidget({ lat, lon }: MapWidgetProps): React.JSX.Element {
   const elRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<maplibregl.Map | null>(null);
 
-  // Mount/teardown MapLibre only while OSM is on AND the container has real size
-  // (jsdom reports 0 → unit tests never instantiate a real map).
+  // Mount/teardown MapLibre while OSM is on. Guard on WebGL availability (not
+  // container size): jsdom has no WebGL so unit tests never construct a map, but
+  // a real WebView mounts even if the overlay is momentarily 0-size (a ResizeObserver
+  // + resize() below paints it once layout settles).
   useEffect(() => {
     if (!osm) return;
     const el = elRef.current;
-    if (!el || el.clientWidth === 0 || el.clientHeight === 0) return;
+    if (!el || !hasWebGL()) return;
     let cancelled = false;
     const map = new maplibregl.Map({
       container: el,
@@ -70,8 +83,32 @@ export function MapWidget({ lat, lon }: MapWidgetProps): React.JSX.Element {
       zoom: 9,
       // attributionControl defaults to showing attribution in MapLibre v5
     });
+    // WebView2 collapses the %-height chain → the overlay reports height 0.
+    // Force a concrete pixel size from the nearest non-zero-height ancestor.
+    const fit = (): void => {
+      let h = 0;
+      let node: HTMLElement | null = el.parentElement;
+      while (node && h === 0) {
+        h = node.clientHeight;
+        node = node.parentElement;
+      }
+      if (h > 0) {
+        el.style.height = `${h}px`;
+        el.style.width = `${el.parentElement?.clientWidth ?? el.clientWidth}px`;
+      }
+      map.resize();
+    };
+    fit();
+    // Repaint when the overlay gets/changes size (it mounts at the cell's size,
+    // but layout may not be flushed at construction time).
+    const ro = new ResizeObserver(() => fit());
+    ro.observe(el);
     map.on("load", () => {
       if (cancelled) return;
+      fit();
+      // late re-fits in case layout settled after load
+      requestAnimationFrame(() => { if (!cancelled) fit(); });
+      setTimeout(() => { if (!cancelled) fit(); }, 300);
       map.addSource("track", { type: "geojson", data: trackToGeoJSON(lat, lon) });
       map.addLayer({
         id: "track-line",
@@ -96,6 +133,7 @@ export function MapWidget({ lat, lon }: MapWidgetProps): React.JSX.Element {
     mapRef.current = map;
     return () => {
       cancelled = true;
+      ro.disconnect();
       map.remove();
       mapRef.current = null;
     };
