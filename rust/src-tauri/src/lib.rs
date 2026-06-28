@@ -3,6 +3,7 @@ pub mod frame;
 pub mod metrics;
 pub mod replay;
 pub mod server;
+pub mod tiles;
 
 // Learn more about Tauri commands at https://tauri.app/develop/calling-rust/
 #[tauri::command]
