@@ -3,13 +3,42 @@ import { useRef, useEffect } from "react";
 import uPlot from "uplot";
 import "uplot/dist/uPlot.min.css";
 import { fmtNum } from "./gaugeViz";
-import { toUPlotData, scrollWindow } from "./uplotData";
+import { toUPlotData, scrollWindow, fmtElapsed } from "./uplotData";
 import { lineOpts } from "./uplotOpts";
 
 const BASE_WINDOW_MS = 60_000; // 60s default scrolling window
 
 function hasCanvas(): boolean {
   try { return !!document.createElement("canvas").getContext("2d"); } catch { return false; }
+}
+
+// Floating readout that follows the cursor: "m:ss · value unit" at the hovered sample.
+function tooltipPlugin(unit: string): uPlot.Plugin {
+  let tip: HTMLDivElement | null = null;
+  return {
+    hooks: {
+      init: (u) => {
+        tip = document.createElement("div");
+        tip.className = "linechart-tip";
+        tip.style.display = "none";
+        u.over.appendChild(tip);
+      },
+      setCursor: (u) => {
+        if (tip == null) return;
+        const idx = u.cursor.idx;
+        const left = u.cursor.left ?? -1;
+        const top = u.cursor.top ?? 0;
+        if (idx == null || left < 0) { tip.style.display = "none"; return; }
+        const xv = u.data[0][idx];
+        const yv = u.data[1][idx];
+        if (xv == null || yv == null) { tip.style.display = "none"; return; }
+        tip.textContent = `${fmtElapsed(xv)} · ${fmtNum(yv)} ${unit}`;
+        tip.style.display = "block";
+        tip.style.left = `${left}px`;
+        tip.style.top = `${top}px`;
+      },
+    },
+  };
 }
 
 export function LineChart({ name, xs, ys, unit, value, scalesOn, zoom }: {
@@ -32,7 +61,7 @@ export function LineChart({ name, xs, ys, unit, value, scalesOn, zoom }: {
       return { w: Math.max(50, w), h: Math.max(40, h) };
     };
     const { w, h } = fit();
-    const u = new uPlot(lineOpts(w, h), toUPlotData(xs, ys), el);
+    const u = new uPlot({ ...lineOpts(w, h), plugins: [tooltipPlugin(unit)] }, toUPlotData(xs, ys), el);
     u.setScale("x", { min: scrollWindow(xs, windowMs)[0], max: scrollWindow(xs, windowMs)[1] });
     uRef.current = u;
     const ro = new ResizeObserver(() => { const s = fit(); u.setSize({ width: s.w, height: s.h }); });
