@@ -1,38 +1,28 @@
-# .NET WPF + Blazor Hybrid Dashboard
+# .NET native WPF Dashboard
 
-This is the .NET implementation of the telemetry charting proof-of-concept (PoC) dashboard. It's a WPF + Blazor Hybrid application that replays telemetry data from a ride database in-process and renders an interactive dashboard with strip charts, a GPS map, and parameter gauges.
+The .NET implementation of the telemetry charting PoC. A **native WPF/XAML (MVVM)** application that replays a telemetry ride in-process and renders the INU-MONITOR dashboard — a grouped parameter table, radial gauges, scrolling strip charts, an offline map, and a perf HUD.
+
+> Originally WPF + Blazor Hybrid; being reskinned to native WPF/XAML to match the Rust INU dashboard for a fair native-vs-WebView perf comparison. Reskin in progress: shell + parameters panel done; gauges / charts / map / HUD next.
 
 ## Architecture
 
-- **WPF + Blazor Hybrid**: Windows Forms-based host with embedded Blazor components for interactive charts.
-- **In-process replay**: The database is replayed frame-by-frame without WebSocket communication.
-- **Charts**: ScottPlot.Blazor for time-series strip charts (bar/tick style and filled area style).
-- **Map**: Leaflet + OpenStreetMap tiles for GPS track visualization and markers.
-- **Layout**: Four-region dashboard (param table, main strip chart, GPS map, gauges) per `docs/reference/dashboard-target.md`.
+- **Native WPF/XAML + MVVM**: no WebView, no JS. `TelemetryPoc.App` (WPF) + `TelemetryPoc.App.Viz` (net8.0 pure UI logic, xUnit-tested) + `TelemetryPoc.Core` (data layer).
+- **In-process replay**: a `DispatcherTimer` advances the store on the UI thread frame-by-frame — no WebSocket (the .NET-idiomatic transport).
+- **Charts**: ScottPlot.WPF for realtime time-series strip charts (60s scrolling window, relative `m:ss` axis).
+- **Map**: Mapsui (SkiaSharp) reading the same offline `israel.mbtiles` as the Rust app — no CDN/network.
+- **Layout**: the INU OVERVIEW screen (parameters panel + widget grid + perf HUD) per `docs/reference/dashboard-target.md`.
 
 ## Prerequisites
 
-### Database
+- **.NET 8.0+**, **Windows 10/11** (WPF is Windows-only), a display (no headless GUI).
+- A ride database. Generate one with the Python simulator:
+  ```bash
+  python data/simulate.py                                            # full 12h data/ride.db
+  python data/simulate.py --out data/ride_small.db --duration 10 --rate 10   # short fixture
+  ```
+- (Optional) an offline map tileset `tiles/israel.mbtiles` for the basemap — see [`../tiles/README.md`](../tiles/README.md). Without it the map shows a track-only grid view.
 
-Generate a ride database by running the Python data simulator:
-
-```bash
-python data/simulate.py
-```
-
-This creates `data/ride.db` (full 12-hour ride). For quicker testing, use the committed `data/ride_small.db`.
-
-### .NET Runtime
-
-- .NET 8.0 or later
-- Windows 10/11 (WPF is Windows-only)
-- A display is required to run the GUI (no headless mode)
-
-### Network
-
-The dashboard loads map tiles from OSM CDN, so internet access is required.
-
-## Running the Dashboard
+## Running
 
 From the project root:
 
@@ -40,51 +30,32 @@ From the project root:
 dotnet run --project dotnet/src/TelemetryPoc.App
 ```
 
-### Environment Variables
+### Environment variables
 
-- `RIDE_DB`: Full path to the ride database. If unset or the file is missing, the app auto-resolves by walking up from the executable directory to find `data/ride.db`, then falls back to `data/ride_small.db`.
-- `RIDE_SPEED`: Replay speed multiplier (default: `1.0`). Higher values speed up playback.
-
-### Example
-
-Replay at 5x speed:
+- `RIDE_DB` — path to the ride database. If unset/missing, the app walks up from the executable dir for `data/ride.db`, then `data/ride_small.db`. (Use an absolute path to be safe.)
+- `RIDE_SPEED` — replay speed multiplier (default `1.0`).
 
 ```bash
 RIDE_SPEED=5 dotnet run --project dotnet/src/TelemetryPoc.App
-```
-
-Or with an explicit database path:
-
-```bash
-RIDE_DB=D:\data\my_ride.db dotnet run --project dotnet/src/TelemetryPoc.App
+RIDE_DB=D:\Projects\my\wpf-rust-compare-charts\data\ride.db dotnet run --project dotnet/src/TelemetryPoc.App
 ```
 
 ## Testing
 
-Run the test suite from the `dotnet/` directory:
-
 ```bash
-dotnet test
+cd dotnet && dotnet test     # xUnit: Core data layer + App.Viz pure UI logic
 ```
 
-Expected result: **22 tests pass** (0 failures).
-
-## Reference
-
-For the visual dashboard design and layout specification, see `docs/reference/dashboard-target.md`.
+XAML views / ScottPlot / Mapsui are build-verified + confirmed by launching the app; pure logic carries the unit coverage.
 
 ## Build
 
-To build the solution without running:
-
 ```bash
-dotnet build
+cd dotnet && dotnet build    # expect 0 errors, 0 warnings
 ```
-
-Expected result: **0 errors, 0 warnings**.
 
 ## Notes
 
-- The GUI requires a display. For headless environments, use the tests to verify functionality.
-- Build artifacts (bin/, obj/) are gitignored and will not be committed.
-- The app may take a moment to load Leaflet tiles on first run if the cache is cold.
+- The GUI requires a display; use the tests to verify logic headless.
+- Build artifacts (`bin/`, `obj/`) are gitignored.
+- The native WPF app runs fully offline (the map reads a local MBTiles file, not a CDN).
