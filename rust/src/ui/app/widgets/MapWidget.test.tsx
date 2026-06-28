@@ -56,4 +56,11 @@ describe("MapWidget component", () => {
     // at minimum the 3 range rings + 1 marker circle = 4
     expect(circles.length).toBeGreaterThanOrEqual(3);
   });
+
+  it("renders compass, coords readout, and scale bar", () => {
+    const { getByText } = render(<MapWidget lat={[32.0853]} lon={[34.7818]} />);
+    expect(getByText("N↑")).toBeTruthy();
+    expect(getByText("32.0853°N 34.7818°E")).toBeTruthy();
+    expect(getByText("2 km")).toBeTruthy();
+  });
 });

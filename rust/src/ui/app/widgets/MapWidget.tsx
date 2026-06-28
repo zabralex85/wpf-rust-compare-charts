@@ -1,6 +1,7 @@
 import type React from "react";
 import { useId } from "react";
 import { projectTrack } from "./mapProj";
+import { fmtCoord } from "./geoFormat";
 
 interface MapWidgetProps {
   lat: number[];
@@ -137,6 +138,10 @@ export function MapWidget({ lat, lon }: MapWidgetProps): React.JSX.Element {
           />
         )}
       </svg>
+      {/* geographic chrome overlays */}
+      <div className="mapwidget-compass">N↑</div>
+      <div className="mapwidget-coords">{fmtCoord(lat, lon)}</div>
+      <div className="mapwidget-scale"><span className="mapwidget-scale-bar" />2 km</div>
     </div>
   );
 }
