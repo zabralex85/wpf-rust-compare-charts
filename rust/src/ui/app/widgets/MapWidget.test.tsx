@@ -64,12 +64,12 @@ describe("MapWidget component", () => {
     expect(getByText("2 km")).toBeTruthy();
   });
 
-  it("toggles the OSM button label and shows the leaflet overlay container", () => {
+  it("toggles the OSM button label and shows the maplibre overlay container", () => {
     render(<MapWidget lat={[32.08]} lon={[34.78]} />);
     const btn = screen.getByText("OSM MAP");
     fireEvent.click(btn);
     expect(screen.getByText("GRID VIEW")).toBeTruthy();
-    expect(document.querySelector(".mapwidget-osm")).not.toBeNull(); // overlay div present (leaflet itself no-ops in jsdom)
+    expect(document.querySelector(".mapwidget-osm")).not.toBeNull(); // overlay div present (MapLibre never constructed in jsdom — zero-size guard)
     fireEvent.click(screen.getByText("GRID VIEW"));
     expect(screen.getByText("OSM MAP")).toBeTruthy();
     expect(document.querySelector(".mapwidget-osm")).toBeNull();

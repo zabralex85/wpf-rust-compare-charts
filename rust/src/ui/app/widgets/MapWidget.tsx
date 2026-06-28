@@ -1,7 +1,9 @@
 import type React from "react";
 import { useId, useState, useEffect, useRef } from "react";
-import L from "leaflet";
-import "leaflet/dist/leaflet.css";
+import maplibregl from "maplibre-gl";
+import "maplibre-gl/dist/maplibre-gl.css";
+import { mapStyle } from "./mapStyle";
+import { trackToGeoJSON } from "./trackGeo";
 import { projectTrack } from "./mapProj";
 import { fmtCoord } from "./geoFormat";
 
@@ -20,57 +22,93 @@ const CY = VIEW.y + VIEW.h / 2; // 320
 // Axis tick length (px in SVG units)
 const TICK = 8;
 
+/** Local tile server base URL — matches the Rust default RIDE_TILES_PORT=9002 */
+const TILES_BASE = "http://127.0.0.1:9002";
+
+type PointFeature = {
+  type: "Feature";
+  properties: Record<string, never>;
+  geometry: { type: "Point"; coordinates: [number, number] };
+};
+
+type EmptyCollection = {
+  type: "FeatureCollection";
+  features: [];
+};
+
+/** GeoJSON Point at the last track position, or empty FeatureCollection when no data. */
+function posPoint(lat: number[], lon: number[]): PointFeature | EmptyCollection {
+  if (lat.length === 0 || lon.length === 0) {
+    return { type: "FeatureCollection", features: [] };
+  }
+  const i = lat.length - 1;
+  return {
+    type: "Feature",
+    properties: {},
+    geometry: { type: "Point", coordinates: [lon[i], lat[i]] },
+  };
+}
+
 export function MapWidget({ lat, lon }: MapWidgetProps): React.JSX.Element {
   const gridId = useId();
   const { path, last } = projectTrack(lat, lon);
   const [osm, setOsm] = useState(false);
   const elRef = useRef<HTMLDivElement>(null);
-  const mapRef = useRef<L.Map | null>(null);
-  const lineRef = useRef<L.Polyline | null>(null);
-  const markerRef = useRef<L.CircleMarker | null>(null);
+  const mapRef = useRef<maplibregl.Map | null>(null);
 
-  // Mount/teardown Leaflet only while OSM is on AND the container has real size
+  // Mount/teardown MapLibre only while OSM is on AND the container has real size
   // (jsdom reports 0 → unit tests never instantiate a real map).
   useEffect(() => {
     if (!osm) return;
     const el = elRef.current;
     if (!el || el.clientWidth === 0 || el.clientHeight === 0) return;
-    const map = L.map(el, { zoomControl: true, attributionControl: true }).setView([32.0853, 34.7818], 11);
-    L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
-      attribution: "© OpenStreetMap contributors",
-      maxZoom: 19,
-    }).addTo(map);
-    lineRef.current = L.polyline([], { color: "#38c5e0", weight: 2.5, opacity: 0.95 }) // #38c5e0 == --accent (Leaflet needs a literal, not a CSS var)
-      .addTo(map);
-    markerRef.current = L.circleMarker([32.0853, 34.7818], {
-      radius: 6,
-      color: "#0a0e14",
-      weight: 2,
-      fillColor: "#ffffff",
-      fillOpacity: 1,
-    }).addTo(map);
+    let cancelled = false;
+    const map = new maplibregl.Map({
+      container: el,
+      style: mapStyle(TILES_BASE),
+      center: [34.7818, 32.0853], // lon,lat (Tel Aviv)
+      zoom: 9,
+      // attributionControl defaults to showing attribution in MapLibre v5
+    });
+    map.on("load", () => {
+      if (cancelled) return;
+      map.addSource("track", { type: "geojson", data: trackToGeoJSON(lat, lon) });
+      map.addLayer({
+        id: "track-line",
+        type: "line",
+        source: "track",
+        paint: { "line-color": "#38c5e0", "line-width": 2.5 },
+      });
+      // live-position marker: a point source + circle layer at the last point
+      map.addSource("pos", { type: "geojson", data: posPoint(lat, lon) });
+      map.addLayer({
+        id: "pos-dot",
+        type: "circle",
+        source: "pos",
+        paint: {
+          "circle-radius": 5,
+          "circle-color": "#2fd17a",
+          "circle-stroke-color": "#0a0e14",
+          "circle-stroke-width": 2,
+        },
+      });
+    });
     mapRef.current = map;
-    const sizeTimer = setTimeout(() => map.invalidateSize(), 60);
     return () => {
-      clearTimeout(sizeTimer);
+      cancelled = true;
       map.remove();
       mapRef.current = null;
-      lineRef.current = null;
-      markerRef.current = null;
     };
   }, [osm]);
 
-  // Update the polyline + marker as the track grows
+  // Update the track + position sources as the track grows
   useEffect(() => {
-    const line = lineRef.current;
-    const marker = markerRef.current;
     const map = mapRef.current;
-    if (!line || !marker || !map || lat.length === 0) return;
-    const pts: [number, number][] = lat.map((la, i) => [la, lon[i]]);
-    line.setLatLngs(pts);
-    const lastPt = pts[pts.length - 1];
-    marker.setLatLng(lastPt);
-    if (!map.getBounds().contains(lastPt)) map.panTo(lastPt, { animate: false });
+    if (!map) return;
+    const ts = map.getSource("track") as maplibregl.GeoJSONSource | undefined;
+    const ps = map.getSource("pos") as maplibregl.GeoJSONSource | undefined;
+    if (ts) ts.setData(trackToGeoJSON(lat, lon));
+    if (ps) ps.setData(posPoint(lat, lon));
   }, [lat, lon, osm]);
 
   return (
