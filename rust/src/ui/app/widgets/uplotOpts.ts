@@ -1,11 +1,13 @@
 import type uPlot from "uplot";
+import { fmtElapsed } from "./uplotData";
 
 export function lineOpts(width: number, height: number): uPlot.Options {
   return {
     width,
     height,
     scales: {
-      x: { time: true },
+      // x is elapsed seconds from ride start, not a wall-clock time.
+      x: { time: false },
       y: { auto: true },
     },
     series: [
@@ -21,11 +23,12 @@ export function lineOpts(width: number, height: number): uPlot.Options {
     ],
     axes: [
       {
-        // x axis
+        // x axis — relative elapsed time (m:ss)
         stroke: "#566273",
         grid: { stroke: "#1d2632", width: 1 },
         ticks: { stroke: "#1d2632" },
         font: "10px 'IBM Plex Mono'",
+        values: (_u, splits) => splits.map((v) => fmtElapsed(v)),
       },
       {
         // y axis

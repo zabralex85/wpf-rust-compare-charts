@@ -6,6 +6,15 @@ export function toUPlotData(xsMs: number[], ys: number[]): [number[], number[]] 
   return [xs, yy];
 }
 
+// x values are already elapsed SECONDS from ride start (ts is ms-from-start),
+// so format the axis relative ("m:ss") instead of as a wall-clock time.
+export function fmtElapsed(sec: number): string {
+  const s = Math.max(0, Math.floor(sec));
+  const m = Math.floor(s / 60);
+  const r = s % 60;
+  return m + ":" + String(r).padStart(2, "0");
+}
+
 export function scrollWindow(xsMs: number[], windowMs: number): [number, number] {
   const w = Math.max(1, windowMs);
   if (xsMs.length === 0) return [0, w / 1000];

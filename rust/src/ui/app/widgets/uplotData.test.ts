@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { toUPlotData, scrollWindow } from "./uplotData";
+import { toUPlotData, scrollWindow, fmtElapsed } from "./uplotData";
 
 describe("toUPlotData", () => {
   it("converts ms→s, index-aligned", () => {
@@ -20,5 +20,17 @@ describe("scrollWindow", () => {
   });
   it("empty → [0, window s]", () => {
     expect(scrollWindow([], 60000)).toEqual([0, 60]);
+  });
+});
+describe("fmtElapsed", () => {
+  it("formats elapsed seconds as m:ss", () => {
+    expect(fmtElapsed(0)).toBe("0:00");
+    expect(fmtElapsed(5)).toBe("0:05");
+    expect(fmtElapsed(70)).toBe("1:10");
+    expect(fmtElapsed(600)).toBe("10:00");
+  });
+  it("floors sub-seconds and clamps negatives", () => {
+    expect(fmtElapsed(12.9)).toBe("0:12");
+    expect(fmtElapsed(-3)).toBe("0:00");
   });
 });
