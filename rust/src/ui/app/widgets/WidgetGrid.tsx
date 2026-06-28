@@ -104,16 +104,20 @@ export function WidgetGrid({ store, scalesOn }: WidgetGridProps): React.JSX.Elem
             key={w.id}
             className="widget-cell"
             data-widget={w.id}
-            draggable
-            onDragStart={(e) => { if (resizingRef.current) { e.preventDefault(); return; } dragId.current = w.id; }}
-            onDragEnd={() => { dragId.current = null; }}
             onContextMenu={w.kind === "line" ? (e) => { e.preventDefault(); setMenu({ id: w.id, x: e.clientX, y: e.clientY }); } : undefined}
             style={{
               gridColumn: `${w.col} / span ${w.cols}`,
               gridRow: `${w.row} / span ${w.rows}`,
             }}
           >
-            <div className="widget-cell-header">
+            {/* Only the header is the widget drag handle — leaves the body free
+                for the interactive map (pan) / charts. */}
+            <div
+              className="widget-cell-header"
+              draggable
+              onDragStart={() => { dragId.current = w.id; }}
+              onDragEnd={() => { dragId.current = null; }}
+            >
               <span className="widget-cell-grip">☰ {w.name}</span>
               {w.kind !== "map" && (
                 <span className="widget-cell-actions">
