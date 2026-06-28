@@ -40,7 +40,8 @@ export function MapWidget({ lat, lon }: MapWidgetProps): React.JSX.Element {
       attribution: "© OpenStreetMap contributors",
       maxZoom: 19,
     }).addTo(map);
-    lineRef.current = L.polyline([], { color: "#38c5e0", weight: 2.5, opacity: 0.95 }).addTo(map);
+    lineRef.current = L.polyline([], { color: "#38c5e0", weight: 2.5, opacity: 0.95 }) // #38c5e0 == --accent (Leaflet needs a literal, not a CSS var)
+      .addTo(map);
     markerRef.current = L.circleMarker([32.0853, 34.7818], {
       radius: 6,
       color: "#0a0e14",
@@ -69,7 +70,7 @@ export function MapWidget({ lat, lon }: MapWidgetProps): React.JSX.Element {
     line.setLatLngs(pts);
     const lastPt = pts[pts.length - 1];
     marker.setLatLng(lastPt);
-    map.panTo(lastPt, { animate: false });
+    if (!map.getBounds().contains(lastPt)) map.panTo(lastPt, { animate: false });
   }, [lat, lon, osm]);
 
   return (
