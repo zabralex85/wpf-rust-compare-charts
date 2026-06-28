@@ -35,8 +35,8 @@ export function AppShell(): React.JSX.Element {
   };
 
   const onSeek = (frac: number) => {
+    // Seek preserves the current play/pause state (scrub while paused stays paused).
     send(encodeCmd("seek", Math.round(frac * store.durationMs())));
-    setPaused(false);
   };
 
   const tsMs = store.lastTsMs();

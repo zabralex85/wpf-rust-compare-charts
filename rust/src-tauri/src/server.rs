@@ -120,7 +120,16 @@ async fn handle_client(
             write.send(Message::Text(meta_json.clone())).await?;
             // Rebase the replay clock so `target` is due right now.
             t0 = pacer.rebase_for_seek(now_ms(), target);
-            continue; // re-check control (e.g. paused was also set)
+            // Emit one frame at the target immediately so the view updates even
+            // while paused (scrub-while-paused jumps + stays frozen on that frame).
+            if i < samples.len() {
+                let s = &samples[i];
+                let frame = FrameMessage::new(s.ts_ms, now_unix_ms(), s.values.clone());
+                write.send(Message::Text(serde_json::to_string(&frame)?)).await?;
+                last_metric_sec = -1; // re-emit metrics at the new position
+                i += 1;
+            }
+            continue; // re-check control (still paused → freeze here)
         }
 
         // ── Handle pause ──────────────────────────────────────────────────────
@@ -130,7 +139,10 @@ async fn handle_client(
             // notify_one() stores a permit even if no task is waiting, so a resume/seek that fires before we reach notified().await is not lost.
             loop {
                 notify.notified().await;
-                if !control.lock().unwrap().paused {
+                let c = control.lock().unwrap();
+                // Wake on resume OR a pending seek (so a scrub-while-paused is
+                // processed by the seek branch above, then we re-freeze here).
+                if !c.paused || c.seek_to.is_some() {
                     break;
                 }
             }

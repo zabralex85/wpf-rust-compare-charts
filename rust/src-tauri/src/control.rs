@@ -30,10 +30,9 @@ impl Control {
         match cmd.action.as_str() {
             "pause" => self.paused = true,
             "resume" => self.paused = false,
-            "seek" => {
-                self.seek_to = cmd.ts_ms;
-                self.paused = false;
-            }
+            // Seek preserves the paused state: scrubbing while paused jumps to the
+            // new time and stays frozen (the loop emits one frame at the target).
+            "seek" => self.seek_to = cmd.ts_ms,
             _ => {}
         }
     }
