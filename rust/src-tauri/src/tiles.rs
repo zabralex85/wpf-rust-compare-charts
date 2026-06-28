@@ -29,12 +29,28 @@ impl MbTiles {
     }
 
     pub fn tilejson(&self, tiles_url: &str) -> serde_json::Value {
+        // DB error yields empty metadata; this is infallible
         let meta = self.metadata().unwrap_or_default();
         let num = |k: &str, d: f64| meta.get(k).and_then(|v| v.parse::<f64>().ok()).unwrap_or(d);
         let bounds: Vec<f64> = meta
             .get("bounds")
             .map(|b| b.split(',').filter_map(|s| s.parse().ok()).collect())
             .unwrap_or_else(|| vec![-180.0, -85.0, 180.0, 85.0]);
+        let minzoom = num("minzoom", 0.0) as u32;
+        let center = meta
+            .get("center")
+            .and_then(|c| {
+                let parts: Vec<f64> = c.split(',').filter_map(|s| s.trim().parse().ok()).collect();
+                if parts.len() == 3 {
+                    Some(serde_json::json!([parts[0], parts[1], parts[2]]))
+                } else {
+                    None
+                }
+            })
+            .unwrap_or_else(|| {
+                // Default to bounds midpoint with minzoom
+                serde_json::json!([(bounds[0] + bounds[2]) / 2.0, (bounds[1] + bounds[3]) / 2.0, minzoom])
+            });
         let vector_layers = meta
             .get("json")
             .and_then(|j| serde_json::from_str::<serde_json::Value>(j).ok())
@@ -43,9 +59,10 @@ impl MbTiles {
         serde_json::json!({
             "tilejson": "2.2.0",
             "tiles": [tiles_url],
-            "minzoom": num("minzoom", 0.0) as u32,
+            "minzoom": minzoom,
             "maxzoom": num("maxzoom", 14.0) as u32,
             "bounds": bounds,
+            "center": center,
             "vector_layers": vector_layers,
         })
     }
@@ -74,5 +91,7 @@ mod tests {
         assert_eq!(tj["tiles"][0], "http://127.0.0.1:9002/tiles/{z}/{x}/{y}.pbf");
         assert_eq!(tj["maxzoom"], 1);
         assert!(tj["vector_layers"].is_array());
+        assert!(tj["center"].is_array());
+        assert_eq!(tj["center"].as_array().unwrap().len(), 3);
     }
 }
