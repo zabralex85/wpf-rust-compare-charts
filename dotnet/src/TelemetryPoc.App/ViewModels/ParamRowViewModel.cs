@@ -26,8 +26,7 @@ public sealed class ParamRowViewModel : INotifyPropertyChanged
     private Brush _rowBg = Brushes.Transparent;
     public Brush RowBackground { get => _rowBg; private set { _rowBg = value; Raise(nameof(RowBackground)); } }
 
-    private static readonly Brush CriticalBg =
-        new SolidColorBrush((Color)ColorConverter.ConvertFromString("#FF1A0E11")!);
+    private static readonly Brush CriticalBg = Hex("#FF1A0E11");
 
     public void Refresh(TelemetryStore store)
     {
