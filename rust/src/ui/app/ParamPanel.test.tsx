@@ -35,4 +35,15 @@ describe("ParamPanel", () => {
     const { container } = render(<ParamPanel store={store()} />);
     expect(container.querySelector(".param-row-crit")).not.toBeNull();
   });
+
+  it("param rows are draggable and emit a DragPayload on dragstart", () => {
+    render(<ParamPanel store={store()} />);
+    const row = document.querySelector('[data-prow="1"]') as HTMLElement;
+    expect(row).toBeTruthy();
+    expect(row.getAttribute("draggable")).toBe("true");
+    let captured = "";
+    const dt = { effectAllowed: "", setData: (_t: string, v: string) => { captured = v; } };
+    row.dispatchEvent(Object.assign(new Event("dragstart", { bubbles: true }), { dataTransfer: dt }));
+    expect(JSON.parse(captured)).toMatchObject({ channelId: 1, name: expect.any(String), unit: "deg" });
+  });
 });
