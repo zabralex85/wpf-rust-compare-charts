@@ -15,7 +15,8 @@
         "title": "INU-MONITOR",
         "width": 1600,
         "height": 900,
-        "dragDropEnabled": false
+        "dragDropEnabled": false,
+        "decorations": false
       }
     ],
     "security": {
