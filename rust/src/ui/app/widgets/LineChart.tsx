@@ -70,14 +70,18 @@ export function LineChart({ name, xs, ys, unit, value, scalesOn, zoom }: {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Stream data + scroll the window. xs.length is the live trigger (arrays mutate in place).
+  // Stream data + scroll the window. The arrays mutate in place, so the live
+  // trigger must be the latest timestamp — it advances every frame. xs.length
+  // alone goes stale once the ring buffer saturates (evict-one/add-one keeps it
+  // constant), which would freeze the chart at the window-fill point.
+  const lastTs = xs.length > 0 ? xs[xs.length - 1] : 0;
   useEffect(() => {
     const u = uRef.current; if (!u) return;
     u.setData(toUPlotData(xs, ys));
     const [min, max] = scrollWindow(xs, windowMs);
     u.setScale("x", { min, max });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [xs.length, windowMs]);
+  }, [lastTs, xs.length, windowMs]);
 
   return (
     <div data-testid="linechart" className="linechart-container">
