@@ -10,11 +10,14 @@ export interface TelemetrySnapshot {
   frameTimeMs: number;
   status: WsStatus;
   version: number;
+  send: (json: string) => void;
 }
 
 export function useTelemetry(url: string): TelemetrySnapshot {
   const storeRef = useRef<TelemetryStore | undefined>(undefined);
   const meterRef = useRef<FpsMeter | undefined>(undefined);
+  // Stable ref for the ws send function; no-op until a live client is created.
+  const sendRef = useRef<(json: string) => void>(() => {});
 
   // Detect mock mode once (pure read of URL, safe in render).
   const isMock =
@@ -45,6 +48,7 @@ export function useTelemetry(url: string): TelemetrySnapshot {
     if (mock) {
       applyMockSnapshot(store);
       setStatus("open");
+      // mock mode: send is a no-op (leave sendRef as-is)
     } else {
       client = createWsClient({
         url,
@@ -53,6 +57,7 @@ export function useTelemetry(url: string): TelemetrySnapshot {
         onMetrics: (m) => store.applyMetrics(m),
         onStatus: setStatus,
       });
+      sendRef.current = (json) => client!.send(json);
     }
 
     let raf = 0;
@@ -78,5 +83,6 @@ export function useTelemetry(url: string): TelemetrySnapshot {
     frameTimeMs: ftRef.current,
     status,
     version,
+    send: (json) => sendRef.current(json),
   };
 }

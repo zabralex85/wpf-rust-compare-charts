@@ -1,6 +1,6 @@
 use std::time::{Instant, SystemTime, UNIX_EPOCH};
 
-use futures_util::SinkExt;
+use futures_util::{SinkExt, StreamExt};
 use rusqlite::Connection;
 use tokio::net::TcpListener;
 use tokio_tungstenite::tungstenite::Message;
@@ -47,7 +47,7 @@ async fn handle_client(
     stream: tokio::net::TcpStream,
     cfg: ServerConfig,
 ) -> anyhow::Result<()> {
-    let mut ws = tokio_tungstenite::accept_async(stream).await?;
+    let ws = tokio_tungstenite::accept_async(stream).await?;
 
     // Load DB on a blocking thread (rusqlite is sync).
     let db_path = cfg.db_path.clone();
@@ -65,34 +65,131 @@ async fn handle_client(
     })
     .await??;
 
-    ws.send(Message::Text(meta_json)).await?;
+    // Split the WebSocket into independent write and read halves so the reader
+    // task can own `read` while the main loop holds `write`.
+    let (mut write, mut read) = ws.split();
+
+    // Send meta first; keep `meta_json` for re-sending on seek.
+    write.send(Message::Text(meta_json.clone())).await?;
+
+    // Shared control state: a std Mutex (never held across .await) + a Notify
+    // so commands from the reader task can wake the replay loop immediately.
+    let control = std::sync::Arc::new(std::sync::Mutex::new(crate::control::Control::default()));
+    let notify = std::sync::Arc::new(tokio::sync::Notify::new());
+
+    // Reader task: parse inbound text messages and apply commands.
+    {
+        let (rc, rn) = (control.clone(), notify.clone());
+        tokio::spawn(async move {
+            while let Some(Ok(msg)) = read.next().await {
+                if let Message::Text(t) = msg {
+                    if let Some(cmd) = crate::control::parse_command(&t) {
+                        rc.lock().unwrap().apply(&cmd);
+                        rn.notify_one();
+                    }
+                }
+            }
+        });
+    }
 
     let pacer = Pacer::new(cfg.speed);
     let mut sampler = MetricsSampler::new();
-    let start = Instant::now();
+    let base = Instant::now();
+    // Monotonic wall-clock milliseconds since the connection started.
+    let now_ms = || base.elapsed().as_millis() as i64;
     // Track the last whole-second boundary (in replay time) at which metrics were emitted.
-    // Using replay-time seconds means metrics emit ~once per ride-second regardless of speed.
     let mut last_metric_sec: i64 = -1;
+    // t0: wall-clock offset that defines the replay clock.
+    // effective_elapsed = now_ms() - t0; a sample at ts_ms is due when effective_elapsed >= ts_ms/speed.
+    let mut t0: i64 = 0;
+    let mut i: usize = 0;
 
-    for s in samples {
-        let elapsed = start.elapsed().as_millis() as i64;
-        let wait = pacer.wait_ms(s.ts_ms, elapsed);
-        if wait > 0 {
-            tokio::time::sleep(std::time::Duration::from_millis(wait as u64)).await;
+    while i < samples.len() {
+        // ── Read control state ────────────────────────────────────────────────
+        // Lock briefly to copy out seek/paused; drop the guard before any .await.
+        let (seek, paused) = {
+            let mut c = control.lock().unwrap();
+            (c.seek_to.take(), c.paused)
+        };
+
+        // ── Handle seek ───────────────────────────────────────────────────────
+        if let Some(target) = seek {
+            // Jump to the first sample with ts_ms >= target.
+            i = samples.partition_point(|s| s.ts_ms < target);
+            // Re-send meta so the client knows the stream has reset.
+            write.send(Message::Text(meta_json.clone())).await?;
+            // Rebase the replay clock so `target` is due right now.
+            t0 = pacer.rebase_for_seek(now_ms(), target);
+            // Emit one frame at the target immediately so the view updates even
+            // while paused (scrub-while-paused jumps + stays frozen on that frame).
+            if i < samples.len() {
+                let s = &samples[i];
+                let frame = FrameMessage::new(s.ts_ms, now_unix_ms(), s.values.clone());
+                write.send(Message::Text(serde_json::to_string(&frame)?)).await?;
+                last_metric_sec = -1; // re-emit metrics at the new position
+                i += 1;
+            }
+            continue; // re-check control (still paused → freeze here)
         }
-        let frame = FrameMessage::new(s.ts_ms, now_unix_ms(), s.values);
-        ws.send(Message::Text(serde_json::to_string(&frame)?))
+
+        // ── Handle pause ──────────────────────────────────────────────────────
+        if paused {
+            let pause_start = now_ms();
+            // Wait until any command arrives, then re-check paused.
+            // notify_one() stores a permit even if no task is waiting, so a resume/seek that fires before we reach notified().await is not lost.
+            loop {
+                notify.notified().await;
+                let c = control.lock().unwrap();
+                // Wake on resume OR a pending seek (so a scrub-while-paused is
+                // processed by the seek branch above, then we re-freeze here).
+                if !c.paused || c.seek_to.is_some() {
+                    break;
+                }
+            }
+            // Shift t0 forward by the paused duration so the replay clock
+            // doesn't drift; the next sample will be due at the same relative
+            // offset as before the pause.
+            t0 = pacer.rebase_for_pause(t0, now_ms() - pause_start);
+            continue; // re-check control; a seek might have arrived during pause
+        }
+
+        // ── Wait for the current sample to be due, interruptibly ──────────────
+        let wait = pacer.wait_ms(samples[i].ts_ms, now_ms() - t0);
+        if wait > 0 {
+            tokio::select! {
+                // Normal path: sample becomes due.
+                _ = tokio::time::sleep(std::time::Duration::from_millis(wait as u64)) => {}
+                // Command arrived during sleep: re-check control WITHOUT emitting the frame.
+                _ = notify.notified() => { continue; }
+            }
+        }
+
+        // ── Emit frame ────────────────────────────────────────────────────────
+        let s = &samples[i];
+        let frame = FrameMessage::new(s.ts_ms, now_unix_ms(), s.values.clone());
+        write
+            .send(Message::Text(serde_json::to_string(&frame)?))
             .await?;
 
+        // Emit metrics once per replay-second (keyed on replay time, not wall time).
         let sec = s.ts_ms / 1000;
         if sec != last_metric_sec {
             last_metric_sec = sec;
             let m = sampler.sample();
-            ws.send(Message::Text(
-                serde_json::to_string(&MetricsMessage::new(m.cpu_pct, m.ram_mb))?,
-            ))
-            .await?;
+            write
+                .send(Message::Text(
+                    serde_json::to_string(&MetricsMessage::new(m.cpu_pct, m.ram_mb))?,
+                ))
+                .await?;
         }
+
+        i += 1;
     }
+
+    // Send a proper WS close frame so the client sees end-of-stream.
+    // (Without this, the reader task keeps the underlying connection open and
+    // the client never receives an EOF or close notification.)
+    let _ = write.send(Message::Close(None)).await;
+
     Ok(())
 }

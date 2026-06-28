@@ -6,6 +6,7 @@ export interface SocketLike {
   onmessage: ((ev: { data: string }) => void) | null;
   onclose: (() => void) | null;
   onerror: (() => void) | null;
+  send(data: string): void;
   close(): void;
 }
 
@@ -22,7 +23,7 @@ export interface WsClientOptions {
   reconnectDelayMs?: number;
 }
 
-export function createWsClient(opts: WsClientOptions): { stop(): void } {
+export function createWsClient(opts: WsClientOptions): { stop(): void; send(json: string): void } {
   const factory = opts.socketFactory ?? ((u) => new WebSocket(u) as unknown as SocketLike);
   const schedule = opts.schedule ?? ((fn, ms) => setTimeout(fn, ms));
   const delay = opts.reconnectDelayMs ?? 1000;
@@ -48,5 +49,11 @@ export function createWsClient(opts: WsClientOptions): { stop(): void } {
   };
 
   connect();
-  return { stop() { stopped = true; current?.close(); } };
+  return {
+    stop() { stopped = true; current?.close(); },
+    // WebSocket.send() throws if the socket is CONNECTING/CLOSED (e.g. clicking a
+    // transport control before the WS connects, or during the reconnect gap) —
+    // swallow it so a command sent off-window is a no-op, not an exception.
+    send(json: string) { try { current?.send(json); } catch { /* socket not open */ } },
+  };
 }

@@ -18,13 +18,26 @@ import { formatRideTag } from "./clock";
 import { deriveStatus } from "./status";
 import type { Screen } from "./tabs";
 import { rideClock, rideProgress } from "./ridetime";
+import { encodeCmd } from "../../ws/encode";
 
 const WS_URL = (import.meta.env.VITE_WS_URL as string | undefined) ?? "ws://127.0.0.1:9001";
 
 export function AppShell(): React.JSX.Element {
-  const { store } = useTelemetry(WS_URL);
+  const { store, send } = useTelemetry(WS_URL);
   const [screen, setScreen] = useState<Screen>("overview");
   const [scalesOn, setScalesOn] = useState(true);
+  const [paused, setPaused] = useState(false);
+
+  const onPlayPause = () => {
+    const next = !paused;
+    setPaused(next);
+    send(encodeCmd(next ? "pause" : "resume"));
+  };
+
+  const onSeek = (frac: number) => {
+    // Seek preserves the current play/pause state (scrub while paused stays paused).
+    send(encodeCmd("seek", Math.round(frac * store.durationMs())));
+  };
 
   const tsMs = store.lastTsMs();
   const clock = rideClock(tsMs);
@@ -46,7 +59,8 @@ export function AppShell(): React.JSX.Element {
         {screen === "events" && <EventsView store={store} />}
       </div>
       <TransportBar clock={clock} rideTag={rideTag} rateHz={rateHz}
-        samples={samples} elapsedMs={tsMs} scrubberFrac={scrubberFrac} />
+        samples={samples} elapsedMs={tsMs} scrubberFrac={scrubberFrac}
+        paused={paused} onPlayPause={onPlayPause} onSeek={onSeek} />
     </div>
   );
 }
