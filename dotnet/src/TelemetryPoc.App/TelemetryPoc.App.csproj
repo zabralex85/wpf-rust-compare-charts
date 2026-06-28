@@ -10,6 +10,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\TelemetryPoc.Core\TelemetryPoc.Core.csproj" />
+    <ProjectReference Include="..\TelemetryPoc.App.Viz\TelemetryPoc.App.Viz.csproj" />
   </ItemGroup>
 
   <ItemGroup>
