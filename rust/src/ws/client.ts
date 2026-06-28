@@ -51,6 +51,9 @@ export function createWsClient(opts: WsClientOptions): { stop(): void; send(json
   connect();
   return {
     stop() { stopped = true; current?.close(); },
-    send(json: string) { current?.send(json); },
+    // WebSocket.send() throws if the socket is CONNECTING/CLOSED (e.g. clicking a
+    // transport control before the WS connects, or during the reconnect gap) —
+    // swallow it so a command sent off-window is a no-op, not an exception.
+    send(json: string) { try { current?.send(json); } catch { /* socket not open */ } },
   };
 }
