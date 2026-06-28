@@ -10,7 +10,7 @@
             <RowDefinition Height="*" />
         </Grid.RowDefinitions>
         <views:TopBar x:Name="TopBar" Grid.Row="0" />
-        <views:OverviewView Grid.Row="1" />
+        <views:OverviewView x:Name="Overview" Grid.Row="1" />
         <views:Hud Grid.RowSpan="2" />
     </Grid>
 </Window>
