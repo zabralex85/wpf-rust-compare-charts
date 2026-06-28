@@ -1,6 +1,7 @@
 <Solution>
   <Folder Name="/src/">
     <Project Path="src/TelemetryPoc.App/TelemetryPoc.App.csproj" />
+    <Project Path="src/TelemetryPoc.App.Viz/TelemetryPoc.App.Viz.csproj" />
     <Project Path="src/TelemetryPoc.Core/TelemetryPoc.Core.csproj" />
   </Folder>
   <Folder Name="/tests/">

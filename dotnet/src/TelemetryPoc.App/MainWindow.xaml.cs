@@ -1,18 +1,17 @@
 using System.Windows;
-using Microsoft.AspNetCore.Components.WebView.Wpf;
-using Microsoft.Extensions.DependencyInjection;
+using System.Windows.Data;
 
 namespace TelemetryPoc.App;
 
 public partial class MainWindow : Window
 {
+    private readonly RideSession _session = new();
+
     public MainWindow()
     {
         InitializeComponent();
-        var services = new ServiceCollection();
-        services.AddWpfBlazorWebView();
-        // (replay/store services registered in Task 8)
-        blazorWebView.Services = services.BuildServiceProvider();
-        blazorWebView.RootComponents.Add(new RootComponent { Selector = "#app", ComponentType = typeof(Main) });
+        TopBar.ClockText.SetBinding(System.Windows.Controls.TextBlock.TextProperty,
+            new Binding(nameof(RideSession.ClockText)) { Source = _session });
+        Loaded += (_, _) => _session.Start();
     }
 }
