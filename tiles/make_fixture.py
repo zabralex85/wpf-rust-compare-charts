@@ -14,7 +14,7 @@ def build(out: str) -> None:
     # A few tiles across 2 zooms. tile_row is TMS (bottom-left origin).
     payloads = [(0, 0, 0), (1, 0, 0), (1, 1, 1)]
     for z, x, y in payloads:
-        blob = gzip.compress(f"fixture-tile-{z}-{x}-{y}".encode())
+        blob = gzip.compress(f"fixture-tile-{z}-{x}-{y}".encode(), mtime=0)
         con.execute("INSERT INTO tiles VALUES (?,?,?,?)", (z, x, y, blob))
     meta = {
         "name": "fixture", "format": "pbf", "minzoom": "0", "maxzoom": "1",
