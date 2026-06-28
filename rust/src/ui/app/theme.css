@@ -88,6 +88,7 @@ body{background:var(--bg);color:var(--text);font-family:var(--sans);overflow:hid
 .overview{display:grid;grid-template-columns:474px 1fr;gap:10px;height:100%;padding:10px}
 .overview-left{overflow:hidden}
 .overview-dash{background:var(--panel);border:1px solid var(--border);border-radius:4px;overflow:hidden}
+.overview-dash-waiting{display:flex;align-items:center;justify-content:center;height:100%;color:var(--dim);font-family:var(--mono);font-size:13px}
 .gauge-container{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;width:100%;height:100%}
 .gauge-dial{position:relative;width:100%;aspect-ratio:1;max-height:100%;container-type:size}
 .gauge-svg{position:absolute;inset:0;width:100%;height:100%}

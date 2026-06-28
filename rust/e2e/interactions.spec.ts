@@ -50,8 +50,8 @@ test("drag a parameter onto the grid adds a gauge", async ({ page }) => {
 
       const dt = new DataTransfer();
       // Replicate the payload set in ParamPanel onDragStart
-      // We read the channel id from the data-prow attribute
-      const channelId = prow.dataset["prow"]!;
+      // We read the channel id from the data-prow attribute (number, matching production)
+      const channelId = Number(prow.dataset["prow"]!);
       const nameEl = prow.querySelector(".param-name");
       const unitEl = prow.querySelector(".param-unit");
       const name = nameEl?.textContent ?? channelId;

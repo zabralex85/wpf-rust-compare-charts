@@ -16,4 +16,15 @@ describe("OverviewView", () => {
     expect(container.textContent).toContain("PARAMETERS");
     expect(container.querySelector('[data-testid="overview-dash"]')).not.toBeNull();
   });
+
+  it("shows waiting placeholder and no widgets when no meta has arrived", () => {
+    const s = new TelemetryStore();
+    const { container } = render(<OverviewView store={s} />);
+    const dash = container.querySelector('[data-testid="overview-dash"]');
+    expect(dash).not.toBeNull();
+    expect(dash!.textContent).toContain("Waiting for telemetry");
+    expect(container.querySelector('[data-testid="gauge"]')).toBeNull();
+    expect(container.querySelector('[data-testid="linechart"]')).toBeNull();
+    expect(container.querySelector('[data-testid="mapwidget"]')).toBeNull();
+  });
 });
