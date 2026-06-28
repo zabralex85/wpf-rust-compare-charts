@@ -20,7 +20,6 @@ export function mapStyle(tilesBase: string): StyleSpecification {
         url: `${tilesBase}/tiles.json`,
       },
     },
-    glyphs: `${tilesBase}/glyphs/{fontstack}/{range}.pbf`,
     layers: [
       // ── Background ─────────────────────────────────────────────────────────
       {
@@ -94,25 +93,6 @@ export function mapStyle(tilesBase: string): StyleSpecification {
         paint: {
           "fill-color": "#141c24",
           "fill-opacity": 0.7,
-        },
-      },
-      // ── Place labels ───────────────────────────────────────────────────────
-      {
-        id: "place-label",
-        type: "symbol",
-        source: "basemap",
-        "source-layer": "place",
-        layout: {
-          // cast: ["get", string] is assignable to ExpressionSpecification
-          // (the ['get', string | ExpressionSpecification, ExpressionSpecification?] member)
-          "text-field": ["get", "name"] as ["get", string],
-          "text-font": ["Noto Sans Regular"],
-          "text-size": 12,
-        },
-        paint: {
-          "text-color": "#b0b8c4",
-          "text-halo-color": "#0a0e14",
-          "text-halo-width": 1,
         },
       },
     ],
