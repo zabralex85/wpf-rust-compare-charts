@@ -12,10 +12,13 @@ The reference dashboard layout is `docs/reference/dashboard-target.md`.
 
 ```
 data/    Python telemetry simulator → ride.db (the shared data; gitignored). Source of truth for the schema.
-rust/    Tauri 2 + React + TypeScript app. Rust backend streams the ride over a local WebSocket; React renders it.
-dotnet/  .NET solution: TelemetryPoc.Core (net8.0 data layer) + TelemetryPoc.App (WPF + Blazor Hybrid UI).
+rust/    Tauri 2 + React + TypeScript app. Rust backend streams the ride over a local WebSocket + serves offline map tiles; React renders it (uPlot charts, MapLibre map).
+dotnet/  .NET solution: TelemetryPoc.Core (net8.0 data layer) + TelemetryPoc.App (native WPF/XAML, MVVM) + TelemetryPoc.App.Viz (net8.0 pure UI logic).
+tiles/   Offline vector basemap pipeline: build israel.mbtiles + glyphs (gitignored); committed fixture.mbtiles for tests. See tiles/README.md.
 docs/    specs, plans (docs/superpowers/), and the dashboard reference target.
 ```
+
+> The .NET UI is mid-reskin from Blazor Hybrid to **native WPF/XAML** (to match the Rust INU dashboard). Pure UI logic lives in `TelemetryPoc.App.Viz` (no WPF, xUnit-tested); XAML/charts/map are build-verified + launch-confirmed.
 
 The two apps share **no code** — each is its stack's idiomatic implementation. They share only `ride.db` and the schema contract.
 
@@ -35,6 +38,7 @@ Default ride: ~30 channels @ 10 Hz, 12h. A committed `data/ride_small.db` (10s) 
 - **Mirrored data layer**: both stacks have the same logical pieces — DB reader, deterministic replay pacer, windowed strip-series buffer, enum/value formatting, telemetry store (O(1) latest, GPS track, partial-frame guard, re-meta reset), metrics sampler. Rust: `rust/src/data,ws,format,hud,gauge` (TS) + `rust/src-tauri/src` (backend). .NET: `dotnet/src/TelemetryPoc.Core`.
 - **Latency** = `now − emit_unix_ms` (Rust) / `now − store.LastEmitUnixMs` (.NET).
 - **CPU%** is per-core in both (matching `sysinfo`) so the HUD numbers are comparable.
+- **Offline map** (Rust): the backend runs an `axum` tile server (`127.0.0.1:9002`) that reads a local `israel.mbtiles` (rusqlite, TMS→XYZ Y-flip, gzip MVT) + serves glyph PBFs; MapLibre GL renders it with a dark INU style. On first launch the app auto-provisions the tileset (download a prebuilt `.mbtiles` via `RIDE_MBTILES_URL`, else `tilemaker`-convert a geofabrik extract); missing → SVG track-only "grid" view. The .NET app will use **Mapsui** to read the same MBTiles. Tile/glyph build: `tiles/README.md`.
 
 ## Commands
 
@@ -50,23 +54,34 @@ cd data && python -m pytest             # tests (pytest.ini disables the unused 
 cd rust && npm install
 npm test                                # frontend vitest (node + per-file jsdom)
 cd rust/src-tauri && cargo test         # backend (incl. a ws integration test)
-cd rust && npm run tauri dev            # launch app (env: RIDE_DB, RIDE_SPEED, RIDE_WS_PORT=9001)
+cd rust && npm run tauri dev            # launch app (env: RIDE_DB, RIDE_SPEED, RIDE_WS_PORT=9001, RIDE_TILES_PORT=9002)
 ```
+Map env: `RIDE_MBTILES`/`RIDE_MBTILES_URL`/`RIDE_PBF_URL`/`RIDE_GLYPHS`/`RIDE_TILES_PORT`. Without a tileset the map shows the SVG grid view.
+
+**tiles/** (offline basemap; gitignored outputs)
+```
+cd tiles
+wget https://download.geofabrik.de/asia/israel-and-palestine-latest.osm.pbf
+tilemaker --input israel-and-palestine-latest.osm.pbf --output israel.mbtiles --config config.json --process process.lua
+./fetch-glyphs.sh                       # Noto Sans glyph PBFs → tiles/glyphs/ (offline labels)
+python make_fixture.py                  # committed fixture.mbtiles for cargo tests
+```
+**Windows:** use **tilemaker v2.4.0** + its bundled resources (v3.0.0 crashes `STATUS_STACK_BUFFER_OVERRUN`; its `process.lua` needs a `Find` global v2.4 lacks). Labels use `name:latin` (Israel names are Hebrew; Noto Sans Regular has no Hebrew glyphs).
 
 **dotnet/** (.NET 8; solution is `TelemetryPoc.slnx`)
 ```
-cd dotnet && dotnet test                # xUnit (Core data layer; UI is build-verify only)
+cd dotnet && dotnet test                # xUnit (Core data layer + App.Viz pure UI logic; XAML UI is build-verify only)
 dotnet build
-dotnet run --project dotnet/src/TelemetryPoc.App   # launch WPF app (env: RIDE_DB, RIDE_SPEED)
+dotnet run --project dotnet/src/TelemetryPoc.App   # launch native WPF app (env: RIDE_DB, RIDE_SPEED)
 ```
-`RIDE_DB` defaults to an auto-resolved `data/ride.db` (or `ride_small.db`); generate a DB first. The .NET UI and the Leaflet map need network (CDN + OSM tiles).
+`RIDE_DB` defaults to an auto-resolved `data/ride.db` (or `ride_small.db`); generate a DB first. The native WPF app runs offline (no CDN/network needed).
 
 ## Conventions
 
 - This repo was built plan-by-plan with the superpowers workflow (`docs/superpowers/specs` + `plans`), one feature branch + PR per plan, subagent-driven TDD with a final whole-branch review before merge.
-- Chart/map/GUI code (uPlot, ScottPlot.Blazor, Leaflet, WPF) is **build-verified, not unit-tested** — pure logic carries the test coverage; visual correctness is checked by launching the app against `docs/reference/dashboard-target.md`.
+- Chart/map/GUI code (uPlot, MapLibre, ScottPlot.WPF, Mapsui, WPF/XAML) is **build-verified, not unit-tested** — pure logic (TS modules; .NET `TelemetryPoc.App.Viz`) carries the test coverage; visual correctness is checked by launching the app against `docs/reference/dashboard-target.md`.
 - Keep the two stacks behaviorally equivalent (same eviction boundary, rounding, latency model, metrics cadence) so the comparison stays fair.
 
 ## Status / not yet done
 
-Both apps build, test, and run. The **visual alignment** of each dashboard against the reference image has not been done yet — it needs a live GUI launch (it can't be verified headless).
+Both apps build, test, and run. The **Rust app** is fully reskinned to the INU dashboard (parameters, gauges, uPlot charts, offline MapLibre map, transport controls, frameless window, perf HUD). The **.NET app** is mid-reskin to native WPF (shell + parameters panel done; gauges, ScottPlot.WPF charts, Mapsui map, perf HUD still to do — see `docs/superpowers/specs/2026-06-28-dotnet-wpf-inu-reskin-design.md`). Final visual alignment against the reference needs a live GUI launch (it can't be verified headless).
