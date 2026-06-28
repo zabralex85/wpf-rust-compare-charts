@@ -24,8 +24,10 @@ function reducer(s: State, a: Action): State {
   switch (a.t) {
     case "add": return { widgets: addWidget(s.widgets, a.d, a.col, a.row, `w-${s.nextId}`), nextId: s.nextId + 1 };
     case "move": return { ...s, widgets: moveWidget(s.widgets, a.id, a.col, a.row) };
+    // NOTE: not yet wired into WidgetGrid (reserved for a future reorder/relative-resize interaction); covered by unit tests.
     case "reorder": return { ...s, widgets: reorderWidgets(s.widgets, a.draggedId, a.targetId) };
     case "setSize": return { ...s, widgets: modelSetSize(s.widgets, a.id, a.cols, a.rows) };
+    // NOTE: not yet wired into WidgetGrid (reserved for a future reorder/relative-resize interaction); covered by unit tests.
     case "resize": return { ...s, widgets: resizeW(s.widgets, a.id, a.dc, a.dr) };
     case "toggle": return { ...s, widgets: toggleType(s.widgets, a.id) };
     case "remove": return { ...s, widgets: removeWidget(s.widgets, a.id) };

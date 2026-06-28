@@ -64,6 +64,7 @@ export function moveWidget(ws: LayoutWidget[], id: string, col: number, row: num
   return ws.map((w) => (w.id !== id ? w : { ...w, col: Math.max(1, col), row: Math.max(1, row) }));
 }
 
+// NOTE: not yet wired into WidgetGrid (reserved for a future reorder/relative-resize interaction); covered by unit tests.
 export function reorderWidgets(ws: LayoutWidget[], draggedId: string, targetId: string | null): LayoutWidget[] {
   const arr = ws.slice();
   const from = arr.findIndex((w) => w.id === draggedId);
@@ -86,6 +87,7 @@ export function setSize(ws: LayoutWidget[], id: string, cols: number, rows: numb
   });
 }
 
+// NOTE: not yet wired into WidgetGrid (reserved for a future reorder/relative-resize interaction); covered by unit tests.
 export function resizeW(ws: LayoutWidget[], id: string, dc: number, dr: number): LayoutWidget[] {
   return ws.map((w) => {
     if (w.id !== id || w.kind === "gauge") return w;

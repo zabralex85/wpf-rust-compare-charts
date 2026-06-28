@@ -137,7 +137,7 @@ body{background:var(--bg);color:var(--text);font-family:var(--sans);overflow:hid
 .widget-cell-grip{cursor:move;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .widget-cell-actions{display:flex;align-items:center;gap:3px;flex:none}
 .widget-cell-toggle{cursor:pointer;font:600 8px/1 var(--mono);color:var(--accent);border:1px solid var(--border2);border-radius:3px;padding:3px 5px;letter-spacing:.04em}
-.widget-cell-remove{cursor:pointer;width:15px;height:15px;display:flex;align-items:center;justify-content:center;color:var(--red);border:1px solid var(--critborder,var(--border2));border-radius:3px;font-size:12px;line-height:1}
+.widget-cell-remove{cursor:pointer;width:15px;height:15px;display:flex;align-items:center;justify-content:center;color:var(--red);border:1px solid var(--border2);border-radius:3px;font-size:12px;line-height:1}
 .widget-cell-resize{position:absolute;right:0;bottom:0;width:18px;height:18px;cursor:nwse-resize;z-index:6;display:flex;align-items:flex-end;justify-content:flex-end;padding:3px}
 .widget-cell-resize-glyph{fill:none;stroke:var(--dim);stroke-width:1.4}
 .widget-cell-body{flex:1;min-height:0;padding:6px;overflow:hidden}

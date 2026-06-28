@@ -27,6 +27,7 @@ function parsePayload(dt: DataTransfer): DragPayload | null {
 export function WidgetGrid({ store, scalesOn }: WidgetGridProps): React.JSX.Element {
   const wm = useWidgets(store.channels());
   const dragId = useRef<string | null>(null);
+  const resizingRef = useRef(false);
   const [menu, setMenu] = useState<{ id: string; x: number; y: number } | null>(null);
 
   const onDropGrid = (e: React.DragEvent<HTMLDivElement>): void => {
@@ -44,6 +45,7 @@ export function WidgetGrid({ store, scalesOn }: WidgetGridProps): React.JSX.Elem
   };
 
   const startResize = (w: LayoutWidget) => (e: React.PointerEvent<HTMLDivElement>): void => {
+    resizingRef.current = true;
     e.preventDefault();
     e.stopPropagation();
     const sx = e.clientX, sy = e.clientY, sc = w.cols, sr = w.rows;
@@ -51,6 +53,7 @@ export function WidgetGrid({ store, scalesOn }: WidgetGridProps): React.JSX.Elem
       wm.setSize(w.id, sc + resizeStep(ev.clientX - sx), sr + resizeStep(ev.clientY - sy));
     };
     const up = (): void => {
+      resizingRef.current = false;
       document.removeEventListener("pointermove", mv);
       document.removeEventListener("pointerup", up);
     };
@@ -102,7 +105,7 @@ export function WidgetGrid({ store, scalesOn }: WidgetGridProps): React.JSX.Elem
             className="widget-cell"
             data-widget={w.id}
             draggable
-            onDragStart={() => { dragId.current = w.id; }}
+            onDragStart={(e) => { if (resizingRef.current) { e.preventDefault(); return; } dragId.current = w.id; }}
             onDragEnd={() => { dragId.current = null; }}
             onContextMenu={w.kind === "line" ? (e) => { e.preventDefault(); setMenu({ id: w.id, x: e.clientX, y: e.clientY }); } : undefined}
             style={{
