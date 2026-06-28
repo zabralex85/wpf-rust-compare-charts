@@ -11,8 +11,12 @@ describe("toUPlotData", () => {
   });
 });
 describe("scrollWindow", () => {
-  it("is [last-window, last] in seconds", () => {
+  it("is [last-window, last] in seconds once the span exceeds the window", () => {
     expect(scrollWindow([0, 5000, 10000], 4000)).toEqual([6, 10]); // (10000-4000)/1000 .. 10000/1000
+  });
+  it("anchors left to first sample while data is shorter than the window", () => {
+    // 5.3s of data in a 60s window → fill the width [first, last], do not pin to the right
+    expect(scrollWindow([0, 1000, 5300], 60000)).toEqual([0, 5.3]);
   });
   it("empty → [0, window s]", () => {
     expect(scrollWindow([], 60000)).toEqual([0, 60]);
