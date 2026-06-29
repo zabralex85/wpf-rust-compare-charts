@@ -15,6 +15,7 @@ public partial class MainWindow : Window
             new Binding(nameof(RideSession.ClockText)) { Source = _session });
         Overview.DataContext = new OverviewViewModel(_session);
         Transport.DataContext = new TransportViewModel(_session);
+        Hud.DataContext = new HudViewModel(_session);
         Loaded += (_, _) => _session.Start();
     }
 }
