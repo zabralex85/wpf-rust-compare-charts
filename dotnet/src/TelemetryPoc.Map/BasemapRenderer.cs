@@ -84,6 +84,7 @@ public static class BasemapRenderer
         foreach (var (box, paint) in candidates)
         {
             if (!placedSet.Contains(box)) continue;
+            halo.TextSize = paint.TextSize;
             canvas.DrawText(box.Text, (float)box.X, (float)(box.Y + box.H), halo);
             canvas.DrawText(box.Text, (float)box.X, (float)(box.Y + box.H), paint);
         }

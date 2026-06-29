@@ -14,12 +14,12 @@
             </StackPanel>
         </Grid>
         <Canvas Width="120" Height="120" HorizontalAlignment="Center" VerticalAlignment="Center">
-            <!-- 270° arc, radius 50, center (60,60): start -135° (17.6,95.4) end +135° (102.4,95.4) -->
+            <!-- 270° arc, radius 50, center (60,60): start -135° (24.6,95.4) end +135° (95.4,95.4) -->
             <Path Stroke="{StaticResource Border1}" StrokeThickness="6">
                 <Path.Data>
                     <PathGeometry>
-                        <PathFigure StartPoint="17.6,95.4">
-                            <ArcSegment Point="102.4,95.4" Size="50,50" IsLargeArc="True" SweepDirection="Clockwise" />
+                        <PathFigure StartPoint="24.6,95.4">
+                            <ArcSegment Point="95.4,95.4" Size="50,50" IsLargeArc="True" SweepDirection="Clockwise" />
                         </PathFigure>
                     </PathGeometry>
                 </Path.Data>
