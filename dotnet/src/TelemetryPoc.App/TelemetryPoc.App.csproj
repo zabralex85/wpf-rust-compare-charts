@@ -11,6 +11,7 @@
   <ItemGroup>
     <ProjectReference Include="..\TelemetryPoc.Core\TelemetryPoc.Core.csproj" />
     <ProjectReference Include="..\TelemetryPoc.App.Viz\TelemetryPoc.App.Viz.csproj" />
+    <ProjectReference Include="..\TelemetryPoc.Map\TelemetryPoc.Map.csproj" />
   </ItemGroup>
 
   <ItemGroup>
