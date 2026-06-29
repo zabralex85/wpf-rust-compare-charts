@@ -15,6 +15,7 @@ public partial class MapWidgetView : UserControl
     private Region? _renderedFor;
     private Point _lastDrag;
     private bool _dragging;
+    private double _panX, _panY; // live drag offset (px); applied to Region only on release
 
     public MapWidgetView()
     {
@@ -61,22 +62,26 @@ public partial class MapWidgetView : UserControl
     private void OnDown(object sender, MouseButtonEventArgs e)
     {
         if (_vm?.Region is null) return;
-        _dragging = true; _lastDrag = e.GetPosition(Skia); Skia.CaptureMouse();
+        _dragging = true; _lastDrag = e.GetPosition(Skia); _panX = 0; _panY = 0; Skia.CaptureMouse();
     }
 
     private void OnMove(object sender, MouseEventArgs e)
     {
         if (!_dragging || _vm?.Region is null) return;
         var p = e.GetPosition(Skia);
-        var dx = p.X - _lastDrag.X; var dy = p.Y - _lastDrag.Y;
+        _panX += p.X - _lastDrag.X; _panY += p.Y - _lastDrag.Y;
         _lastDrag = p;
-        _vm.SetRegion(MapInteract.Pan(_vm.Region, dx, dy));
+        // Translate the cached basemap during drag (cheap); rebuild once on release.
         Skia.InvalidateVisual();
     }
 
     private void OnUp(object sender, MouseButtonEventArgs e)
     {
-        _dragging = false; Skia.ReleaseMouseCapture();
+        if (_dragging && _vm?.Region is not null && (_panX != 0 || _panY != 0))
+            _vm.SetRegion(MapInteract.Pan(_vm.Region, _panX, _panY));
+        _dragging = false; _panX = 0; _panY = 0;
+        Skia.ReleaseMouseCapture();
+        Skia.InvalidateVisual();
     }
 
     private void OnMaybeDoubleClick(object sender, MouseButtonEventArgs e)
@@ -109,18 +114,25 @@ public partial class MapWidgetView : UserControl
             BuildBasemap(_vm.Region, w, h);
             _renderedFor = _vm.Region;
         }
-        if (_basemap is not null) canvas.DrawPicture(_basemap);
 
+        // While dragging, shift the cached basemap+track by the live pan offset instead
+        // of rebuilding the tile set every mouse-move (that was the freeze).
+        bool shifted = _dragging && (_panX != 0 || _panY != 0);
+        if (shifted) { canvas.Save(); canvas.Translate((float)_panX, (float)_panY); }
+
+        if (_basemap is not null) canvas.DrawPicture(_basemap);
         var (lat, lon) = _vm.Track;
         TrackOverlay.Draw(canvas, _vm.Region, lat, lon);
+
+        if (shifted) canvas.Restore();
     }
 
     private void BuildBasemap(Region region, int w, int h)
     {
-        if (string.IsNullOrEmpty(_vm?.MbTilesPath)) { _basemap = null; return; }
+        var reader = _vm?.Reader; // cached open connection + decoded-tile memo
+        if (reader is null) { _basemap = null; return; }
         try
         {
-            using var reader = new MbTilesReader(_vm.MbTilesPath);
             using var rec = new SKPictureRecorder();
             var rc = rec.BeginRecording(new SKRect(0, 0, w, h));
             BasemapRenderer.Render(rc, region, reader);

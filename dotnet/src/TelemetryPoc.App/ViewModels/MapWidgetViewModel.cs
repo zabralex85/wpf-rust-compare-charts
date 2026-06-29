@@ -12,6 +12,22 @@ public sealed class MapWidgetViewModel
 
     public Region? Region { get; private set; }
     public string? MbTilesPath { get; private set; }
+
+    // One open reader for the VM lifetime. Reopening the sqlite connection (and
+    // re-decoding tiles) every frame is what froze interactive pan/zoom.
+    private MbTilesReader? _reader;
+    public MbTilesReader? Reader
+    {
+        get
+        {
+            if (_reader is null && !string.IsNullOrEmpty(MbTilesPath))
+            {
+                try { _reader = new MbTilesReader(MbTilesPath); } catch { _reader = null; }
+            }
+            return _reader;
+        }
+    }
+
     public event Action? Updated;
     public event Action? Reset;
     public void RaiseReset() => Reset?.Invoke();

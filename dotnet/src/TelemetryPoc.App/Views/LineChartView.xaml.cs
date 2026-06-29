@@ -16,6 +16,9 @@ public partial class LineChartView : UserControl
     {
         InitializeComponent();
         StylePlot();
+        // Repaint synchronously on each resize step so the plot doesn't flash an
+        // empty frame while its Skia surface regenerates at the new size.
+        SizeChanged += (_, _) => Plot.Refresh();
         DataContextChanged += OnDataContextChanged;
         // Re-subscribe when the view re-enters the visual tree with an already-set
         // DataContext (tab-switch / virtualization fires Loaded but not DataContextChanged).

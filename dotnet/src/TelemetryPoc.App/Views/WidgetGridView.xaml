@@ -11,6 +11,7 @@
     </UserControl.Resources>
     <ScrollViewer x:Name="Scroll" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto"
                   AllowDrop="True" Drop="OnCanvasDrop" DragOver="OnCanvasDragOver">
+        <Grid Width="1600" Height="1600">
         <ItemsControl ItemsSource="{Binding Widgets}">
             <ItemsControl.ItemsPanel>
                 <ItemsPanelTemplate>
@@ -66,7 +67,7 @@
                             <!-- resize grip, bottom-right -->
                             <Thumb x:Name="ResizeThumb" Grid.Row="1" Width="16" Height="16"
                                    HorizontalAlignment="Right" VerticalAlignment="Bottom" Cursor="SizeNWSE"
-                                   DragStarted="OnResizeStart" DragDelta="OnResizeDelta">
+                                   DragStarted="OnResizeStart" DragDelta="OnResizeDelta" DragCompleted="OnResizeCompleted">
                                 <Thumb.Template>
                                     <ControlTemplate TargetType="Thumb">
                                         <Grid Background="Transparent">
@@ -82,5 +83,12 @@
                 </DataTemplate>
             </ItemsControl.ItemTemplate>
         </ItemsControl>
+        <!-- drop/move placeholder: dashed ghost at the snapped target cell -->
+        <Canvas IsHitTestVisible="False">
+            <Rectangle x:Name="DropGhost" Visibility="Collapsed"
+                       Stroke="{StaticResource AccentCyan}" StrokeThickness="1.5" StrokeDashArray="4 3"
+                       Fill="#1538C5E0" RadiusX="3" RadiusY="3" />
+        </Canvas>
+        </Grid>
     </ScrollViewer>
 </UserControl>

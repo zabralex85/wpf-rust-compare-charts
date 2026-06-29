@@ -11,12 +11,8 @@ public static class BasemapRenderer
         var decoded = new List<(TileRef Tile, IReadOnlyList<MapFeature> Feats)>();
         foreach (var t in TileMath.VisibleTiles(region))
         {
-            try
-            {
-                var bytes = reader.Read(t.Z, t.X, t.Y);
-                if (bytes is not null) decoded.Add((t, MvtBasemap.DecodeTile(bytes)));
-            }
-            catch { /* skip a corrupt tile */ }
+            var feats = reader.Decoded(t.Z, t.X, t.Y); // memoised read+gunzip+decode
+            if (feats is not null) decoded.Add((t, feats));
         }
 
         foreach (var layer in MapStyle.Layers)

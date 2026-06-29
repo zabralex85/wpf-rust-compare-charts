@@ -27,15 +27,18 @@ public partial class WidgetGridView : UserControl
     }
 
     private ViewModels.WidgetViewModel? _moving;
+    private int _moveCol, _moveRow;
 
     private void OnHeaderDown(object sender, System.Windows.Input.MouseButtonEventArgs e)
     {
         if (_moving is not null) return; // ignore a second grab while a move is active (no leaked handlers)
         if (sender is not FrameworkElement fe || fe.DataContext is not ViewModels.WidgetViewModel w) return;
         _moving = w;
+        _moveCol = w.Col; _moveRow = w.Row;
         fe.CaptureMouse();
         fe.MouseMove += OnHeaderMove;
         fe.MouseLeftButtonUp += OnHeaderUp;
+        ShowGhost(w.Col, w.Row, w.Width, w.Height); // placeholder marks the landing cell while dragging
         e.Handled = true;
     }
 
@@ -45,8 +48,9 @@ public partial class WidgetGridView : UserControl
         var canvas = FindCanvas();
         if (canvas is null) return;
         var p = e.GetPosition(canvas);
-        var (col, row) = TelemetryPoc.App.Viz.WidgetLayout.CellFromPoint(p.X, p.Y);
-        if (DataContext is ViewModels.DashboardViewModel dvm) dvm.Move(_moving.Id, col, row);
+        (_moveCol, _moveRow) = TelemetryPoc.App.Viz.WidgetLayout.CellFromPoint(p.X, p.Y);
+        // Don't move the widget live — show a ghost at the target; commit on release.
+        ShowGhost(_moveCol, _moveRow, _moving.Width, _moving.Height);
     }
 
     private void OnHeaderUp(object sender, System.Windows.Input.MouseButtonEventArgs e)
@@ -57,27 +61,74 @@ public partial class WidgetGridView : UserControl
             fe.MouseMove -= OnHeaderMove;
             fe.MouseLeftButtonUp -= OnHeaderUp;
         }
+        if (_moving is not null && DataContext is ViewModels.DashboardViewModel dvm)
+            dvm.Move(_moving.Id, _moveCol, _moveRow);
+        DropGhost.Visibility = Visibility.Collapsed;
         _moving = null;
     }
 
-    private int _resizeStartCols, _resizeStartRows;
+    private void ShowGhost(int col, int row, double width, double height)
+    {
+        const int pitch = TelemetryPoc.App.Viz.WidgetLayout.Pitch;
+        Canvas.SetLeft(DropGhost, (col - 1) * pitch);
+        Canvas.SetTop(DropGhost, (row - 1) * pitch);
+        DropGhost.Width = width;
+        DropGhost.Height = height;
+        DropGhost.Visibility = Visibility.Visible;
+    }
+
+    private void ShowGhostCells(int col, int row, int cols, int rows)
+    {
+        const int pitch = TelemetryPoc.App.Viz.WidgetLayout.Pitch;
+        const int gap = TelemetryPoc.App.Viz.WidgetLayout.Gap;
+        ShowGhost(col, row, cols * pitch - gap, rows * pitch - gap);
+    }
+
+    private ViewModels.WidgetViewModel? _resizing;
+    private int _resizeStartCols, _resizeStartRows, _resizeCols, _resizeRows;
     private double _accumX, _accumY;
 
     private void OnResizeStart(object sender, DragStartedEventArgs e)
     {
         if (Widget(sender) is not { } w) return;
+        _resizing = w;
         _resizeStartCols = w.Cols; _resizeStartRows = w.Rows;
+        _resizeCols = w.Cols; _resizeRows = w.Rows;
         _accumX = 0; _accumY = 0;
+        ShowGhostCells(w.Col, w.Row, _resizeCols, _resizeRows);
     }
 
     private void OnResizeDelta(object sender, DragDeltaEventArgs e)
     {
-        if (Widget(sender) is not { } w || DataContext is not ViewModels.DashboardViewModel dvm) return;
-        _accumX += e.HorizontalChange;
-        _accumY += e.VerticalChange;
+        if (_resizing is not { } w) return;
+        // The Thumb is never repositioned, so HorizontalChange/VerticalChange are
+        // cumulative from drag-start — assign, don't accumulate (that over-counted).
+        _accumX = e.HorizontalChange;
+        _accumY = e.VerticalChange;
+
+        const int pitch = TelemetryPoc.App.Viz.WidgetLayout.Pitch;
+        const int gap = TelemetryPoc.App.Viz.WidgetLayout.Gap;
+        // Snapped cell size to commit on release.
         var cols = _resizeStartCols + TelemetryPoc.App.Viz.WidgetLayout.ResizeStep(_accumX);
         var rows = _resizeStartRows + TelemetryPoc.App.Viz.WidgetLayout.ResizeStep(_accumY);
-        dvm.Resize(w.Id, cols, rows);
+        (_resizeCols, _resizeRows) = TelemetryPoc.App.Viz.WidgetLayout.ClampSize(w.Kind, cols, rows);
+
+        // Ghost follows the cursor 1:1 (raw pixels), clamped to the kind's min/max,
+        // so the preview tracks the mouse like a normal window resize; the actual
+        // widget snaps to whole cells only on release (one re-render, no blink).
+        var (minC, minR) = TelemetryPoc.App.Viz.WidgetLayout.ClampSize(w.Kind, 0, 0);
+        var (maxC, maxR) = TelemetryPoc.App.Viz.WidgetLayout.ClampSize(w.Kind, 999, 999);
+        double rawW = System.Math.Clamp((_resizeStartCols * pitch - gap) + _accumX, minC * pitch - gap, maxC * pitch - gap);
+        double rawH = System.Math.Clamp((_resizeStartRows * pitch - gap) + _accumY, minR * pitch - gap, maxR * pitch - gap);
+        ShowGhost(w.Col, w.Row, rawW, rawH);
+    }
+
+    private void OnResizeCompleted(object sender, DragCompletedEventArgs e)
+    {
+        if (_resizing is { } w && DataContext is ViewModels.DashboardViewModel dvm)
+            dvm.Resize(w.Id, _resizeCols, _resizeRows);
+        DropGhost.Visibility = Visibility.Collapsed;
+        _resizing = null;
     }
 
     private void OnToggle(object sender, RoutedEventArgs e)
