@@ -27,6 +27,19 @@ public sealed class TransportViewModel : INotifyPropertyChanged
 
     public string DroppedText => "0";
 
+    public bool IsPaused => _session.IsPaused;
+    public string PlayPauseGlyph => _session.IsPaused ? "▶" : "⏸"; // ▶ / ⏸
+
+    public void TogglePlayPause()
+    {
+        if (_session.IsPaused) _session.Resume();
+        else _session.Pause();
+        Raise(nameof(IsPaused));
+        Raise(nameof(PlayPauseGlyph));
+    }
+
+    public void Seek(double fraction) => _session.Seek(fraction);
+
     private void Refresh()
     {
         var dur = _session.DurationMs;

@@ -18,6 +18,8 @@ public sealed class LineChartViewModel
     public double WindowMax { get; private set; }
 
     public event Action? Updated;
+    public event Action? Reset;
+    public void RaiseReset() => Reset?.Invoke();
 
     public void Refresh(TelemetryStore store)
     {
