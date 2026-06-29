@@ -55,6 +55,7 @@ public partial class MapWidgetView : UserControl
         int step = e.Delta > 0 ? +1 : -1;
         _vm.SetRegion(MapInteract.ZoomAt(_vm.Region, p.X, p.Y, step, TileMath.MinZoom, TileMath.MaxZoom));
         Skia.InvalidateVisual();
+        e.Handled = true; // consume so the outer grid ScrollViewer doesn't scroll instead of zooming
     }
 
     private void OnDown(object sender, MouseButtonEventArgs e)

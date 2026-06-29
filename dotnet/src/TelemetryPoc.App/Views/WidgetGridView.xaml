@@ -44,8 +44,9 @@
                                            MouseLeftButtonDown="OnHeaderDown" />
                                 <Button Grid.Column="1" Content="{Binding ToggleLabel}" Click="OnToggle"
                                         Visibility="{Binding IsToggleable, Converter={StaticResource BoolToVis}}"
-                                        Foreground="{StaticResource TextDim}" Background="Transparent" BorderThickness="0"
-                                        FontSize="9" Padding="6,2" Cursor="Hand" />
+                                        Foreground="{StaticResource AccentCyan}" Background="{StaticResource Panel2}"
+                                        BorderBrush="{StaticResource Border1}" BorderThickness="1"
+                                        FontSize="9" Padding="6,2" Margin="2,2,4,2" Cursor="Hand" />
                                 <Button Grid.Column="2" Content="✕" Click="OnRemove"
                                         Visibility="{Binding IsRemovable, Converter={StaticResource BoolToVis}}"
                                         Foreground="{StaticResource Red}" Background="Transparent" BorderThickness="0"
@@ -63,9 +64,19 @@
                                 </ContentControl.ContextMenu>
                             </ContentControl>
                             <!-- resize grip, bottom-right -->
-                            <Thumb x:Name="ResizeThumb" Grid.Row="1" Width="14" Height="14"
+                            <Thumb x:Name="ResizeThumb" Grid.Row="1" Width="16" Height="16"
                                    HorizontalAlignment="Right" VerticalAlignment="Bottom" Cursor="SizeNWSE"
-                                   DragStarted="OnResizeStart" DragDelta="OnResizeDelta" Opacity="0.6" />
+                                   DragStarted="OnResizeStart" DragDelta="OnResizeDelta">
+                                <Thumb.Template>
+                                    <ControlTemplate TargetType="Thumb">
+                                        <Grid Background="Transparent">
+                                            <!-- three diagonal grip lines, accent so the handle is obvious -->
+                                            <Path Stroke="{StaticResource AccentCyan}" StrokeThickness="1.2" Opacity="0.9"
+                                                  Data="M14,4 L4,14 M14,8 L8,14 M14,12 L12,14" />
+                                        </Grid>
+                                    </ControlTemplate>
+                                </Thumb.Template>
+                            </Thumb>
                         </Grid>
                     </Border>
                 </DataTemplate>
