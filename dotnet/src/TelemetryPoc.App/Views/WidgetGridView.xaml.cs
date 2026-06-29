@@ -45,8 +45,22 @@ public partial class WidgetGridView : UserControl
 
     private Canvas? FindCanvas()
     {
-        // The ItemsControl's ItemsPanel Canvas; walk the visual tree from the ScrollViewer content.
-        return FindVisualChild<Canvas>(this);
+        // The ItemsControl's ItemsPanel Canvas (x:Name="GridCanvas"). Match by name so a
+        // theme/template that inserts its own Canvas before ours can't be picked by mistake.
+        return FindNamedChild<Canvas>(this, "GridCanvas") ?? FindVisualChild<Canvas>(this);
+    }
+
+    private static T? FindNamedChild<T>(DependencyObject root, string name) where T : FrameworkElement
+    {
+        int n = System.Windows.Media.VisualTreeHelper.GetChildrenCount(root);
+        for (int i = 0; i < n; i++)
+        {
+            var c = System.Windows.Media.VisualTreeHelper.GetChild(root, i);
+            if (c is T t && t.Name == name) return t;
+            var r = FindNamedChild<T>(c, name);
+            if (r is not null) return r;
+        }
+        return null;
     }
 
     private static T? FindVisualChild<T>(DependencyObject root) where T : DependencyObject
