@@ -15,6 +15,9 @@ public partial class LineChartView : UserControl
         InitializeComponent();
         StylePlot();
         DataContextChanged += OnDataContextChanged;
+        // Re-subscribe when the view re-enters the visual tree with an already-set
+        // DataContext (tab-switch / virtualization fires Loaded but not DataContextChanged).
+        Loaded += (_, _) => { if (_vm is null) OnDataContextChanged(this, default); };
         Unloaded += (_, _) => Detach();
     }
 
@@ -58,7 +61,7 @@ public partial class LineChartView : UserControl
             var sc = p.Add.Scatter(_vm.XsSeconds, _vm.Ys);
             sc.Color = Color.FromHex("#38c5e0");
             sc.LineWidth = 1.5f;
-            sc.MarkerSize = 0;
+            sc.MarkerStyle = MarkerStyle.None;
             p.Axes.AutoScaleY();
             p.Axes.SetLimitsX(_vm.WindowMin, _vm.WindowMax);
         }
