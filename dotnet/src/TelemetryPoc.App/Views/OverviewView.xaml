@@ -9,42 +9,6 @@
             <ColumnDefinition Width="*" />
         </Grid.ColumnDefinitions>
         <views:ParamPanel Grid.Column="0" Margin="6" />
-        <Grid Grid.Column="1">
-            <Grid.RowDefinitions>
-                <RowDefinition Height="Auto" />
-                <RowDefinition Height="*" />
-            </Grid.RowDefinitions>
-            <ItemsControl Grid.Row="0" ItemsSource="{Binding Gauges}" Margin="6">
-                <ItemsControl.ItemsPanel>
-                    <ItemsPanelTemplate><WrapPanel Orientation="Horizontal" /></ItemsPanelTemplate>
-                </ItemsControl.ItemsPanel>
-                <ItemsControl.ItemTemplate>
-                    <DataTemplate>
-                        <Border Margin="6" BorderBrush="{StaticResource Border1}" BorderThickness="1">
-                            <views:GaugeView />
-                        </Border>
-                    </DataTemplate>
-                </ItemsControl.ItemTemplate>
-            </ItemsControl>
-            <DockPanel Grid.Row="1">
-                <Border DockPanel.Dock="Top" Height="280" Margin="6" BorderBrush="{StaticResource Border1}" BorderThickness="1">
-                    <views:MapWidgetView DataContext="{Binding MapWidget}" />
-                </Border>
-                <ScrollViewer VerticalScrollBarVisibility="Auto">
-                    <ItemsControl ItemsSource="{Binding LineCharts}" Margin="6">
-                        <ItemsControl.ItemsPanel>
-                            <ItemsPanelTemplate><WrapPanel Orientation="Horizontal" /></ItemsPanelTemplate>
-                        </ItemsControl.ItemsPanel>
-                        <ItemsControl.ItemTemplate>
-                            <DataTemplate>
-                                <Border Margin="6" BorderBrush="{StaticResource Border1}" BorderThickness="1">
-                                    <views:LineChartView />
-                                </Border>
-                            </DataTemplate>
-                        </ItemsControl.ItemTemplate>
-                    </ItemsControl>
-                </ScrollViewer>
-            </DockPanel>
-        </Grid>
+        <views:WidgetGridView Grid.Column="1" DataContext="{Binding Dashboard}" Margin="6" />
     </Grid>
 </UserControl>
