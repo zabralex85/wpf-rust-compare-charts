@@ -11,6 +11,7 @@ public sealed class OverviewViewModel : INotifyPropertyChanged
     private readonly RideSession _session;
     public ObservableCollection<ParamGroupViewModel> Groups { get; } = new();
     public ObservableCollection<GaugeViewModel> Gauges { get; } = new();
+    public ObservableCollection<LineChartViewModel> LineCharts { get; } = new();
 
     private string _channelCountText = "ALL · 0 CH";
     public string ChannelCountText
@@ -36,6 +37,9 @@ public sealed class OverviewViewModel : INotifyPropertyChanged
         Gauges.Clear();
         foreach (var ch in store.Channels)
             if (ch.Widget == "gauge") Gauges.Add(new GaugeViewModel(ch));
+        LineCharts.Clear();
+        foreach (var ch in store.Channels)
+            if (ch.Widget == "strip") LineCharts.Add(new LineChartViewModel(ch));
         RefreshRows();
     }
 
@@ -43,6 +47,7 @@ public sealed class OverviewViewModel : INotifyPropertyChanged
     {
         foreach (var g in Groups) g.Refresh(_session.Store);
         foreach (var g in Gauges) g.Refresh(_session.Store);
+        foreach (var lc in LineCharts) lc.Refresh(_session.Store);
     }
 
     public event PropertyChangedEventHandler? PropertyChanged;
