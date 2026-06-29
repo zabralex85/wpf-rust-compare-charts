@@ -93,6 +93,26 @@ public partial class WidgetGridView : UserControl
     private static ViewModels.WidgetViewModel? Widget(object sender)
         => (sender as FrameworkElement)?.DataContext as ViewModels.WidgetViewModel;
 
+    private void OnZoomIn(object sender, RoutedEventArgs e) => Zoom(sender, 2.0);
+    private void OnZoomOut(object sender, RoutedEventArgs e) => Zoom(sender, 0.5);
+    private void OnZoomReset(object sender, RoutedEventArgs e)
+    {
+        if (MenuWidget(sender) is { Content: ViewModels.LineChartViewModel l }) { l.ResetZoom(); }
+    }
+
+    private void Zoom(object sender, double factor)
+    {
+        if (DataContext is ViewModels.DashboardViewModel dvm && MenuWidget(sender) is { } w) dvm.ZoomBy(w.Id, factor);
+    }
+
+    private static ViewModels.WidgetViewModel? MenuWidget(object sender)
+    {
+        // MenuItem.DataContext is the WidgetViewModel (inherited through the ContextMenu's PlacementTarget).
+        var mi = sender as FrameworkElement;
+        if (mi?.DataContext is ViewModels.WidgetViewModel w) return w;
+        return null;
+    }
+
     private Canvas? FindCanvas()
     {
         // The ItemsControl's ItemsPanel Canvas (x:Name="GridCanvas"). Match by name so a

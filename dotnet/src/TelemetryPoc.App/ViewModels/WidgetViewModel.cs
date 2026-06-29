@@ -20,8 +20,10 @@ public sealed class WidgetViewModel : INotifyPropertyChanged
     public WidgetKind Kind
     {
         get => _kind;
-        set { _kind = value; Raise(nameof(Kind)); Raise(nameof(IsToggleable)); Raise(nameof(IsRemovable)); }
+        set { _kind = value; Raise(nameof(Kind)); Raise(nameof(IsToggleable)); Raise(nameof(IsRemovable)); Raise(nameof(IsLine)); }
     }
+
+    public bool IsLine => _kind == WidgetKind.Line;
 
     private object _content;
     public object Content { get => _content; set { _content = value; Raise(nameof(Content)); } }

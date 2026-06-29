@@ -38,6 +38,7 @@ public partial class LineChartView : UserControl
         if (p.Axes.Bottom.TickGenerator is ScottPlot.TickGenerators.NumericAutomatic gen)
             gen.LabelFormatter = x => LineAxis.FormatElapsed(x);
         Plot.Refresh();
+        Plot.UserInputProcessor.IsEnabled = false; // window-based zoom only (Rust parity)
     }
 
     private void OnDataContextChanged(object sender, DependencyPropertyChangedEventArgs e)

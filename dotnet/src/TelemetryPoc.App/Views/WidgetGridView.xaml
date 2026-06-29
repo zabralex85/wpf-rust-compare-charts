@@ -52,7 +52,16 @@
                                         FontSize="9" Padding="6,2" Cursor="Hand" />
                             </Grid>
                             <!-- body: content VM → implicit template -->
-                            <ContentControl Grid.Row="1" Content="{Binding Content}" />
+                            <ContentControl Grid.Row="1" Content="{Binding Content}">
+                                <ContentControl.ContextMenu>
+                                    <ContextMenu Visibility="{Binding PlacementTarget.DataContext.IsLine,
+                                                 RelativeSource={RelativeSource Self}, Converter={StaticResource BoolToVis}}">
+                                        <MenuItem Header="Zoom in"  Click="OnZoomIn" />
+                                        <MenuItem Header="Zoom out" Click="OnZoomOut" />
+                                        <MenuItem Header="Reset"    Click="OnZoomReset" />
+                                    </ContextMenu>
+                                </ContentControl.ContextMenu>
+                            </ContentControl>
                             <!-- resize grip, bottom-right -->
                             <Thumb x:Name="ResizeThumb" Grid.Row="1" Width="14" Height="14"
                                    HorizontalAlignment="Right" VerticalAlignment="Bottom" Cursor="SizeNWSE"
