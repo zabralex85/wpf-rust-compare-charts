@@ -1,6 +1,8 @@
+using System;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
+using System.Windows.Threading;
 using SkiaSharp;
 using SkiaSharp.Views.Desktop;
 using TelemetryPoc.App.ViewModels;
@@ -11,11 +13,18 @@ namespace TelemetryPoc.App.Views;
 public partial class MapWidgetView : UserControl
 {
     private MapWidgetViewModel? _vm;
-    private SKPicture? _basemap;
+    private SKImage? _basemap;          // basemap rasterised once per region; blitted each frame
+    private int _basemapW, _basemapH;
     private Region? _renderedFor;
     private Point _lastDrag;
     private bool _dragging;
     private double _panX, _panY; // live drag offset (px); applied to Region only on release
+
+    // Smooth zoom: scale the cached basemap around the cursor instantly on each wheel
+    // notch, then rebuild tiles once after the wheel settles (debounced) — no per-notch freeze.
+    private int _pendingZoomSteps;
+    private double _zoomScale = 1.0, _zoomFocusX, _zoomFocusY;
+    private readonly DispatcherTimer _zoomDebounce;
 
     public MapWidgetView()
     {
@@ -28,6 +37,8 @@ public partial class MapWidgetView : UserControl
         Skia.MouseMove += OnMove;
         Skia.MouseLeftButtonUp += OnUp;
         Skia.MouseLeftButtonDown += OnMaybeDoubleClick;
+        _zoomDebounce = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(140) };
+        _zoomDebounce.Tick += (_, _) => CommitZoom();
     }
 
     private void OnDataContextChanged(object sender, DependencyPropertyChangedEventArgs e)
@@ -41,6 +52,8 @@ public partial class MapWidgetView : UserControl
     {
         if (_vm is not null) { _vm.Updated -= OnTick; _vm.Reset -= OnReset; }
         _vm = null;
+        _zoomDebounce.Stop();
+        _pendingZoomSteps = 0; _zoomScale = 1.0;
         _basemap?.Dispose();
         _basemap = null;
         _renderedFor = null;
@@ -54,14 +67,33 @@ public partial class MapWidgetView : UserControl
         if (_vm?.Region is null) return;
         var p = e.GetPosition(Skia);
         int step = e.Delta > 0 ? +1 : -1;
-        _vm.SetRegion(MapInteract.ZoomAt(_vm.Region, p.X, p.Y, step, TileMath.MinZoom, TileMath.MaxZoom));
+        int cur = _vm.Region.Zoom;
+        // Accumulate against the zoom range so the preview can't scale past the rebuildable level.
+        int target = Math.Clamp(cur + _pendingZoomSteps + step, TileMath.MinZoom, TileMath.MaxDisplayZoom);
+        _pendingZoomSteps = target - cur;
+        _zoomFocusX = p.X; _zoomFocusY = p.Y;
+        _zoomScale = Math.Pow(2, _pendingZoomSteps); // each integer level = 2x screen scale
         Skia.InvalidateVisual();
+        _zoomDebounce.Stop(); _zoomDebounce.Start();
         e.Handled = true; // consume so the outer grid ScrollViewer doesn't scroll instead of zooming
+    }
+
+    private void CommitZoom()
+    {
+        _zoomDebounce.Stop();
+        if (_vm?.Region is not null && _pendingZoomSteps != 0)
+        {
+            _vm.SetRegion(MapInteract.ZoomAt(_vm.Region, _zoomFocusX, _zoomFocusY,
+                _pendingZoomSteps, TileMath.MinZoom, TileMath.MaxDisplayZoom));
+        }
+        _pendingZoomSteps = 0; _zoomScale = 1.0;
+        Skia.InvalidateVisual();
     }
 
     private void OnDown(object sender, MouseButtonEventArgs e)
     {
         if (_vm?.Region is null) return;
+        if (_pendingZoomSteps != 0) CommitZoom(); // settle any in-flight zoom before panning
         _dragging = true; _lastDrag = e.GetPosition(Skia); _panX = 0; _panY = 0; Skia.CaptureMouse();
     }
 
@@ -108,35 +140,45 @@ public partial class MapWidgetView : UserControl
         _vm.EnsureRegion(w, h);
         if (_vm.Region is null) return;
 
-        if (_basemap is null || !_vm.Region.Equals(_renderedFor))
+        if (_basemap is null || _basemapW != w || _basemapH != h || !_vm.Region.Equals(_renderedFor))
         {
             _basemap?.Dispose();
             BuildBasemap(_vm.Region, w, h);
             _renderedFor = _vm.Region;
+            _basemapW = w; _basemapH = h;
         }
 
-        // While dragging, shift the cached basemap+track by the live pan offset instead
-        // of rebuilding the tile set every mouse-move (that was the freeze).
+        // Preview pan (translate) and zoom (scale-around-cursor) on the cached basemap
+        // instead of rebuilding tiles every event; the real region+rebuild happens on
+        // release (pan) / debounce (zoom).
         bool shifted = _dragging && (_panX != 0 || _panY != 0);
-        if (shifted) { canvas.Save(); canvas.Translate((float)_panX, (float)_panY); }
+        bool zooming = _pendingZoomSteps != 0;
+        if (shifted || zooming)
+        {
+            canvas.Save();
+            if (shifted) canvas.Translate((float)_panX, (float)_panY);
+            if (zooming) canvas.Scale((float)_zoomScale, (float)_zoomScale, (float)_zoomFocusX, (float)_zoomFocusY);
+        }
 
-        if (_basemap is not null) canvas.DrawPicture(_basemap);
+        if (_basemap is not null) canvas.DrawImage(_basemap, 0, 0); // fast blit, no vector re-raster
         var (lat, lon) = _vm.Track;
         TrackOverlay.Draw(canvas, _vm.Region, lat, lon);
 
-        if (shifted) canvas.Restore();
+        if (shifted || zooming) canvas.Restore();
     }
 
     private void BuildBasemap(Region region, int w, int h)
     {
         var reader = _vm?.Reader; // cached open connection + decoded-tile memo
-        if (reader is null) { _basemap = null; return; }
+        if (reader is null || w < 1 || h < 1) { _basemap = null; return; }
         try
         {
-            using var rec = new SKPictureRecorder();
-            var rc = rec.BeginRecording(new SKRect(0, 0, w, h));
-            BasemapRenderer.Render(rc, region, reader);
-            _basemap = rec.EndRecording();
+            // Rasterise the vector basemap once into an image. Per-frame paint then blits
+            // this image (cheap) instead of replaying every path via DrawPicture (the ~80%
+            // CPU sink) — the tile set only changes on pan-release / zoom-commit / resize.
+            using var surface = SKSurface.Create(new SKImageInfo(w, h, SKColorType.Bgra8888, SKAlphaType.Premul));
+            BasemapRenderer.Render(surface.Canvas, region, reader);
+            _basemap = surface.Snapshot();
         }
         catch { _basemap = null; }
     }

@@ -106,7 +106,12 @@ public sealed class RideSession : INotifyPropertyChanged
         _clock.Advance((long)(delta * _speed));
 
         var now = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
-        _player?.Advance(_clock.RideMs, now);
+        // The render timer runs at 30Hz to advance the clock smoothly, but the ride
+        // data is only 10Hz. Repainting charts/map/gauges on every tick would redraw
+        // identical data 2 of every 3 frames. Fire Ticked (the heavy redraw signal)
+        // only when a new frame was actually emitted — ~3x fewer repaints, and it
+        // mirrors Rust, which renders per frame-message rather than on a fixed clock.
+        int applied = _player?.Advance(_clock.RideMs, now) ?? 0;
 
         var rideMs = _clock.RideMs;
         RideMs = rideMs;
@@ -115,11 +120,13 @@ public sealed class RideSession : INotifyPropertyChanged
         {
             _lastMetricSec = rideSec;
             Store.ApplyMetrics(_metrics.Sample());
+            applied++; // metrics changed (CPU/RAM) → refresh the HUD even between frames
         }
 
+        // Clock text advances every tick so the mission clock stays smooth (cheap text).
         ClockText = MissionClock.Format(rideMs);
         TPlusText = MissionClock.FormatTPlus(rideMs);
-        Ticked?.Invoke();
+        if (applied > 0) Ticked?.Invoke();
     }
 
     public void Pause() => _clock.Pause();

@@ -30,7 +30,9 @@ public sealed class MapWidgetViewModel
 
     public event Action? Updated;
     public event Action? Reset;
-    public void RaiseReset() => Reset?.Invoke();
+    public void RaiseReset() { _lastTrackLen = -1; Reset?.Invoke(); }
+
+    private int _lastTrackLen = -1;
 
     public (System.Collections.Generic.IReadOnlyList<double> Lat, System.Collections.Generic.IReadOnlyList<double> Lon) Track
         => _session.Store.GpsTrack();
@@ -53,7 +55,14 @@ public sealed class MapWidgetViewModel
     /// <summary>Replace the viewport (interactive pan/zoom owns it after the first fit).</summary>
     public void SetRegion(Region r) => Region = r;
 
-    public void Tick() => Updated?.Invoke();
+    public void Tick()
+    {
+        // Repaint only when the GPS track actually grew; a static map costs nothing.
+        var (lat, _) = _session.Store.GpsTrack();
+        if (lat.Count == _lastTrackLen) return;
+        _lastTrackLen = lat.Count;
+        Updated?.Invoke();
+    }
 
     private static string? ResolveMbTiles()
     {
