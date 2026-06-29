@@ -12,6 +12,7 @@ public sealed class OverviewViewModel : INotifyPropertyChanged
     public ObservableCollection<ParamGroupViewModel> Groups { get; } = new();
     public ObservableCollection<GaugeViewModel> Gauges { get; } = new();
     public ObservableCollection<LineChartViewModel> LineCharts { get; } = new();
+    public MapWidgetViewModel MapWidget { get; }
 
     private string _channelCountText = "ALL · 0 CH";
     public string ChannelCountText
@@ -25,6 +26,8 @@ public sealed class OverviewViewModel : INotifyPropertyChanged
         _session = session;
         _session.MetaLoaded += BuildGroups;
         _session.Ticked += RefreshRows;
+        MapWidget = new MapWidgetViewModel(session);
+        session.Ticked += MapWidget.Tick;
     }
 
     private void BuildGroups()
