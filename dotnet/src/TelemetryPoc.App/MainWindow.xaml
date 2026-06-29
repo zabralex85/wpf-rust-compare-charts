@@ -8,9 +8,11 @@
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
         <views:TopBar x:Name="TopBar" Grid.Row="0" />
         <views:OverviewView x:Name="Overview" Grid.Row="1" />
-        <views:Hud Grid.RowSpan="2" />
+        <views:TransportBar x:Name="Transport" Grid.Row="2" />
+        <views:Hud Grid.RowSpan="3" />
     </Grid>
 </Window>

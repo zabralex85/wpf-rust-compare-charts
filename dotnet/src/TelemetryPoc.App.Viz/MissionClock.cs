@@ -13,4 +13,12 @@ public static class MissionClock
     }
 
     public static string FormatTPlus(long ms) => "T+" + Format(ms);
+
+    public static string FormatShort(long ms)
+    {
+        if (ms < 0) ms = 0;
+        var t = TimeSpan.FromMilliseconds(ms);
+        return string.Format(System.Globalization.CultureInfo.InvariantCulture, "{0}:{1:00}:{2:00}",
+            (int)t.TotalHours, t.Minutes, t.Seconds);
+    }
 }

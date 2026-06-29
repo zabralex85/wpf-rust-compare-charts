@@ -19,6 +19,9 @@ public sealed class RideSession : INotifyPropertyChanged
     private double _speed = 1.0;
     private long _lastMetricSec = -1;
 
+    public long DurationMs { get; private set; }
+    public long RideMs { get; private set; }
+
     private string _clockText = "00:00:00.000";
     public string ClockText { get => _clockText; private set { _clockText = value; Raise(nameof(ClockText)); } }
 
@@ -44,6 +47,8 @@ public sealed class RideSession : INotifyPropertyChanged
             var channels = TelemetryDb.LoadChannels(conn);
             var enums = TelemetryDb.LoadEnumValues(conn);
             var samples = TelemetryDb.LoadSamples(conn, channels);
+            var meta = TelemetryDb.LoadRideMeta(conn);
+            DurationMs = meta.DurationS * 1000;
             Store.ApplyMeta(channels, enums);
             MetaLoaded?.Invoke();
             _player = new ReplayPlayer(samples, Store, _speed);
@@ -67,6 +72,7 @@ public sealed class RideSession : INotifyPropertyChanged
         _player?.Advance(elapsed, now);
 
         var rideMs = (long)(elapsed * _speed);
+        RideMs = rideMs;
         var rideSec = rideMs / 1000;
         if (Store.LastEmitUnixMs > 0 && rideSec != _lastMetricSec)
         {

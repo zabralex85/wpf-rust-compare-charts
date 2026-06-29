@@ -16,3 +16,12 @@ public class MissionClockTests
     public void FormatTPlus_prefixes()
         => Assert.Equal("T+00:00:05.000", MissionClock.FormatTPlus(5000));
 }
+
+public class MissionClockShortTests
+{
+    [Theory]
+    [InlineData(0, "0:00:00")]
+    [InlineData(5000, "0:00:05")]
+    [InlineData(3_661_000, "1:01:01")]
+    public void FormatShort_is_h_mm_ss(long ms, string s) => Assert.Equal(s, MissionClock.FormatShort(ms));
+}
