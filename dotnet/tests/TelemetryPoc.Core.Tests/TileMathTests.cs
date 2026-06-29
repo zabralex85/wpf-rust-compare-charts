@@ -47,6 +47,6 @@ public class TileMathTests
     public void FitBbox_huge_bbox_clamps_to_min_zoom()
     {
         var (_, _, z) = TileMath.FitBbox(-40, -100, 60, 100, 400, 400);
-        Assert.Equal(9, z);
+        Assert.Equal(TileMath.MinZoom, z);
     }
 }
