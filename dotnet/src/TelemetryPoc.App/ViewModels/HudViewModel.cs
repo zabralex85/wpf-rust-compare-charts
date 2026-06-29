@@ -28,11 +28,16 @@ public sealed class HudViewModel : INotifyPropertyChanged
     public string CpuText { get => _cpuText; private set { _cpuText = value; Raise(nameof(CpuText)); } }
     public string RamText { get => _ramText; private set { _ramText = value; Raise(nameof(RamText)); } }
 
+    private bool _wasPaused;
+
     private void OnRender(object? sender, EventArgs e)
     {
         // While paused the scene is static; updating the FPS text every frame would itself
         // keep the compositor (and CPU) busy. Skip it so the app idles when paused.
-        if (_session.IsPaused) return;
+        if (_session.IsPaused) { _wasPaused = true; return; }
+        // On the first frame after resume, drop the pause-gap sample: _sw kept running while
+        // paused, so the next interval would otherwise be ~pauseDuration and skew FPS for ~60 frames.
+        if (_wasPaused) { _fps.Reset(); _wasPaused = false; }
         _fps.Tick(_sw.Elapsed.TotalMilliseconds);
         FpsText = _fps.Fps().ToString("F0", Inv);
         FrameText = _fps.FrameTimeMs().ToString("F1", Inv);
