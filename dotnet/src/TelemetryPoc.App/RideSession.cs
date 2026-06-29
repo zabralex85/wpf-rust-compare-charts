@@ -15,10 +15,15 @@ public sealed class RideSession : INotifyPropertyChanged
     public TelemetryStore Store { get; } = new();
     private readonly MetricsSampler _metrics = new();
     private readonly Stopwatch _sw = new();
+    private readonly RideClock _clock = new();
     private ReplayPlayer? _player;
     private DispatcherTimer? _timer;
     private double _speed = 1.0;
     private long _lastMetricSec = -1;
+    private long _lastElapsed;
+    private IReadOnlyList<ChannelMeta> _channels = Array.Empty<ChannelMeta>();
+    private IReadOnlyList<EnumValue> _enums = Array.Empty<EnumValue>();
+    private IReadOnlyList<Sample> _samples = Array.Empty<Sample>();
 
     public long DurationMs { get; private set; }
     public long RideMs { get; private set; }
@@ -34,6 +39,8 @@ public sealed class RideSession : INotifyPropertyChanged
 
     public event Action? MetaLoaded;
     public event Action? Ticked;
+    public event Action? Reset;
+    public bool IsPaused => !_clock.Playing;
 
     public void Start()
     {
@@ -52,6 +59,10 @@ public sealed class RideSession : INotifyPropertyChanged
             var meta = TelemetryDb.LoadRideMeta(conn);
             DurationMs = meta.DurationS * 1000;
 
+            _channels = channels;
+            _enums = enums;
+            _samples = samples;
+
             int latIdx = -1, lonIdx = -1;
             for (int i = 0; i < channels.Count; i++)
             {
@@ -68,7 +79,7 @@ public sealed class RideSession : INotifyPropertyChanged
 
             Store.ApplyMeta(channels, enums);
             MetaLoaded?.Invoke();
-            _player = new ReplayPlayer(samples, Store, _speed);
+            _player = new ReplayPlayer(samples, Store);
 
             _sw.Start();
             _timer = new DispatcherTimer(DispatcherPriority.Render) { Interval = TimeSpan.FromMilliseconds(33) };
@@ -85,10 +96,14 @@ public sealed class RideSession : INotifyPropertyChanged
     private void Tick()
     {
         var elapsed = _sw.ElapsedMilliseconds;
-        var now = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
-        _player?.Advance(elapsed, now);
+        var delta = elapsed - _lastElapsed;
+        _lastElapsed = elapsed;
+        _clock.Advance((long)(delta * _speed));
 
-        var rideMs = (long)(elapsed * _speed);
+        var now = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+        _player?.Advance(_clock.RideMs, now);
+
+        var rideMs = _clock.RideMs;
         RideMs = rideMs;
         var rideSec = rideMs / 1000;
         if (Store.LastEmitUnixMs > 0 && rideSec != _lastMetricSec)
@@ -99,6 +114,32 @@ public sealed class RideSession : INotifyPropertyChanged
 
         ClockText = MissionClock.Format(rideMs);
         TPlusText = MissionClock.FormatTPlus(rideMs);
+        Ticked?.Invoke();
+    }
+
+    public void Pause() => _clock.Pause();
+    public void Resume() => _clock.Resume();
+
+    public void Seek(double fraction)
+    {
+        if (_player is null) return;
+        var target = (long)(Math.Clamp(fraction, 0, 1) * DurationMs);
+
+        // Reset the store to the re-meta state (clears strip series, GPS track, latest).
+        Store.ApplyMeta(_channels, _enums);
+
+        _player.SeekTo(target);
+        var snapped = _player.PeekTs ?? target;   // snap to the landed sample so one frame shows
+        _clock.SeekTo(snapped, DurationMs);
+
+        var now = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+        _player.Advance(_clock.RideMs, now);
+
+        RideMs = _clock.RideMs;
+        _lastMetricSec = -1;
+        ClockText = MissionClock.Format(RideMs);
+        TPlusText = MissionClock.FormatTPlus(RideMs);
+        Reset?.Invoke();   // fires BEFORE Ticked so views clear, then repaint with the landed frame
         Ticked?.Invoke();
     }
 
