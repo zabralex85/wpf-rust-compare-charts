@@ -13,6 +13,6 @@
         <views:TopBar x:Name="TopBar" Grid.Row="0" />
         <views:OverviewView x:Name="Overview" Grid.Row="1" />
         <views:TransportBar x:Name="Transport" Grid.Row="2" />
-        <views:Hud Grid.RowSpan="3" />
+        <views:Hud x:Name="Hud" Grid.RowSpan="3" />
     </Grid>
 </Window>

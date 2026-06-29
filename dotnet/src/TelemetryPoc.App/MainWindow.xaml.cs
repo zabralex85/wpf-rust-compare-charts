@@ -1,5 +1,4 @@
 using System.Windows;
-using System.Windows.Data;
 using TelemetryPoc.App.ViewModels;
 
 namespace TelemetryPoc.App;
@@ -11,10 +10,10 @@ public partial class MainWindow : Window
     public MainWindow()
     {
         InitializeComponent();
-        TopBar.ClockText.SetBinding(System.Windows.Controls.TextBlock.TextProperty,
-            new Binding(nameof(RideSession.ClockText)) { Source = _session });
+        TopBar.DataContext = new TopBarViewModel(_session);
         Overview.DataContext = new OverviewViewModel(_session);
         Transport.DataContext = new TransportViewModel(_session);
+        Hud.DataContext = new HudViewModel(_session);
         Loaded += (_, _) => _session.Start();
     }
 }
