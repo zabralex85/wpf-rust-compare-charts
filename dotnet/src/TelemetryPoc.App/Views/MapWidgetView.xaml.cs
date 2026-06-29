@@ -30,6 +30,7 @@ public partial class MapWidgetView : UserControl
     private void Detach()
     {
         if (_vm is not null) _vm.Updated -= OnTick;
+        _vm = null; // so the Loaded re-subscribe guard (if _vm is null) fires on tree re-entry
         _basemap?.Dispose();
         _basemap = null;
     }
