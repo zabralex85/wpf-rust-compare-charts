@@ -22,7 +22,7 @@
                            FontFamily="{StaticResource MonoFont}" FontSize="9" />
             </StackPanel>
             <ProgressBar Grid.Column="2" VerticalAlignment="Center" Height="4"
-                         Minimum="0" Maximum="1" Value="{Binding Progress}"
+                         Minimum="0" Maximum="1" Value="{Binding Progress, Mode=OneWay}"
                          Background="{StaticResource Panel}" Foreground="{StaticResource AccentCyan}"
                          BorderThickness="0" />
         </Grid>
