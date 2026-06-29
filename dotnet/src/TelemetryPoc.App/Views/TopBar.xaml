@@ -35,6 +35,13 @@
                        FontFamily="{StaticResource MonoFont}" FontSize="11" Margin="0,0,16,0" />
             <TextBlock x:Name="ClockText" Text="{Binding ClockText}" Foreground="{StaticResource TextData}"
                        FontFamily="{StaticResource MonoFont}" FontSize="13" />
+            <StackPanel Orientation="Horizontal" Margin="10,0,0,0"
+                        shell:WindowChrome.IsHitTestVisibleInChrome="True"
+                        xmlns:shell="clr-namespace:System.Windows.Shell;assembly=PresentationFramework">
+                <Button Content="&#9472;" Click="OnMinimize" Style="{StaticResource CaptionButton}" />
+                <Button Content="&#9633;" Click="OnMaximize" Style="{StaticResource CaptionButton}" />
+                <Button Content="&#10005;" Click="OnClose" Style="{StaticResource CaptionButtonClose}" />
+            </StackPanel>
         </StackPanel>
     </Grid>
 </UserControl>
