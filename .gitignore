@@ -68,3 +68,4 @@ tiles/glyphs/
 # Python
 __pycache__/
 *.pyc
+test-output.txt
