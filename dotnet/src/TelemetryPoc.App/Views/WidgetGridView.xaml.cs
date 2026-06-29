@@ -30,6 +30,7 @@ public partial class WidgetGridView : UserControl
 
     private void OnHeaderDown(object sender, System.Windows.Input.MouseButtonEventArgs e)
     {
+        if (_moving is not null) return; // ignore a second grab while a move is active (no leaked handlers)
         if (sender is not FrameworkElement fe || fe.DataContext is not ViewModels.WidgetViewModel w) return;
         _moving = w;
         fe.CaptureMouse();
