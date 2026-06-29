@@ -3,12 +3,11 @@
     <TargetFramework>net8.0</TargetFramework>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
-    <!-- Mapbox.VectorTile is a .NET Framework package consumed via net4x compat fallback;
-         it is pure managed protobuf decode and works on net8.0. Accept the restore notice. -->
-    <NoWarn>NU1701</NoWarn>
   </PropertyGroup>
   <ItemGroup>
-    <PackageReference Include="Mapbox.VectorTile" Version="1.0.4-alpha2" />
+    <!-- Mapbox.VectorTile is a .NET Framework package consumed via net4x compat fallback;
+         it is pure managed protobuf decode and works on net8.0. Accept the restore notice. -->
+    <PackageReference Include="Mapbox.VectorTile" Version="1.0.4-alpha2" NoWarn="NU1701" />
     <PackageReference Include="Microsoft.Data.Sqlite" Version="8.0.8" />
   </ItemGroup>
 </Project>

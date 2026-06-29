@@ -19,4 +19,12 @@ public class TileProjectTests
         Assert.Equal(50.0, x, 6);
         Assert.Equal(60.0, y, 6);
     }
+
+    [Fact]
+    public void ToScreen_zero_extent_returns_tile_origin()
+    {
+        var (x, y) = TileProject.ToScreen(70, 80, 123, 456, 0);
+        Assert.Equal(70.0, x, 6);
+        Assert.Equal(80.0, y, 6);
+    }
 }
