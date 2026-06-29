@@ -4,8 +4,6 @@
              xmlns:skia="clr-namespace:SkiaSharp.Views.WPF;assembly=SkiaSharp.Views.WPF"
              Background="{StaticResource Panel}">
     <DockPanel>
-        <TextBlock DockPanel.Dock="Top" Text="FLIGHT TRACK" Foreground="{StaticResource PanelTitle}"
-                   FontFamily="{StaticResource MonoFont}" FontSize="10" Margin="6,4" />
         <skia:SKElement x:Name="Skia" PaintSurface="OnPaintSurface" />
     </DockPanel>
 </UserControl>

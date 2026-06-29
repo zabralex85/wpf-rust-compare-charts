@@ -1,0 +1,66 @@
+<UserControl x:Class="TelemetryPoc.App.Views.WidgetGridView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="clr-namespace:TelemetryPoc.App.ViewModels"
+             xmlns:views="clr-namespace:TelemetryPoc.App.Views"
+             Background="{StaticResource Bg}">
+    <UserControl.Resources>
+        <DataTemplate DataType="{x:Type vm:GaugeViewModel}"><views:GaugeView /></DataTemplate>
+        <DataTemplate DataType="{x:Type vm:LineChartViewModel}"><views:LineChartView /></DataTemplate>
+        <DataTemplate DataType="{x:Type vm:MapWidgetViewModel}"><views:MapWidgetView /></DataTemplate>
+    </UserControl.Resources>
+    <ScrollViewer x:Name="Scroll" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto"
+                  AllowDrop="True" Drop="OnCanvasDrop" DragOver="OnCanvasDragOver">
+        <ItemsControl ItemsSource="{Binding Widgets}">
+            <ItemsControl.ItemsPanel>
+                <ItemsPanelTemplate>
+                    <Canvas x:Name="GridCanvas" Width="1600" Height="1600" Background="Transparent" />
+                </ItemsPanelTemplate>
+            </ItemsControl.ItemsPanel>
+            <ItemsControl.ItemContainerStyle>
+                <Style TargetType="ContentPresenter">
+                    <Setter Property="Canvas.Left" Value="{Binding Left}" />
+                    <Setter Property="Canvas.Top" Value="{Binding Top}" />
+                </Style>
+            </ItemsControl.ItemContainerStyle>
+            <ItemsControl.ItemTemplate>
+                <DataTemplate>
+                    <Border Width="{Binding Width}" Height="{Binding Height}" Margin="0"
+                            Background="{StaticResource Panel}" BorderBrush="{StaticResource Border1}" BorderThickness="1">
+                        <Grid>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="*" />
+                            </Grid.RowDefinitions>
+                            <!-- header: grip (drag-move) + controls -->
+                            <Grid Grid.Row="0" Background="{StaticResource PanelHeader}">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <TextBlock x:Name="Grip" Grid.Column="0" Text="☰" Cursor="SizeAll"
+                                           Foreground="{StaticResource PanelTitle}" FontSize="11" Padding="6,2"
+                                           MouseLeftButtonDown="OnHeaderDown" />
+                                <Button Grid.Column="1" Content="{Binding ToggleLabel}" Click="OnToggle"
+                                        Visibility="{Binding IsToggleable, Converter={StaticResource BoolToVis}}"
+                                        Foreground="{StaticResource TextDim}" Background="Transparent" BorderThickness="0"
+                                        FontSize="9" Padding="6,2" Cursor="Hand" />
+                                <Button Grid.Column="2" Content="✕" Click="OnRemove"
+                                        Visibility="{Binding IsRemovable, Converter={StaticResource BoolToVis}}"
+                                        Foreground="{StaticResource Red}" Background="Transparent" BorderThickness="0"
+                                        FontSize="9" Padding="6,2" Cursor="Hand" />
+                            </Grid>
+                            <!-- body: content VM → implicit template -->
+                            <ContentControl Grid.Row="1" Content="{Binding Content}" />
+                            <!-- resize grip, bottom-right -->
+                            <Thumb x:Name="ResizeThumb" Grid.Row="1" Width="14" Height="14"
+                                   HorizontalAlignment="Right" VerticalAlignment="Bottom" Cursor="SizeNWSE"
+                                   DragStarted="OnResizeStart" DragDelta="OnResizeDelta" Opacity="0.6" />
+                        </Grid>
+                    </Border>
+                </DataTemplate>
+            </ItemsControl.ItemTemplate>
+        </ItemsControl>
+    </ScrollViewer>
+</UserControl>
