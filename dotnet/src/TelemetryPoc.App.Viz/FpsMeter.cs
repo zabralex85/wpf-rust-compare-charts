@@ -12,6 +12,10 @@ public sealed class FpsMeter
         if (_ts.Count > _window) _ts.RemoveAt(0);
     }
 
+    /// <summary>Drop all samples. Call on resume after a pause so the pause-gap interval
+    /// does not linger in the sliding window and skew FPS/frame-time for ~60 frames.</summary>
+    public void Reset() => _ts.Clear();
+
     public double Fps()
     {
         if (_ts.Count < 2) return 0;
