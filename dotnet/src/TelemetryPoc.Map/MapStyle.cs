@@ -14,7 +14,7 @@ public static class MapStyle
         new StyleLayer("landcover", "landcover", PaintKind.Fill, "#0c1118", 0),
         new StyleLayer("landuse", "landuse", PaintKind.Fill, "#111820", 0),
         new StyleLayer("transportation-casing", "transportation", PaintKind.Line, "#0a0e14", 3.0),
-        new StyleLayer("transportation", "transportation", PaintKind.Line, "#5b6470", 1.2),
+        new StyleLayer("transportation", "transportation", PaintKind.Line, "#5b6470", 1.5),
         new StyleLayer("building", "building", PaintKind.Fill, "#232d38", 0),
     };
 }
