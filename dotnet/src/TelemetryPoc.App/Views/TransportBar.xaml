@@ -1,0 +1,44 @@
+<UserControl x:Class="TelemetryPoc.App.Views.TransportBar"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             Height="58" Background="{StaticResource Panel2}">
+    <Grid Margin="12,6">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+        <Grid Grid.Row="0">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+            <TextBlock Grid.Column="0" Text="&#9198;&#160;&#9208;&#160;&#9197;" Foreground="{StaticResource TextDim}"
+                       FontSize="14" VerticalAlignment="Center" Margin="0,0,16,0" />
+            <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="0,0,16,0">
+                <TextBlock Text="{Binding ClockText}" Foreground="{StaticResource TextData}"
+                           FontFamily="{StaticResource MonoFont}" FontSize="15" />
+                <TextBlock Text="{Binding TPlusText}" Foreground="{StaticResource TextDim}"
+                           FontFamily="{StaticResource MonoFont}" FontSize="9" />
+            </StackPanel>
+            <ProgressBar Grid.Column="2" VerticalAlignment="Center" Height="4"
+                         Minimum="0" Maximum="1" Value="{Binding Progress}"
+                         Background="{StaticResource Panel}" Foreground="{StaticResource AccentCyan}"
+                         BorderThickness="0" />
+        </Grid>
+        <StackPanel Grid.Row="1" Orientation="Horizontal" Margin="0,4,0,0">
+            <StackPanel Margin="0,0,18,0">
+                <TextBlock Text="BUFFER" Foreground="{StaticResource TextDim}" FontFamily="{StaticResource MonoFont}" FontSize="8" />
+                <TextBlock Text="{Binding BufferText}" Foreground="{StaticResource TextData}" FontFamily="{StaticResource MonoFont}" FontSize="10" />
+            </StackPanel>
+            <StackPanel Margin="0,0,18,0">
+                <TextBlock Text="SAMPLES" Foreground="{StaticResource TextDim}" FontFamily="{StaticResource MonoFont}" FontSize="8" />
+                <TextBlock Text="{Binding SamplesText}" Foreground="{StaticResource TextData}" FontFamily="{StaticResource MonoFont}" FontSize="10" />
+            </StackPanel>
+            <StackPanel>
+                <TextBlock Text="DROPPED" Foreground="{StaticResource TextDim}" FontFamily="{StaticResource MonoFont}" FontSize="8" />
+                <TextBlock Text="{Binding DroppedText}" Foreground="{StaticResource Green}" FontFamily="{StaticResource MonoFont}" FontSize="10" />
+            </StackPanel>
+        </StackPanel>
+    </Grid>
+</UserControl>

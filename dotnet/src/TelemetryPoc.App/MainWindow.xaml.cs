@@ -14,6 +14,7 @@ public partial class MainWindow : Window
         TopBar.ClockText.SetBinding(System.Windows.Controls.TextBlock.TextProperty,
             new Binding(nameof(RideSession.ClockText)) { Source = _session });
         Overview.DataContext = new OverviewViewModel(_session);
+        Transport.DataContext = new TransportViewModel(_session);
         Loaded += (_, _) => _session.Start();
     }
 }
