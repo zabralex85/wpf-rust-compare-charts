@@ -55,6 +55,8 @@ public class WidgetLayoutTests
     [InlineData(8, 2.0, 8)]   // clamp top
     [InlineData(2, 0.5, 1)]
     [InlineData(1, 0.5, 1)]   // clamp bottom
+    [InlineData(5, 0.5, 3)]   // half-away-from-zero (Rust .round()), not banker's 2
+    [InlineData(3, 0.5, 2)]   // round(1.5)=2 away-from-zero
     public void ZoomBy_clamps_1_to_8(int z, double f, int expected)
         => Assert.Equal(expected, WidgetLayout.ZoomBy(z, f));
 }

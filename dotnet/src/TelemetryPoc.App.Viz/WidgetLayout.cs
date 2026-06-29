@@ -63,5 +63,5 @@ public static class WidgetLayout
     }
 
     public static int ZoomBy(int zoom, double factor)
-        => (int)Math.Clamp(Math.Round(zoom * factor), ZoomMin, ZoomMax);
+        => (int)Math.Clamp(Math.Round(zoom * factor, MidpointRounding.AwayFromZero), ZoomMin, ZoomMax);
 }
