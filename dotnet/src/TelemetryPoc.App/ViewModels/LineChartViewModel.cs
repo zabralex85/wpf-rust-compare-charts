@@ -5,7 +5,12 @@ namespace TelemetryPoc.App.ViewModels;
 
 public sealed class LineChartViewModel
 {
-    private const long WindowMs = 60_000;
+    private int _zoom = 1;
+    public int Zoom => _zoom;
+    private long WindowMs => 60_000 / _zoom;
+
+    public void ZoomBy(double factor) => _zoom = WidgetLayout.ZoomBy(_zoom, factor);
+    public void ResetZoom() => _zoom = 1;
     private readonly ChannelMeta _ch;
     public LineChartViewModel(ChannelMeta ch) { _ch = ch; }
 

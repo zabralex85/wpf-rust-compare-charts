@@ -31,6 +31,9 @@ public sealed class MapWidgetViewModel
         Region = new Region(cLat, cLon, z, width, height);
     }
 
+    /// <summary>Replace the viewport (interactive pan/zoom owns it after the first fit).</summary>
+    public void SetRegion(Region r) => Region = r;
+
     public void Tick() => Updated?.Invoke();
 
     private static string? ResolveMbTiles()
