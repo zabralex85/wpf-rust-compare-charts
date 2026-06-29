@@ -24,18 +24,19 @@ public partial class MapWidgetView : UserControl
     {
         Detach();
         _vm = DataContext as MapWidgetViewModel;
-        if (_vm is not null) _vm.Updated += OnTick;
+        if (_vm is not null) { _vm.Updated += OnTick; _vm.Reset += OnReset; }
     }
 
     private void Detach()
     {
-        if (_vm is not null) _vm.Updated -= OnTick;
+        if (_vm is not null) { _vm.Updated -= OnTick; _vm.Reset -= OnReset; }
         _vm = null; // so the Loaded re-subscribe guard (if _vm is null) fires on tree re-entry
         _basemap?.Dispose();
         _basemap = null;
     }
 
     private void OnTick() => Skia.InvalidateVisual();
+    private void OnReset() => Skia.InvalidateVisual();
 
     private void OnPaintSurface(object? sender, SKPaintSurfaceEventArgs e)
     {

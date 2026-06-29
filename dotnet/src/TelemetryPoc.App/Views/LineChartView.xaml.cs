@@ -47,6 +47,7 @@ public partial class LineChartView : UserControl
         if (_vm is not null)
         {
             _vm.Updated += Redraw;
+            _vm.Reset += OnReset;
             Redraw();
         }
     }
@@ -54,7 +55,14 @@ public partial class LineChartView : UserControl
     private void Detach()
     {
         if (_vm is not null) _vm.Updated -= Redraw;
+        if (_vm is not null) _vm.Reset -= OnReset;
         _vm = null;
+        _logger?.Clear();
+        _lastX = double.NegativeInfinity;
+    }
+
+    private void OnReset()
+    {
         _logger?.Clear();
         _lastX = double.NegativeInfinity;
     }

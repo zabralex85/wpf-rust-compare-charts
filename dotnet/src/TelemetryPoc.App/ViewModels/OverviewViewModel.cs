@@ -28,6 +28,7 @@ public sealed class OverviewViewModel : INotifyPropertyChanged
         _session.Ticked += RefreshRows;
         MapWidget = new MapWidgetViewModel(session);
         session.Ticked += MapWidget.Tick;
+        _session.Reset += OnReset;
     }
 
     private void BuildGroups()
@@ -51,6 +52,12 @@ public sealed class OverviewViewModel : INotifyPropertyChanged
         foreach (var g in Groups) g.Refresh(_session.Store);
         foreach (var g in Gauges) g.Refresh(_session.Store);
         foreach (var lc in LineCharts) lc.Refresh(_session.Store);
+    }
+
+    private void OnReset()
+    {
+        foreach (var lc in LineCharts) lc.RaiseReset();
+        MapWidget.RaiseReset();
     }
 
     public event PropertyChangedEventHandler? PropertyChanged;

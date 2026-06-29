@@ -13,6 +13,8 @@ public sealed class MapWidgetViewModel
     public Region? Region { get; private set; }
     public string? MbTilesPath { get; private set; }
     public event Action? Updated;
+    public event Action? Reset;
+    public void RaiseReset() => Reset?.Invoke();
 
     public (System.Collections.Generic.IReadOnlyList<double> Lat, System.Collections.Generic.IReadOnlyList<double> Lon) Track
         => _session.Store.GpsTrack();
