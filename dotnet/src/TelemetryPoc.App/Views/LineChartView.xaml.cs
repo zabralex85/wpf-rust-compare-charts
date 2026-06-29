@@ -9,6 +9,8 @@ namespace TelemetryPoc.App.Views;
 public partial class LineChartView : UserControl
 {
     private LineChartViewModel? _vm;
+    private ScottPlot.Plottables.DataLogger? _logger;
+    private double _lastX = double.NegativeInfinity;
 
     public LineChartView()
     {
@@ -28,6 +30,10 @@ public partial class LineChartView : UserControl
         p.DataBackground.Color = Color.FromHex("#0c121a");
         p.Axes.Color(Color.FromHex("#566273"));
         p.Grid.MajorLineColor = Color.FromHex("#1d2632");
+        _logger = p.Add.DataLogger();
+        _logger.Color = Color.FromHex("#38c5e0");
+        _logger.LineWidth = 1.5f;
+        _logger.ManageAxisLimits = false;
         // relative m:ss x-axis labels
         if (p.Axes.Bottom.TickGenerator is ScottPlot.TickGenerators.NumericAutomatic gen)
             gen.LabelFormatter = x => LineAxis.FormatElapsed(x);
@@ -49,22 +55,29 @@ public partial class LineChartView : UserControl
     {
         if (_vm is not null) _vm.Updated -= Redraw;
         _vm = null;
+        _logger?.Clear();
+        _lastX = double.NegativeInfinity;
     }
 
     private void Redraw()
     {
-        if (_vm is null) return;
-        var p = Plot.Plot;
-        p.Clear();
-        if (_vm.XsSeconds.Length > 0)
+        if (_vm is null || _logger is null) return;
+        var xs = _vm.XsSeconds;
+        var ys = _vm.Ys;
+
+        var start = StreamTail.NewFrom(xs, _lastX);
+        if (start == -1) // series reset (re-meta) → clear and re-add
         {
-            var sc = p.Add.Scatter(_vm.XsSeconds, _vm.Ys);
-            sc.Color = Color.FromHex("#38c5e0");
-            sc.LineWidth = 1.5f;
-            sc.MarkerStyle = MarkerStyle.None;
-            p.Axes.AutoScaleY();
-            p.Axes.SetLimitsX(_vm.WindowMin, _vm.WindowMax);
+            _logger.Clear();
+            _lastX = double.NegativeInfinity;
+            start = 0;
         }
+        for (int i = start; i < xs.Length && i < ys.Length; i++)
+            _logger.Add(xs[i], ys[i]);
+        if (xs.Length > 0) _lastX = xs[^1];
+
+        Plot.Plot.Axes.SetLimitsX(_vm.WindowMin, _vm.WindowMax);
+        Plot.Plot.Axes.AutoScaleY();
         Plot.Refresh();
     }
 }
