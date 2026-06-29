@@ -81,6 +81,7 @@ public partial class MapWidgetView : UserControl
     private void OnMaybeDoubleClick(object sender, MouseButtonEventArgs e)
     {
         if (e.ClickCount < 2 || _vm is null) return;
+        _dragging = false; // OnDown already fired for this click; cancel the pan it started
         // re-fit to the whole-ride GPS bounds (the original FitBbox view)
         var b = _vm.GpsBoundsForRefit();
         if (b is null || _vm.Region is null) return;
