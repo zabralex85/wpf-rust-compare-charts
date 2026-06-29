@@ -6,6 +6,7 @@ using System.Windows.Threading;
 using Microsoft.Data.Sqlite;
 using TelemetryPoc.App.Viz;
 using TelemetryPoc.Core;
+using TelemetryPoc.Map;
 
 namespace TelemetryPoc.App;
 
@@ -21,6 +22,7 @@ public sealed class RideSession : INotifyPropertyChanged
 
     public long DurationMs { get; private set; }
     public long RideMs { get; private set; }
+    public (double MinLat, double MinLon, double MaxLat, double MaxLon)? GpsBounds { get; private set; }
 
     private string _clockText = "00:00:00.000";
     public string ClockText { get => _clockText; private set { _clockText = value; Raise(nameof(ClockText)); } }
@@ -49,6 +51,21 @@ public sealed class RideSession : INotifyPropertyChanged
             var samples = TelemetryDb.LoadSamples(conn, channels);
             var meta = TelemetryDb.LoadRideMeta(conn);
             DurationMs = meta.DurationS * 1000;
+
+            int latIdx = -1, lonIdx = -1;
+            for (int i = 0; i < channels.Count; i++)
+            {
+                if (channels[i].Widget == "map_lat") latIdx = i;
+                if (channels[i].Widget == "map_lon") lonIdx = i;
+            }
+            if (latIdx >= 0 && lonIdx >= 0 && samples.Count > 0)
+            {
+                var lat = new double[samples.Count];
+                var lon = new double[samples.Count];
+                for (int i = 0; i < samples.Count; i++) { lat[i] = samples[i].Values[latIdx]; lon[i] = samples[i].Values[lonIdx]; }
+                GpsBounds = TelemetryPoc.Map.MapProject.TrackBounds(lat, lon);
+            }
+
             Store.ApplyMeta(channels, enums);
             MetaLoaded?.Invoke();
             _player = new ReplayPlayer(samples, Store, _speed);
