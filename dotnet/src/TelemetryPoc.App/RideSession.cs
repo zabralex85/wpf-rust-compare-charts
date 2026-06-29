@@ -98,6 +98,11 @@ public sealed class RideSession : INotifyPropertyChanged
         var elapsed = _sw.ElapsedMilliseconds;
         var delta = elapsed - _lastElapsed;
         _lastElapsed = elapsed;
+        // Paused: the clock is frozen and no data changes, so skip the whole per-tick
+        // UI refresh. This lets WPF's compositor go idle (CPU drops to ~0) instead of
+        // repainting the map/charts/gauges 30×/s for nothing — mirrors the Rust app,
+        // which stops emitting frames (and thus stops re-rendering) while paused.
+        if (!_clock.Playing) return;
         _clock.Advance((long)(delta * _speed));
 
         var now = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();

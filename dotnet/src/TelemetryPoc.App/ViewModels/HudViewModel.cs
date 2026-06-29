@@ -30,6 +30,9 @@ public sealed class HudViewModel : INotifyPropertyChanged
 
     private void OnRender(object? sender, EventArgs e)
     {
+        // While paused the scene is static; updating the FPS text every frame would itself
+        // keep the compositor (and CPU) busy. Skip it so the app idles when paused.
+        if (_session.IsPaused) return;
         _fps.Tick(_sw.Elapsed.TotalMilliseconds);
         FpsText = _fps.Fps().ToString("F0", Inv);
         FrameText = _fps.FrameTimeMs().ToString("F1", Inv);
