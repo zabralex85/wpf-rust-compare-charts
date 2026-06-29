@@ -15,5 +15,7 @@ public partial class MainWindow : Window
         Transport.DataContext = new TransportViewModel(_session);
         Hud.DataContext = new HudViewModel(_session);
         Loaded += (_, _) => _session.Start();
+        StateChanged += (_, _) =>
+            RootGrid.Margin = WindowState == WindowState.Maximized ? new Thickness(7) : new Thickness(0);
     }
 }
