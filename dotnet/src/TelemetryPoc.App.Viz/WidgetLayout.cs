@@ -64,4 +64,24 @@ public static class WidgetLayout
 
     public static int ZoomBy(int zoom, double factor)
         => (int)Math.Clamp(Math.Round(zoom * factor, MidpointRounding.AwayFromZero), ZoomMin, ZoomMax);
+
+    /// <summary>Row-major first-fit packing in a virtual grid `seedCols` wide.
+    /// Returns the 1-indexed top-left cell for a cols×rows block that does not
+    /// overlap any already-placed widget. No row cap (grid grows downward).</summary>
+    public static (int Col, int Row) FirstFit(
+        System.Collections.Generic.IReadOnlyList<Widget> placed, int cols, int rows, int seedCols = 8)
+    {
+        for (int row = 1; ; row++)
+            for (int col = 1; col + cols - 1 <= seedCols; col++)
+            {
+                bool free = true;
+                foreach (var p in placed)
+                {
+                    bool overlap = col < p.Col + p.Cols && p.Col < col + cols
+                                && row < p.Row + p.Rows && p.Row < row + rows;
+                    if (overlap) { free = false; break; }
+                }
+                if (free) return (col, row);
+            }
+    }
 }
