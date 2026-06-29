@@ -20,4 +20,11 @@
     <PackageReference Include="SkiaSharp.Views.WPF" Version="2.88.9" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Resource Include="Fonts\IBMPlexMono-Regular.ttf" />
+    <Resource Include="Fonts\IBMPlexMono-SemiBold.ttf" />
+    <Resource Include="Fonts\IBMPlexSans-Regular.ttf" />
+    <Resource Include="Fonts\IBMPlexSans-SemiBold.ttf" />
+  </ItemGroup>
+
 </Project>

@@ -16,7 +16,7 @@
     <SolidColorBrush x:Key="Red" Color="#FFFF4D52" />
     <SolidColorBrush x:Key="CriticalBg" Color="#FF1A0E11" />
 
-    <!-- IBM Plex .ttf not bundled this phase (Phase 6) → system fallbacks -->
-    <FontFamily x:Key="SansFont">Segoe UI</FontFamily>
-    <FontFamily x:Key="MonoFont">Consolas</FontFamily>
+    <!-- IBM Plex fonts bundled as Resources in Fonts\ -->
+    <FontFamily x:Key="SansFont">pack://application:,,,/Fonts/#IBM Plex Sans</FontFamily>
+    <FontFamily x:Key="MonoFont">pack://application:,,,/Fonts/#IBM Plex Mono</FontFamily>
 </ResourceDictionary>
