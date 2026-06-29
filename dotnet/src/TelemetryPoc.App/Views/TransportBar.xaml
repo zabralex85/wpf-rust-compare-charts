@@ -13,18 +13,30 @@
                 <ColumnDefinition Width="Auto" />
                 <ColumnDefinition Width="*" />
             </Grid.ColumnDefinitions>
-            <TextBlock Grid.Column="0" Text="&#9198;&#160;&#9208;&#160;&#9197;" Foreground="{StaticResource TextDim}"
-                       FontSize="14" VerticalAlignment="Center" Margin="0,0,16,0" />
+            <Button Grid.Column="0" Click="OnPlayPause" Content="{Binding PlayPauseGlyph}"
+                    Foreground="{StaticResource TextDim}" Background="Transparent" BorderThickness="0"
+                    FontSize="16" Padding="6,0" Cursor="Hand" VerticalAlignment="Center" Margin="0,0,16,0">
+                <Button.Template>
+                    <ControlTemplate TargetType="Button">
+                        <Border Background="{TemplateBinding Background}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        </Border>
+                    </ControlTemplate>
+                </Button.Template>
+            </Button>
             <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="0,0,16,0">
                 <TextBlock Text="{Binding ClockText}" Foreground="{StaticResource TextData}"
                            FontFamily="{StaticResource MonoFont}" FontSize="15" />
                 <TextBlock Text="{Binding TPlusText}" Foreground="{StaticResource TextDim}"
                            FontFamily="{StaticResource MonoFont}" FontSize="9" />
             </StackPanel>
-            <ProgressBar Grid.Column="2" VerticalAlignment="Center" Height="4"
-                         Minimum="0" Maximum="1" Value="{Binding Progress, Mode=OneWay}"
-                         Background="{StaticResource Panel}" Foreground="{StaticResource AccentCyan}"
-                         BorderThickness="0" />
+            <Border Grid.Column="2" Background="Transparent" Cursor="Hand"
+                    MouseLeftButtonDown="OnSeekClick" VerticalAlignment="Center">
+                <ProgressBar x:Name="ProgressTrack" Height="4"
+                             Minimum="0" Maximum="1" Value="{Binding Progress, Mode=OneWay}"
+                             Background="{StaticResource Panel}" Foreground="{StaticResource AccentCyan}"
+                             BorderThickness="0" />
+            </Border>
         </Grid>
         <StackPanel Grid.Row="1" Orientation="Horizontal" Margin="0,4,0,0">
             <StackPanel Margin="0,0,18,0">
