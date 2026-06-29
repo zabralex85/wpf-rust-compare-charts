@@ -31,6 +31,9 @@ public sealed class MapWidgetViewModel
         Region = new Region(cLat, cLon, z, width, height);
     }
 
+    /// <summary>Whole-ride GPS bbox for the double-click re-fit, or null until known.</summary>
+    public (double MinLat, double MinLon, double MaxLat, double MaxLon)? GpsBoundsForRefit() => _session.GpsBounds;
+
     /// <summary>Replace the viewport (interactive pan/zoom owns it after the first fit).</summary>
     public void SetRegion(Region r) => Region = r;
 
