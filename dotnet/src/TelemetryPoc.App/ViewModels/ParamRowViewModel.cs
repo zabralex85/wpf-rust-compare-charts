@@ -13,6 +13,7 @@ public sealed class ParamRowViewModel : INotifyPropertyChanged
     public string Name => _ch.Name;
     public string Unit => _ch.Unit;
     public string Addr => _ch.Addr;
+    public int ChannelId => (int)_ch.Id; // _ch.Id is long; ids are small, Rust uses a JS number
 
     private string _value = "—";
     public string Value { get => _value; private set { _value = value; Raise(nameof(Value)); } }

@@ -8,10 +8,11 @@ namespace TelemetryPoc.App.ViewModels;
 public sealed class WidgetViewModel : INotifyPropertyChanged
 {
     public string Id { get; }
+    public string Name { get; }
 
-    public WidgetViewModel(string id, WidgetKind kind, object content, int col, int row, int cols, int rows)
+    public WidgetViewModel(string id, WidgetKind kind, object content, int col, int row, int cols, int rows, string name = "")
     {
-        Id = id; _kind = kind; _content = content;
+        Id = id; Name = name; _kind = kind; _content = content;
         _col = col; _row = row; _cols = cols; _rows = rows;
     }
 

@@ -36,7 +36,7 @@ public sealed class DashboardViewModel
         foreach (var ch in store.Channels) _byId[(int)ch.Id] = ch;
 
         foreach (var w in WidgetSeed.SeedLayout(store.Channels))
-            Widgets.Add(new WidgetViewModel(w.Id, w.Kind, ContentFor(w.Kind, w.ChannelId), w.Col, w.Row, w.Cols, w.Rows));
+            Widgets.Add(new WidgetViewModel(w.Id, w.Kind, ContentFor(w.Kind, w.ChannelId), w.Col, w.Row, w.Cols, w.Rows, w.Name));
         Refresh();
     }
 
@@ -71,7 +71,7 @@ public sealed class DashboardViewModel
     {
         if (!_byId.TryGetValue(channelId, out var ch)) return;
         var id = $"w-{_nextId++}";
-        var w = new WidgetViewModel(id, WidgetKind.Gauge, new GaugeViewModel(ch), col, row, 1, 1);
+        var w = new WidgetViewModel(id, WidgetKind.Gauge, new GaugeViewModel(ch), col, row, 1, 1, ch.Name);
         Widgets.Add(w);
         Refresh();
     }

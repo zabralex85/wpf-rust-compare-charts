@@ -24,7 +24,7 @@
                             <ItemsControl ItemsSource="{Binding Rows}">
                                 <ItemsControl.ItemTemplate>
                                     <DataTemplate>
-                                        <Border Background="{Binding RowBackground}" Padding="10,2">
+                                        <Border Background="{Binding RowBackground}" Padding="10,2" MouseMove="OnRowDrag">
                                             <Grid>
                                                 <Grid.ColumnDefinitions>
                                                     <ColumnDefinition Width="12" />

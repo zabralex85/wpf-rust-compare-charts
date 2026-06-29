@@ -39,7 +39,7 @@
                                     <ColumnDefinition Width="Auto" />
                                     <ColumnDefinition Width="Auto" />
                                 </Grid.ColumnDefinitions>
-                                <TextBlock x:Name="Grip" Grid.Column="0" Text="☰" Cursor="SizeAll"
+                                <TextBlock x:Name="Grip" Grid.Column="0" Text="{Binding Name, StringFormat=☰ {0}}" Cursor="SizeAll"
                                            Foreground="{StaticResource PanelTitle}" FontSize="11" Padding="6,2"
                                            MouseLeftButtonDown="OnHeaderDown" />
                                 <Button Grid.Column="1" Content="{Binding ToggleLabel}" Click="OnToggle"
