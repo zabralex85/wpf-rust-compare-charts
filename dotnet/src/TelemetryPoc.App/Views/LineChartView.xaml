@@ -3,7 +3,13 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:sp="clr-namespace:ScottPlot.WPF;assembly=ScottPlot.WPF"
              Background="{StaticResource Panel}">
-    <DockPanel Margin="4">
-        <sp:WpfPlot x:Name="Plot" />
-    </DockPanel>
+    <Grid Margin="4">
+        <sp:WpfPlot x:Name="Plot" MouseMove="OnHover" MouseLeave="OnHoverLeave" />
+        <Border x:Name="Tip" Visibility="Collapsed" Background="{StaticResource Panel2}"
+                BorderBrush="{StaticResource Border1}" BorderThickness="1" Padding="5,2"
+                HorizontalAlignment="Left" VerticalAlignment="Top" IsHitTestVisible="False">
+            <TextBlock x:Name="TipText" Foreground="{StaticResource TextData}"
+                       FontFamily="{StaticResource MonoFont}" FontSize="10" />
+        </Border>
+    </Grid>
 </UserControl>

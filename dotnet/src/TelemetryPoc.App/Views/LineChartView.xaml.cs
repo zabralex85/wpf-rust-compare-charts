@@ -68,6 +68,26 @@ public partial class LineChartView : UserControl
         _lastX = double.NegativeInfinity;
     }
 
+    private void OnHover(object sender, System.Windows.Input.MouseEventArgs e)
+    {
+        if (_vm is null) { Tip.Visibility = System.Windows.Visibility.Collapsed; return; }
+        var xs = _vm.XsSeconds; var ys = _vm.Ys;
+        if (xs.Length == 0) { Tip.Visibility = System.Windows.Visibility.Collapsed; return; }
+
+        var pos = e.GetPosition(Plot);
+        var px = new ScottPlot.Pixel((float)pos.X, (float)pos.Y);
+        var coord = Plot.Plot.GetCoordinates(px, Plot.Plot.Axes.Bottom, Plot.Plot.Axes.Left);
+        int i = NearestSample.IndexOf(xs, coord.X);
+        if (i < 0 || i >= ys.Length) { Tip.Visibility = System.Windows.Visibility.Collapsed; return; }
+
+        TipText.Text = $"{LineAxis.FormatElapsed(xs[i])} · {ys[i]:0.##} {_vm.Unit}";
+        Tip.Margin = new System.Windows.Thickness(pos.X + 12, pos.Y + 8, 0, 0);
+        Tip.Visibility = System.Windows.Visibility.Visible;
+    }
+
+    private void OnHoverLeave(object sender, System.Windows.Input.MouseEventArgs e)
+        => Tip.Visibility = System.Windows.Visibility.Collapsed;
+
     private void Redraw()
     {
         if (_vm is null || _logger is null) return;
