@@ -46,4 +46,16 @@ public class WebMercatorTests
         // top-left corner
         Assert.Equal((0, 0), WebMercator.TileXY(-180, 85.05112878, 1));
     }
+
+    [Theory]
+    [InlineData(34.78, 32.08, 12)]
+    [InlineData(-0.13, 51.50, 9)]
+    [InlineData(139.69, 35.69, 14)]
+    public void WorldToLonLat_round_trips_LonLatToWorld(double lon, double lat, int z)
+    {
+        var (wx, wy) = WebMercator.LonLatToWorld(lon, lat, z);
+        var (lon2, lat2) = WebMercator.WorldToLonLat(wx, wy, z);
+        Assert.Equal(lon, lon2, 4);
+        Assert.Equal(lat, lat2, 4);
+    }
 }

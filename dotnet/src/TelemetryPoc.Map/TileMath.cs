@@ -4,6 +4,8 @@ public sealed record TileRef(int Z, int X, int Y, double ScreenX, double ScreenY
 
 public static class TileMath
 {
+    public const int MinZoom = 9;
+    public const int MaxZoom = 14;
     private const double TileSize = 256.0;
 
     public static IReadOnlyList<TileRef> VisibleTiles(Region r)
@@ -36,7 +38,7 @@ public static class TileMath
     {
         var centerLat = (minLat + maxLat) / 2;
         var centerLon = (minLon + maxLon) / 2;
-        for (int z = 14; z >= 9; z--)
+        for (int z = MaxZoom; z >= MinZoom; z--)
         {
             var (x0, y0) = WebMercator.LonLatToWorld(minLon, maxLat, z); // NW
             var (x1, y1) = WebMercator.LonLatToWorld(maxLon, minLat, z); // SE
@@ -44,6 +46,6 @@ public static class TileMath
             var dy = Math.Abs(y1 - y0);
             if (dx <= width * 0.9 && dy <= height * 0.9) return (centerLat, centerLon, z);
         }
-        return (centerLat, centerLon, 9);
+        return (centerLat, centerLon, MinZoom);
     }
 }

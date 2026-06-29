@@ -17,6 +17,15 @@ public static class WebMercator
         return (x, y);
     }
 
+    public static (double Lon, double Lat) WorldToLonLat(double worldX, double worldY, int z)
+    {
+        var size = MapSize(z);
+        var lon = worldX / size * 360.0 - 180.0;
+        var yNorm = worldY / size;
+        var lat = Math.Atan(Math.Sinh(Math.PI * (1 - 2 * yNorm))) * 180.0 / Math.PI;
+        return (lon, lat);
+    }
+
     public static (int X, int Y) TileXY(double lon, double lat, int z)
     {
         var (x, y) = LonLatToWorld(lon, lat, z);
