@@ -26,9 +26,58 @@ public partial class WidgetGridView : UserControl
         dvm.AddGauge(channelId, col, row);
     }
 
-    private void OnHeaderDown(object sender, System.Windows.Input.MouseButtonEventArgs e) { }
-    private void OnResizeStart(object sender, DragStartedEventArgs e) { }
-    private void OnResizeDelta(object sender, DragDeltaEventArgs e) { }
+    private ViewModels.WidgetViewModel? _moving;
+
+    private void OnHeaderDown(object sender, System.Windows.Input.MouseButtonEventArgs e)
+    {
+        if (sender is not FrameworkElement fe || fe.DataContext is not ViewModels.WidgetViewModel w) return;
+        _moving = w;
+        fe.CaptureMouse();
+        fe.MouseMove += OnHeaderMove;
+        fe.MouseLeftButtonUp += OnHeaderUp;
+        e.Handled = true;
+    }
+
+    private void OnHeaderMove(object sender, System.Windows.Input.MouseEventArgs e)
+    {
+        if (_moving is null) return;
+        var canvas = FindCanvas();
+        if (canvas is null) return;
+        var p = e.GetPosition(canvas);
+        var (col, row) = TelemetryPoc.App.Viz.WidgetLayout.CellFromPoint(p.X, p.Y);
+        if (DataContext is ViewModels.DashboardViewModel dvm) dvm.Move(_moving.Id, col, row);
+    }
+
+    private void OnHeaderUp(object sender, System.Windows.Input.MouseButtonEventArgs e)
+    {
+        if (sender is FrameworkElement fe)
+        {
+            fe.ReleaseMouseCapture();
+            fe.MouseMove -= OnHeaderMove;
+            fe.MouseLeftButtonUp -= OnHeaderUp;
+        }
+        _moving = null;
+    }
+
+    private int _resizeStartCols, _resizeStartRows;
+    private double _accumX, _accumY;
+
+    private void OnResizeStart(object sender, DragStartedEventArgs e)
+    {
+        if (Widget(sender) is not { } w) return;
+        _resizeStartCols = w.Cols; _resizeStartRows = w.Rows;
+        _accumX = 0; _accumY = 0;
+    }
+
+    private void OnResizeDelta(object sender, DragDeltaEventArgs e)
+    {
+        if (Widget(sender) is not { } w || DataContext is not ViewModels.DashboardViewModel dvm) return;
+        _accumX += e.HorizontalChange;
+        _accumY += e.VerticalChange;
+        var cols = _resizeStartCols + TelemetryPoc.App.Viz.WidgetLayout.ResizeStep(_accumX);
+        var rows = _resizeStartRows + TelemetryPoc.App.Viz.WidgetLayout.ResizeStep(_accumY);
+        dvm.Resize(w.Id, cols, rows);
+    }
 
     private void OnToggle(object sender, RoutedEventArgs e)
     {
