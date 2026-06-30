@@ -25,6 +25,17 @@ This is a **paradigm contrast**: a web WebView UI (Tauri/React) vs a native reta
 
 ![Rust INU-MONITOR dashboard](docs/screenshots/rust.png)
 
+## Measured footprint
+
+Both apps replaying the same ride at `RIDE_SPEED=1.0` with the full dashboard + offline map, **Release** builds. Sampled after a 30 s warm‑up over a 5 s window on an 8‑core Windows 11 machine. CPU is `% of total` system capacity (the Task Manager convention); RAM is working set. The Rust figure sums **app + WebView2** (7 processes) since that's the real footprint of a Tauri app.
+
+| Stack | Processes | RAM | CPU (total) |
+|---|---|---|---|
+| **.NET WPF** (native retained‑mode) | 1 | ~246 MB | ~4% |
+| **Rust Tauri** (React in WebView2) | 7 (app + WebView2 tree) | ~629 MB | ~11% |
+
+The native WPF app is markedly lighter on both memory and CPU — the bundled Chromium **WebView2** runtime dominates the Tauri footprint. (Numbers are machine‑specific and meant as a ballpark; re‑run locally for your hardware.)
+
 ## Repository layout
 
 ```
