@@ -27,4 +27,4 @@ public class GaugeFormatTests
 	[InlineData(250.0, "250.0")]
 	[InlineData(1.5, "1.500")]
 	public void GaugeValue_two_band(double v, string s) => Assert.Equal(s, GaugeFormat.GaugeValue(v));
-}
+}

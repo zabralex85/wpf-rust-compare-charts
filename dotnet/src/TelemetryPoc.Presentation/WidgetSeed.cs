@@ -14,9 +14,17 @@ public static class WidgetSeed
         bool hasLat = false, hasLon = false;
         foreach (var ch in channels)
         {
-            if (ch.Widget == "map_lat") hasLat = true;
-            if (ch.Widget == "map_lon") hasLon = true;
-        }
+            if (ch.Widget == "map_lat")
+			{
+				hasLat = true;
+			}
+
+            if (ch.Widget == "map_lon")
+			{
+				hasLon = true;
+			}
+		}
+
         if (hasLat && hasLon)
         {
             var (c, r) = WidgetLayout.FirstFit(placed, 4, 4);
@@ -24,18 +32,22 @@ public static class WidgetSeed
         }
 
         foreach (var ch in channels)
-            if (ch.Widget == "gauge")
+		{
+			if (ch.Widget == "gauge")
             {
                 var (c, r) = WidgetLayout.FirstFit(placed, 1, 1);
                 placed.Add(new Widget($"gauge-{ch.Id}", WidgetKind.Gauge, (int)ch.Id, ch.Name, c, r, 1, 1));
             }
+		}
 
         foreach (var ch in channels)
-            if (ch.Widget == "strip")
+		{
+			if (ch.Widget == "strip")
             {
                 var (c, r) = WidgetLayout.FirstFit(placed, 2, 1);
                 placed.Add(new Widget($"line-{ch.Id}", WidgetKind.Line, (int)ch.Id, ch.Name, c, r, 2, 1));
             }
+		}
 
         return placed;
     }

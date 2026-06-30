@@ -1,6 +1,3 @@
-using System.Collections.Generic;
-using System.Threading;
-using System.Threading.Tasks;
 using Microsoft.Data.Sqlite;
 using TelemetryPoc.Application;
 using TelemetryPoc.Domain;
@@ -16,7 +13,7 @@ public sealed class SqliteRideSource : IRideSource
     public Task<RideData> LoadAsync(CancellationToken ct = default) =>
         Task.Run(() => Load(_paths.ResolveRideDb()), ct);
 
-    public static RideData Load(string dbPath)
+    private static RideData Load(string dbPath)
     {
         using var conn = new SqliteConnection($"Data Source={dbPath};Mode=ReadOnly");
         conn.Open();
@@ -36,7 +33,11 @@ public sealed class SqliteRideSource : IRideSource
             if (channels[i].Widget == "map_lat") latIdx = i;
             if (channels[i].Widget == "map_lon") lonIdx = i;
         }
-        if (latIdx < 0 || lonIdx < 0 || samples.Count == 0) return null;
+        if (latIdx < 0 || lonIdx < 0 || samples.Count == 0)
+		{
+			return null;
+		}
+
         var lat = new double[samples.Count];
         var lon = new double[samples.Count];
         for (int i = 0; i < samples.Count; i++) { lat[i] = samples[i].Values[latIdx]; lon[i] = samples[i].Values[lonIdx]; }
@@ -76,7 +77,11 @@ public sealed class SqliteRideSource : IRideSource
         using var cmd = conn.CreateCommand();
         cmd.CommandText = "SELECT start_time, duration_s, rate_hz, channel_count FROM ride_meta LIMIT 1";
         using var r = cmd.ExecuteReader();
-        if (!r.Read()) throw new InvalidOperationException("ride_meta is empty");
+        if (!r.Read())
+		{
+			throw new InvalidOperationException("ride_meta is empty");
+		}
+
         return new RideMeta(r.GetInt64(0), r.GetInt64(1), r.GetInt64(2), r.GetInt64(3));
     }
 
@@ -92,7 +97,10 @@ public sealed class SqliteRideSource : IRideSource
         {
             var values = new double[n];
             for (int i = 0; i < n; i++)
-                values[i] = Convert.ToDouble(r.GetValue(i + 1));
+			{
+				values[i] = Convert.ToDouble(r.GetValue(i + 1));
+			}
+
             list.Add(new Sample(r.GetInt64(0), values));
         }
         return list;

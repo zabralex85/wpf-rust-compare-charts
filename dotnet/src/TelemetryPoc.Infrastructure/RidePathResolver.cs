@@ -1,5 +1,3 @@
-using System;
-using System.IO;
 using TelemetryPoc.Application;
 
 namespace TelemetryPoc.Infrastructure;

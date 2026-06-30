@@ -49,4 +49,4 @@ public class TileMathTests
 		var (_, _, z) = TileMath.FitBbox(-40, -100, 60, 100, 400, 400);
 		Assert.Equal(TileMath.MinZoom, z);
 	}
-}
+}

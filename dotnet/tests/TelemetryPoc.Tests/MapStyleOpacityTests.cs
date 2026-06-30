@@ -11,4 +11,4 @@ public class MapStyleOpacityTests
 	[InlineData("water", 1.0)]
 	public void Layers_have_fill_opacity(string id, double opacity)
 		=> Assert.Equal(opacity, MapStyle.Layers.First(l => l.Id == id).Opacity, 6);
-}
+}

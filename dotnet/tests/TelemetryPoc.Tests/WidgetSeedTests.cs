@@ -51,4 +51,4 @@ public class WidgetSeedTests
 		Assert.Equal((1, 1), a);
 		Assert.Equal((5, 1), b); // cols 1-4 taken on row 1, next free col is 5
 	}
-}
+}

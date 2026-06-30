@@ -23,4 +23,4 @@ public class StreamTailTests
 	[Fact]
 	public void Reset_returns_minus_one_when_time_went_backwards()
 		=> Assert.Equal(-1, StreamTail.NewFrom([0.5, 1.0], 100.0)); // last 1.0 < lastX 100 → reset
-}
+}

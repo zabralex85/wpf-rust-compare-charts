@@ -1,1 +1,13 @@
 rust/src-tauri/Cargo.toml -text
+
+# .NET / WPF sources: CRLF line endings (stored LF in git, checked out CRLF).
+*.cs      text eol=crlf
+*.xaml    text eol=crlf
+*.csproj  text eol=crlf
+*.slnx    text eol=crlf
+*.props   text eol=crlf
+*.ruleset text eol=crlf
+dotnet/**/*.json text eol=crlf
+
+# Shell scripts must stay LF.
+*.sh      text eol=lf

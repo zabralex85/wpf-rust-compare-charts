@@ -28,4 +28,4 @@ public class LineDataTests
 		// 5.3s of data in a 60s window → (0, 5.3), not pinned right
 		Assert.Equal((0.0, 5.3), LineData.ScrollWindow([0, 1000, 5300], 60_000));
 	}
-}
+}

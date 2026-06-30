@@ -18,4 +18,4 @@ public class NearestSampleTests
 		var xs = new double[] { 0, 1, 2, 3, 4, 5 };
 		Assert.Equal(expected, NearestSample.IndexOf(xs, target));
 	}
-}
+}

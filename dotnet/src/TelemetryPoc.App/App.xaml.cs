@@ -1,5 +1,5 @@
 // dotnet/src/TelemetryPoc.App/App.xaml.cs
-using System;
+
 using System.IO;
 using System.Windows;
 using Microsoft.Extensions.Configuration;
@@ -9,7 +9,6 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using TelemetryPoc.App.ViewModels;
 using TelemetryPoc.Application;
-using TelemetryPoc.Domain;
 using TelemetryPoc.Infrastructure;
 
 namespace TelemetryPoc.App;
@@ -27,7 +26,7 @@ public partial class App
         var speedEnv = Environment.GetEnvironmentVariable("RIDE_SPEED");
         var speed = double.TryParse(speedEnv, System.Globalization.NumberStyles.Float,
             System.Globalization.CultureInfo.InvariantCulture, out var sp) ? sp.ToString(System.Globalization.CultureInfo.InvariantCulture) : null;
-        builder.Configuration.AddInMemoryCollection(new System.Collections.Generic.Dictionary<string, string?>
+        builder.Configuration.AddInMemoryCollection(new Dictionary<string, string?>
         {
             ["Ride:DbPath"] = Environment.GetEnvironmentVariable("RIDE_DB"),
             ["Ride:MbTilesPath"] = Environment.GetEnvironmentVariable("RIDE_MBTILES"),
