@@ -2,12 +2,10 @@ using TelemetryPoc.Domain;
 
 namespace TelemetryPoc.Application;
 
-/// <summary>An entire loaded ride, ready to replay. Loading (sqlite, GPS-bounds
-/// computation) is the host's job; the engine only orchestrates this prepared data,
-/// which keeps it UI- and IO-free and therefore testable.</summary>
+/// <summary>Ride metadata, ready to replay. Samples are streamed via ISampleCursor, not
+/// carried here, so a large ride costs no extra memory to "load".</summary>
 public sealed record RideData(
     IReadOnlyList<ChannelMeta> Channels,
     IReadOnlyList<EnumValue> Enums,
-    IReadOnlyList<Sample> Samples,
     long DurationMs,
     (double MinLat, double MinLon, double MaxLat, double MaxLon)? GpsBounds);
