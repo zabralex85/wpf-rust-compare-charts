@@ -21,6 +21,11 @@ public partial class MainWindow : Window
         Loaded += (_, _) => _session.StartAsync();
         Closed += (_, _) => _session.Dispose();
         SourceInitialized += OnSourceInitialized; // keep the WM_GETMINMAXINFO hook
+        _session.ErrorChanged += () => Dispatcher.Invoke(() =>
+        {
+            ErrorBanner.Text = _session.Error;
+            ErrorBanner.Visibility = _session.Error is null ? Visibility.Collapsed : Visibility.Visible;
+        });
     }
 
     private void OnSourceInitialized(object? sender, EventArgs e)
