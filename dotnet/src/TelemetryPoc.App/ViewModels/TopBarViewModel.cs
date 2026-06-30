@@ -1,6 +1,6 @@
 using System.ComponentModel;
 using System.Globalization;
-using TelemetryPoc.App.Viz;
+using TelemetryPoc.Presentation;
 
 namespace TelemetryPoc.App.ViewModels;
 

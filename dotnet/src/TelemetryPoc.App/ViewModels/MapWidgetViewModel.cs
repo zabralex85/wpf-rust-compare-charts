@@ -1,5 +1,5 @@
-using System.IO;
-using TelemetryPoc.Map;
+using TelemetryPoc.Application;
+using TelemetryPoc.Domain;
 
 namespace TelemetryPoc.App.ViewModels;
 

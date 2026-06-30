@@ -5,7 +5,7 @@ using ScottPlot;
 using ScottPlot.Plottables;
 using ScottPlot.TickGenerators;
 using TelemetryPoc.App.ViewModels;
-using TelemetryPoc.App.Viz;
+using TelemetryPoc.Presentation;
 
 namespace TelemetryPoc.App.Views;
 

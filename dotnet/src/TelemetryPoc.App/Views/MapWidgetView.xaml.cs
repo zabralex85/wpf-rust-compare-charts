@@ -5,7 +5,8 @@ using System.Windows.Threading;
 using SkiaSharp;
 using SkiaSharp.Views.Desktop;
 using TelemetryPoc.App.ViewModels;
-using TelemetryPoc.Map;
+using TelemetryPoc.Domain;
+using TelemetryPoc.Presentation;
 
 namespace TelemetryPoc.App.Views;
 

@@ -4,7 +4,7 @@ using System.Windows.Controls.Primitives;
 using System.Windows.Input;
 using System.Windows.Media;
 using TelemetryPoc.App.ViewModels;
-using TelemetryPoc.App.Viz;
+using TelemetryPoc.Presentation;
 
 namespace TelemetryPoc.App.Views;
 

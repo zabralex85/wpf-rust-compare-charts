@@ -1,5 +1,5 @@
 using System.Collections.ObjectModel;
-using TelemetryPoc.Core;
+using TelemetryPoc.Domain;
 
 namespace TelemetryPoc.App.ViewModels;
 
