@@ -57,11 +57,19 @@ jobs:
         with:
           dotnet-version: 8.0.x
 
-      - name: Publish WPF app (win-x64, framework-dependent)
+      - name: Publish WPF app (win-x64, self-contained — no runtime install needed)
         run: >
           dotnet publish dotnet/src/TelemetryPoc.App/TelemetryPoc.App.csproj
-          -c Release -r win-x64 --self-contained false
+          -c Release -r win-x64 --self-contained true
+          -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true
           -o publish/TelemetryPoc.App
+
+      - name: Bundle a sample ride so the app runs out of the box
+        run: |
+          New-Item -ItemType Directory -Force -Path publish/TelemetryPoc.App/data | Out-Null
+          Copy-Item data/ride_small.db publish/TelemetryPoc.App/data/ride_small.db
+        # Map basemap (israel.mbtiles) is ~85 MB and gitignored — not bundled; the map
+        # widget shows the dark background until a tileset is provided (see dotnet/README.md).
 
       - name: Zip the published app
         run: Compress-Archive -Path publish/TelemetryPoc.App/* -DestinationPath TelemetryPoc.App-${{ github.ref_name }}-win-x64.zip
