@@ -217,16 +217,28 @@ public interface IRidePathResolver
 }
 ```
 
-- [ ] **Step 2: Build Application**
+- [ ] **Step 2: Rewire RideEngine to the `IMetricsSampler` port + drop the Application→Core reference**
+
+Task 2 temporarily wired `RideEngine` to the concrete `MetricsSampler` (still in `Core`) and added an `Application→Core` ProjectReference — an onion violation. Fix it now. In `dotnet/src/TelemetryPoc.Application/RideEngine.cs`:
+- delete the line `using TelemetryPoc.Core;`
+- change `private readonly MetricsSampler _metrics;` → `private readonly IMetricsSampler _metrics;`
+- change the ctor signature `RideEngine(RideData data, TelemetryStore store, MetricsSampler? metrics = null)` → `RideEngine(RideData data, TelemetryStore store, IMetricsSampler metrics)` (metrics is now a required injected dependency — Application must not `new` an infrastructure adapter)
+- change `_metrics = metrics ?? new MetricsSampler();` → `_metrics = metrics;`
+
+Then remove the Core ProjectReference from `dotnet/src/TelemetryPoc.Application/TelemetryPoc.Application.csproj` (delete the `<ProjectReference Include="..\TelemetryPoc.Core\TelemetryPoc.Core.csproj" />` line). Application now references **Domain only**.
+
+- [ ] **Step 3: Build Application (Domain-only dependency)**
 
 Run: `dotnet build dotnet/src/TelemetryPoc.Application/TelemetryPoc.Application.csproj -c Debug --nologo`
-Expected: `0 Warning(s) 0 Error(s)`.
+Expected: `0 Warning(s) 0 Error(s)`. If `MetricsSampler` is still referenced anywhere in Application, it was missed above.
 
-- [ ] **Step 3: Commit**
+- [ ] **Step 4: Commit**
 
 ```bash
-git add -A && git commit -m "refactor(dotnet): define Application ports (IRideSource/IMetricsSampler/ISystemClock/ITileSource/IRidePathResolver)"
+git add -A && git commit -m "refactor(dotnet): Application ports + RideEngine depends on IMetricsSampler (drop Application→Core)"
 ```
+
+> Downstream notes (handled in later tasks): `RideSession` (Task 9) already passes the DI-resolved `IMetricsSampler` into `new RideEngine(data, Store, _metrics)`. `RideEngineTests` currently relies on the old optional-metrics default — Task 15/17 must pass a tiny fake `IMetricsSampler` (returns `new Metrics(0, 0)`) into its `NewEngine()` helper.
 
 ---
 
@@ -934,10 +946,12 @@ public MainWindow(RideSession session, TopBarViewModel topBar, OverviewViewModel
 
 (Keep the existing Win32 `OnSourceInitialized`/`WindowProc`/`ClampToWorkArea` members.)
 
-- [ ] **Step 4: Build the whole solution**
+- [ ] **Step 4: Build the App project (transitively builds all 5 src rings)**
 
-Run: `dotnet build dotnet/TelemetryPoc.slnx -c Debug --nologo`
+Run: `dotnet build dotnet/src/TelemetryPoc.App/TelemetryPoc.App.csproj -c Debug --nologo`
 Expected: `0 Warning(s) 0 Error(s)`. Fix any remaining missing-`using` from Task 8 here.
+
+> Do NOT build `dotnet/TelemetryPoc.slnx` yet — the test project still references the retired `Core`/`App.Viz`/`Map` projects and won't compile until Task 15. Building the App project compiles all five src rings without the (transiently broken) tests.
 
 - [ ] **Step 5: Launch-confirm**
 
@@ -1033,6 +1047,16 @@ sed -i -E 's/using TelemetryPoc\.Core;/using TelemetryPoc.Domain;/; s/using Tele
 ```
 
 Then per failing test, add the correct ring `using` for types that moved elsewhere: `RideEngineTests`/`ReplayPlayerTests`/`PacerTests` → `using TelemetryPoc.Application;`; `TelemetryDbTests`/`SampleReaderTests`/`MetricsSamplerTests`/`MbTilesReaderTests`/`RidePathsTests` → `using TelemetryPoc.Infrastructure;` (and update to the new type names — Task 16/17).
+
+`RideEngine`'s metrics parameter is now a required `IMetricsSampler` (Task 3), so `RideEngineTests` must supply one. Add a tiny fake at the top of `RideEngineTests.cs` and pass it into the `NewEngine()`/`new RideEngine(...)` calls:
+
+```csharp
+private sealed class FakeMetrics : TelemetryPoc.Application.IMetricsSampler
+{
+    public TelemetryPoc.Domain.Metrics Sample() => new(0, 0);
+}
+// e.g. private static RideEngine NewEngine() => new(Ride(), new TelemetryStore(), new FakeMetrics());
+```
 
 - [ ] **Step 4: Commit**
 
