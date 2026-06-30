@@ -1,47 +1,62 @@
+// dotnet/src/TelemetryPoc.App/RideSession.cs
+using System;
 using System.Diagnostics;
-using System.Globalization;
-using System.IO;
 using System.Windows.Threading;
-using Microsoft.Data.Sqlite;
-using TelemetryPoc.App.Viz;
-using TelemetryPoc.Core;
-using TelemetryPoc.Map;
+using Microsoft.Extensions.Logging;
+using TelemetryPoc.Application;
+using TelemetryPoc.Domain;
 
 namespace TelemetryPoc.App;
 
-/// <summary>WPF host for the replay. Loads the ride DB, drives a <see cref="RideEngine"/>
-/// from a 30 Hz dispatcher timer (wall-clock delta in, repaint signal out) on the UI
-/// thread, and exposes the engine state to the view-models. All replay logic lives in the
-/// UI-free engine; this class only owns the timer, the wall clock and the IO.</summary>
-public sealed class RideSession
+/// <summary>WPF host for the replay: loads the ride via IRideSource (off the UI thread),
+/// drives a RideEngine from a 30 Hz dispatcher timer, and exposes the engine state to the
+/// view-models. Owns the timer + wall clock + lifecycle; all replay logic is in the engine.</summary>
+public sealed class RideSession : IDisposable
 {
+    private readonly IRideSource _source;
+    private readonly IMetricsSampler _metrics;
+    private readonly ISystemClock _clock;
+    private readonly ILogger<RideSession> _log;
     private readonly Stopwatch _sw = new();
+
     private RideEngine? _engine;
     private DispatcherTimer? _timer;
-    private double _speed = 1.0;
+    private double _speed;
     private long _lastElapsed;
+
+    public RideSession(IRideSource source, IMetricsSampler metrics, ISystemClock clock,
+        ILogger<RideSession> log, RideOptions options)
+    {
+        _source = source;
+        _metrics = metrics;
+        _clock = clock;
+        _log = log;
+        _speed = options.Speed;
+    }
 
     public TelemetryStore Store { get; } = new();
     public long DurationMs => _engine?.DurationMs ?? 0;
     public long RideMs => _engine?.RideMs ?? 0;
     public (double MinLat, double MinLon, double MaxLat, double MaxLon)? GpsBounds => _engine?.GpsBounds;
     public bool IsPaused => _engine?.IsPaused ?? true;
-    public string? Error { get; private set; }
+
+    private string? _error;
+    public string? Error { get => _error; private set { _error = value; ErrorChanged?.Invoke(); } }
 
     public event Action? MetaLoaded;
     public event Action? Ticked;
     public event Action? Reset;
+    public event Action? ErrorChanged;
 
-    public void Start()
+    public async void StartAsync()
     {
         try
         {
-            var dbPath = RidePaths.Resolve(
-                Environment.GetEnvironmentVariable("RIDE_DB"), AppContext.BaseDirectory, File.Exists);
-            _speed = double.TryParse(Environment.GetEnvironmentVariable("RIDE_SPEED"),
-                NumberStyles.Float, CultureInfo.InvariantCulture, out var s) ? s : 1.0;
+            _log.LogInformation("Loading ride…");
+            var data = await _source.LoadAsync().ConfigureAwait(true); // resume on UI thread
+            _log.LogInformation("Ride loaded: {Samples} samples, {DurationMs} ms", data.Samples.Count, data.DurationMs);
 
-            _engine = new RideEngine(LoadRide(dbPath), Store);
+            _engine = new RideEngine(data, Store, _metrics);
             _engine.Reset += () => Reset?.Invoke();
             MetaLoaded?.Invoke();
 
@@ -52,7 +67,8 @@ public sealed class RideSession
         }
         catch (Exception ex)
         {
-            Error = $"DB load failed: {ex.Message}";
+            _log.LogError(ex, "Ride load failed");
+            Error = $"Ride load failed: {ex.Message}";
         }
     }
 
@@ -61,8 +77,7 @@ public sealed class RideSession
         var elapsed = _sw.ElapsedMilliseconds;
         var delta = elapsed - _lastElapsed;
         _lastElapsed = elapsed;
-        var now = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
-        if (_engine!.Advance(delta, now, _speed)) Ticked?.Invoke();
+        if (_engine!.Advance(delta, _clock.UtcNowUnixMs, _speed)) Ticked?.Invoke();
     }
 
     public void Pause() => _engine?.Pause();
@@ -71,35 +86,13 @@ public sealed class RideSession
     public void Seek(double fraction)
     {
         if (_engine is null) return;
-        _engine.Seek(fraction, DateTimeOffset.UtcNow.ToUnixTimeMilliseconds());
+        _engine.Seek(fraction, _clock.UtcNowUnixMs);
         Ticked?.Invoke();
     }
 
-    private static RideData LoadRide(string dbPath)
+    public void Dispose()
     {
-        using var conn = new SqliteConnection($"Data Source={dbPath};Mode=ReadOnly");
-        conn.Open();
-        var channels = TelemetryDb.LoadChannels(conn);
-        var enums = TelemetryDb.LoadEnumValues(conn);
-        var samples = TelemetryDb.LoadSamples(conn, channels);
-        var meta = TelemetryDb.LoadRideMeta(conn);
-        return new RideData(channels, enums, samples, meta.DurationS * 1000, GpsBoundsOf(channels, samples));
-    }
-
-    private static (double, double, double, double)? GpsBoundsOf(
-        IReadOnlyList<ChannelMeta> channels, IReadOnlyList<Sample> samples)
-    {
-        int latIdx = -1, lonIdx = -1;
-        for (int i = 0; i < channels.Count; i++)
-        {
-            if (channels[i].Widget == "map_lat") latIdx = i;
-            if (channels[i].Widget == "map_lon") lonIdx = i;
-        }
-        if (latIdx < 0 || lonIdx < 0 || samples.Count == 0) return null;
-
-        var lat = new double[samples.Count];
-        var lon = new double[samples.Count];
-        for (int i = 0; i < samples.Count; i++) { lat[i] = samples[i].Values[latIdx]; lon[i] = samples[i].Values[lonIdx]; }
-        return MapProject.TrackBounds(lat, lon);
+        _timer?.Stop();
+        _timer = null;
     }
 }
