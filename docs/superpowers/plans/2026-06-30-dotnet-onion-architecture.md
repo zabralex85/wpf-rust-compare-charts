@@ -244,18 +244,9 @@ git add -A && git commit -m "refactor(dotnet): define Application ports (IRideSo
 - Consumes: `TelemetryPoc.Application` (ports), `TelemetryPoc.Domain` (`Metrics`).
 - Produces: `SysInfoMetricsSampler : IMetricsSampler`, `SystemClock : ISystemClock`, `RidePathResolver : IRidePathResolver`.
 
-- [ ] **Step 1: Move the `Metrics` record to Domain**
+- [ ] **Step 1: Confirm the `Metrics` record is already in Domain**
 
-`Metrics` is currently declared inside `MetricsSampler.cs` (`namespace TelemetryPoc.Core`). Create `dotnet/src/TelemetryPoc.Domain/Metrics.cs`:
-
-```csharp
-// dotnet/src/TelemetryPoc.Domain/Metrics.cs
-namespace TelemetryPoc.Domain;
-
-public sealed record Metrics(double CpuPct, double RamMb);
-```
-
-Delete the `public sealed record Metrics(...)` line from the old `MetricsSampler.cs` in the next step.
+Task 1 already extracted `Metrics` to `dotnet/src/TelemetryPoc.Domain/Metrics.cs` and removed it from `MetricsSampler.cs`. Verify with `grep -rn "record Metrics" dotnet/src` — it should appear only in `Domain/Metrics.cs`. No action needed here; proceed to Step 2.
 
 - [ ] **Step 2: Create the csproj**
 
@@ -493,8 +484,9 @@ git add -A && git commit -m "refactor(dotnet): MbTilesTileSource adapter (absorb
 **Files:**
 - Create: `dotnet/src/TelemetryPoc.Presentation/TelemetryPoc.Presentation.csproj`
 - Move from App.Viz: `FpsMeter.cs`, `GaugeFormat.cs`, `GaugeViz.cs`, `LineAxis.cs`, `LineData.cs`, `MissionClock.cs`, `NearestSample.cs`, `ParamGrouping.cs`, `ParamRowView.cs`, `StatusCounts.cs`, `StreamTail.cs`, `WidgetLayout.cs`, `WidgetSeed.cs`
-- Move from Core: `ValueFormat.cs`
 - Move from Map: `BasemapRenderer.cs`, `TrackOverlay.cs`
+
+> NOTE (Task 1 correction): `ValueFormat` is **already in Domain** — `TelemetryStore.BuildEnumIndex` depends on it, so it cannot live in Presentation (that would be a Domain→Presentation violation). Do NOT move `ValueFormat`. `ParamRowView` / `StatusCounts` use it via `using TelemetryPoc.Domain;`. Likewise `ValueFormatTests` stays a Domain test.
 - Modify: `dotnet/TelemetryPoc.slnx`
 
 **Interfaces:**
