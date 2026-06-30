@@ -1,5 +1,3 @@
-using Xunit;
-
 namespace TelemetryPoc.Core.Tests;
 
 public class TelemetryStoreTests
@@ -22,7 +20,7 @@ public class TelemetryStoreTests
         var s = new TelemetryStore();
         var (ch, ev) = Meta();
         s.ApplyMeta(ch, ev);
-        s.ApplyFrame(new Sample(100, new double[] { 12.5, 32.0, 34.5 }), 1700000000000);
+        s.ApplyFrame(new Sample(100, new[] { 12.5, 32.0, 34.5 }), 1700000000000);
         Assert.Equal(12.5, s.Latest(1));
         Assert.Equal(1, s.Series(1)!.Len);
         Assert.Null(s.Series(2));
@@ -35,11 +33,11 @@ public class TelemetryStoreTests
         var s = new TelemetryStore();
         var (ch, ev) = Meta();
         s.ApplyMeta(ch, ev);
-        s.ApplyFrame(new Sample(0, new double[] { 0, 32.0, 34.5 }), 1);
-        s.ApplyFrame(new Sample(100, new double[] { 0, 32.1, 34.6 }), 2);
+        s.ApplyFrame(new Sample(0, new[] { 0, 32.0, 34.5 }), 1);
+        s.ApplyFrame(new Sample(100, new[] { 0, 32.1, 34.6 }), 2);
         var (lat, lon) = s.GpsTrack();
-        Assert.Equal(new double[] { 32.0, 32.1 }, lat);
-        Assert.Equal(new double[] { 34.5, 34.6 }, lon);
+        Assert.Equal(new[] { 32.0, 32.1 }, lat);
+        Assert.Equal(new[] { 34.5, 34.6 }, lon);
     }
 
     [Fact]
@@ -59,7 +57,7 @@ public class TelemetryStoreTests
         var s = new TelemetryStore();
         var (ch, ev) = Meta();
         s.ApplyMeta(ch, ev);
-        s.ApplyFrame(new Sample(0, new double[] { 1, 32, 34.5 }), 5);
+        s.ApplyFrame(new Sample(0, new[] { 1, 32, 34.5 }), 5);
         s.ApplyMeta(ch, ev);
         Assert.Null(s.Latest(1));
         Assert.Empty(s.GpsTrack().Lat);

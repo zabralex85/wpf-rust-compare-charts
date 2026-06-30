@@ -1,5 +1,4 @@
 // dotnet/tests/TelemetryPoc.Core.Tests/ReplayPlayerTests.cs
-using Xunit;
 
 namespace TelemetryPoc.Core.Tests;
 

@@ -1,0 +1,16 @@
+<Project>
+<!-- StyleCop Analyzers: run solution-wide as non-fatal warnings. -->
+  <PropertyGroup>
+    <CodeAnalysisRuleSet>$(MSBuildThisFileDirectory)StyleCop.ruleset</CodeAnalysisRuleSet>
+    <RunAnalyzers>true</RunAnalyzers>
+    <EnableNETAnalyzers>true</EnableNETAnalyzers>
+    <!-- Style findings surface as warnings; they must never break the build. -->
+    <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
+    <CodeAnalysisTreatWarningsAsErrors>false</CodeAnalysisTreatWarningsAsErrors>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="StyleCop.Analyzers" Version="1.1.118" PrivateAssets="all" />
+    <!-- MSBuildThisFileDirectory is robust; $(SolutionDir) is empty on single-project builds. -->
+    <AdditionalFiles Include="$(MSBuildThisFileDirectory)stylecop.json" Link="stylecop.json" />
+  </ItemGroup>
+</Project>

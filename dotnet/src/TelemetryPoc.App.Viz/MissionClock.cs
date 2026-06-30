@@ -18,7 +18,7 @@ public static class MissionClock
     {
         if (ms < 0) ms = 0;
         var t = TimeSpan.FromMilliseconds(ms);
-        return string.Format(System.Globalization.CultureInfo.InvariantCulture, "{0}:{1:00}:{2:00}",
+        return string.Format(CultureInfo.InvariantCulture, "{0}:{1:00}:{2:00}",
             (int)t.TotalHours, t.Minutes, t.Seconds);
     }
 }

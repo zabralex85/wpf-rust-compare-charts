@@ -8,10 +8,10 @@ public static class NearestSample
     {
         if (xs.Length == 0) return -1;
         int best = 0;
-        double bestDist = System.Math.Abs(xs[0] - xTarget);
+        double bestDist = Math.Abs(xs[0] - xTarget);
         for (int i = 1; i < xs.Length; i++)
         {
-            double d = System.Math.Abs(xs[i] - xTarget);
+            double d = Math.Abs(xs[i] - xTarget);
             if (d < bestDist) { bestDist = d; best = i; }
         }
         return best;

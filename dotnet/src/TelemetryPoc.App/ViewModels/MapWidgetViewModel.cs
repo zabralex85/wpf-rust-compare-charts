@@ -1,6 +1,4 @@
-using System;
 using System.IO;
-using TelemetryPoc.Core;
 using TelemetryPoc.Map;
 
 namespace TelemetryPoc.App.ViewModels;
@@ -34,7 +32,7 @@ public sealed class MapWidgetViewModel
 
     private int _lastTrackLen = -1;
 
-    public (System.Collections.Generic.IReadOnlyList<double> Lat, System.Collections.Generic.IReadOnlyList<double> Lon) Track
+    public (IReadOnlyList<double> Lat, IReadOnlyList<double> Lon) Track
         => _session.Store.GpsTrack();
 
     /// <summary>Compute the static region from the WHOLE-RIDE GPS bbox once a viewport

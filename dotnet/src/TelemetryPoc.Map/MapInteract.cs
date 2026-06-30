@@ -17,7 +17,7 @@ public static class MapInteract
     /// geographic point under the cursor fixed on screen (MapLibre-style).</summary>
     public static Region ZoomAt(Region r, double cursorX, double cursorY, int step, int minZoom, int maxZoom)
     {
-        var newZoom = System.Math.Clamp(r.Zoom + step, minZoom, maxZoom);
+        var newZoom = Math.Clamp(r.Zoom + step, minZoom, maxZoom);
         if (newZoom == r.Zoom) return r;
 
         // Geo point currently under the cursor.

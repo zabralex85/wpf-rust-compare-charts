@@ -1,6 +1,4 @@
-﻿using System.Configuration;
-using System.Data;
-using System.Windows;
+﻿using System.Windows;
 
 namespace TelemetryPoc.App;
 
@@ -10,4 +8,3 @@ namespace TelemetryPoc.App;
 public partial class App : Application
 {
 }
-

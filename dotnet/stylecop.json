@@ -1,0 +1,11 @@
+{
+  "settings": {
+    "documentationRules": {
+      "companyName": "TelemetryPoc"
+    },
+    "indentation": {
+      "indentationSize": 4,
+      "useTabs": false
+    }
+  }
+}
