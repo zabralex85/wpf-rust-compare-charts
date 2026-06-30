@@ -37,7 +37,10 @@ public sealed class TelemetryStore
         {
             var ch = channels[i];
             _idToIndex[ch.Id] = i;
-            if (ch.Widget == "strip")
+            // Buffer a time-series for every chartable widget — strip AND gauge — not just
+            // strip, so a gauge toggled to a line chart in the interactive grid shows its
+            // recent history instead of an empty plot.
+            if (ch.Widget == "strip" || ch.Widget == "gauge")
             {
                 _series[ch.Id] = new ChannelSeries(_windowMs);
             }
