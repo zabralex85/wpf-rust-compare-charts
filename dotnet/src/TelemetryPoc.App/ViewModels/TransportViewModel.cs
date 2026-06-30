@@ -13,8 +13,8 @@ public sealed class TransportViewModel : INotifyPropertyChanged
         _session.Ticked += Refresh;
     }
 
-    public string ClockText => _session.ClockText;
-    public string TPlusText => _session.TPlusText;
+    public string ClockText => MissionClock.Format(_session.RideMs);
+    public string TPlusText => MissionClock.FormatTPlus(_session.RideMs);
 
     private double _progress;
     public double Progress { get => _progress; private set { _progress = value; Raise(nameof(Progress)); } }
