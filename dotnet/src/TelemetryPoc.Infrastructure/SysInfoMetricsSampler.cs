@@ -1,9 +1,10 @@
 using System.Diagnostics;
+using TelemetryPoc.Application;
 using TelemetryPoc.Domain;
 
-namespace TelemetryPoc.Core;
+namespace TelemetryPoc.Infrastructure;
 
-public sealed class MetricsSampler
+public sealed class SysInfoMetricsSampler : IMetricsSampler
 {
     private readonly Process _p = Process.GetCurrentProcess();
     private TimeSpan _lastCpu;
