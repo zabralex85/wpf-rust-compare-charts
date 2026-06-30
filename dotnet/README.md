@@ -84,3 +84,4 @@ cd dotnet && dotnet build    # expect 0 errors, 0 warnings
 - The GUI requires a display; use the tests to verify logic headless.
 - Build artifacts (`bin/`, `obj/`) are gitignored.
 - The native WPF app runs fully offline (the map reads a local MBTiles file, not a CDN).
+- Ride samples are **streamed** from SQLite (a forward `ISampleCursor`), not loaded all at once, so memory stays flat regardless of ride length (a 12 h ride costs the same as a 10 min one).
