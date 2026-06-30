@@ -48,6 +48,9 @@ public sealed class WidgetViewModel : INotifyPropertyChanged
     private void Raise(string n)
     {
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(n));
-        if (n == nameof(Kind)) PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(ToggleLabel)));
+        if (n == nameof(Kind))
+        {
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(ToggleLabel)));
+        }
     }
 }

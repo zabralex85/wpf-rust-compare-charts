@@ -29,9 +29,17 @@ public sealed class MapWidgetViewModel
     /// size is known and the bounds are available. Waits (does not freeze) until then.</summary>
     public void EnsureRegion(double width, double height)
     {
-        if (Region is not null || width < 1 || height < 1) return;
+        if (Region is not null || width < 1 || height < 1)
+        {
+            return;
+        }
+
         var b = _session.GpsBounds;
-        if (b is null) return; // bounds set in RideSession.StartAsync; wait rather than freeze wrong
+        if (b is null)
+        {
+            return; // bounds set in RideSession.StartAsync; wait rather than freeze wrong
+        }
+
         var (cLat, cLon, z) = TileMath.FitBbox(b.Value.MinLat, b.Value.MinLon, b.Value.MaxLat, b.Value.MaxLon, width, height);
         Region = new Region(cLat, cLon, z, width, height);
     }
@@ -46,7 +54,11 @@ public sealed class MapWidgetViewModel
     {
         // Repaint only when the GPS track actually grew; a static map costs nothing.
         var (lat, _) = _session.Store.GpsTrack();
-        if (lat.Count == _lastTrackLen) return;
+        if (lat.Count == _lastTrackLen)
+        {
+            return;
+        }
+
         _lastTrackLen = lat.Count;
         Updated?.Invoke();
     }

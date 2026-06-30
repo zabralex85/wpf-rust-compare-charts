@@ -40,7 +40,11 @@ public sealed class RideEngine : IDisposable
     /// the 30 Hz host loop only repaints at the 10 Hz data cadence.</summary>
     public bool Advance(long wallDeltaMs, long nowUnixMs, double speed = 1.0)
     {
-        if (!_clock.Playing) return false;
+        if (!_clock.Playing)
+        {
+            return false;
+        }
+
         _clock.Advance((long)(wallDeltaMs * speed));
         int applied = _player.Advance(_clock.RideMs, nowUnixMs);
         RideMs = _clock.RideMs;

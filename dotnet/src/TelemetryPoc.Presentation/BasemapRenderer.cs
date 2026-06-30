@@ -14,7 +14,10 @@ public static class BasemapRenderer
         foreach (var t in TileMath.VisibleTiles(region))
         {
             var feats = tiles.Decoded(t.Z, t.X, t.Y); // memoised read+gunzip+decode
-            if (feats is not null) decoded.Add((t, feats));
+            if (feats is not null)
+            {
+                decoded.Add((t, feats));
+            }
         }
 
         foreach (var layer in MapStyle.Layers)
@@ -28,14 +31,24 @@ public static class BasemapRenderer
             };
             var wantPolygon = layer.Kind == PaintKind.Fill;
             foreach (var (tile, feats) in decoded)
+            {
                 foreach (var f in feats)
                 {
-                    if (f.SourceLayer != layer.SourceLayer) continue;
+                    if (f.SourceLayer != layer.SourceLayer)
+                    {
+                        continue;
+                    }
+
                     var isPoly = f.Type == MvtGeomType.Polygon;
-                    if (wantPolygon != isPoly) continue;
+                    if (wantPolygon != isPoly)
+                    {
+                        continue;
+                    }
+
                     using var path = BuildPath(tile, f);
                     canvas.DrawPath(path, paint);
                 }
+            }
         }
 
         DrawLabels(canvas, decoded, region.Zoom);
@@ -49,10 +62,19 @@ public static class BasemapRenderer
             for (int i = 0; i < ring.Count; i++)
             {
                 var (sx, sy) = TileProject.ToScreen(tile.ScreenX, tile.ScreenY, ring[i].X, ring[i].Y, f.Extent, tile.PixSize);
-                if (i == 0) builder.MoveTo((float)sx, (float)sy);
-                else builder.LineTo((float)sx, (float)sy);
+                if (i == 0)
+                {
+                    builder.MoveTo((float)sx, (float)sy);
+                }
+                else
+                {
+                    builder.LineTo((float)sx, (float)sy);
+                }
             }
-            if (f.Type == MvtGeomType.Polygon) builder.Close();
+            if (f.Type == MvtGeomType.Polygon)
+            {
+                builder.Close();
+            }
         }
         return builder.Snapshot();
     }
@@ -63,6 +85,7 @@ public static class BasemapRenderer
     {
         f.Props.TryGetValue("class", out var cls);
         if (f.SourceLayer == "place")
+        {
             return cls switch
             {
                 "city" => true,
@@ -71,8 +94,13 @@ public static class BasemapRenderer
                 "suburb" or "neighbourhood" or "quarter" => zoom >= 14,
                 _ => zoom >= 13,
             };
+        }
+
         if (f.SourceLayer == "transportation_name")
+        {
             return zoom >= 14; // road names only at street level
+        }
+
         return false;
     }
 
@@ -87,12 +115,29 @@ public static class BasemapRenderer
 
         var candidates = new List<(LabelBox Box, SKPaint Paint, SKFont Font)>();
         foreach (var (tile, feats) in decoded)
+        {
             foreach (var f in feats)
             {
-                if (f.SourceLayer != "place" && f.SourceLayer != "transportation_name") continue;
-                if (!WantLabel(f, zoom)) continue;
-                if (!f.Props.TryGetValue("name:latin", out var name) && !f.Props.TryGetValue("name", out name)) continue;
-                if (string.IsNullOrWhiteSpace(name) || f.Rings.Count == 0 || f.Rings[0].Count == 0) continue;
+                if (f.SourceLayer != "place" && f.SourceLayer != "transportation_name")
+                {
+                    continue;
+                }
+
+                if (!WantLabel(f, zoom))
+                {
+                    continue;
+                }
+
+                if (!f.Props.TryGetValue("name:latin", out var name) && !f.Props.TryGetValue("name", out name))
+                {
+                    continue;
+                }
+
+                if (string.IsNullOrWhiteSpace(name) || f.Rings.Count == 0 || f.Rings[0].Count == 0)
+                {
+                    continue;
+                }
+
                 var pt = f.Rings[0][f.Rings[0].Count / 2]; // a representative vertex
                 var (sx, sy) = TileProject.ToScreen(tile.ScreenX, tile.ScreenY, pt.X, pt.Y, f.Extent, tile.PixSize);
                 var isPlace = f.SourceLayer == "place";
@@ -101,12 +146,17 @@ public static class BasemapRenderer
                 var w = font.MeasureText(name);
                 candidates.Add((new LabelBox(name, sx, sy - font.Size, w, font.Size), paint, font));
             }
+        }
 
         var placed = LabelLayout.Place(candidates.Select(c => c.Box).ToList());
         var placedSet = new HashSet<LabelBox>(placed);
         foreach (var (box, paint, font) in candidates)
         {
-            if (!placedSet.Contains(box)) continue;
+            if (!placedSet.Contains(box))
+            {
+                continue;
+            }
+
             canvas.DrawText(box.Text, (float)box.X, (float)(box.Y + box.H), SKTextAlign.Left, font, halo);
             canvas.DrawText(box.Text, (float)box.X, (float)(box.Y + box.H), SKTextAlign.Left, font, paint);
         }

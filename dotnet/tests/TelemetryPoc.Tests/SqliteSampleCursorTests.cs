@@ -10,7 +10,11 @@ public class SqliteSampleCursorTests
     {
         using var conn = Fixtures.Open();
         var cols = new List<string>();
-        foreach (var c in SqliteRideSource.LoadChannels(conn)) cols.Add(c.ColumnName);
+        foreach (var c in SqliteRideSource.LoadChannels(conn))
+        {
+            cols.Add(c.ColumnName);
+        }
+
         return cols;
     }
 

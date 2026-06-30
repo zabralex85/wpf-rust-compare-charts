@@ -10,7 +10,11 @@ public static class Fixtures
         while (dir is not null)
         {
             var p = Path.Combine(dir.FullName, "data", "ride_small.db");
-            if (File.Exists(p)) return p;
+            if (File.Exists(p))
+            {
+                return p;
+            }
+
             dir = dir.Parent;
         }
         throw new FileNotFoundException("ride_small.db not found walking up from " + AppContext.BaseDirectory);

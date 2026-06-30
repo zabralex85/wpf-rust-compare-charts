@@ -23,7 +23,13 @@ public static class ParamGrouping
     {
         var m = new Dictionary<string, string>();
         foreach (var (group, cols) in Groups)
-            foreach (var c in cols) m[c] = group;
+        {
+            foreach (var c in cols)
+            {
+                m[c] = group;
+            }
+        }
+
         return m;
     }
 
@@ -36,13 +42,21 @@ public static class ParamGrouping
         foreach (var ch in channels)
         {
             var g = GroupOf(ch.ColumnName);
-            if (!buckets.TryGetValue(g, out var list)) buckets[g] = list = new List<ChannelMeta>();
+            if (!buckets.TryGetValue(g, out var list))
+            {
+                buckets[g] = list = [];
+            }
+
             list.Add(ch);
         }
         var result = new List<ParamGroup>();
         foreach (var group in Order)
         {
-            if (!buckets.TryGetValue(group, out var list) || list.Count == 0) continue;
+            if (!buckets.TryGetValue(group, out var list) || list.Count == 0)
+            {
+                continue;
+            }
+
             list.Sort((a, b) => a.DisplayOrder.CompareTo(b.DisplayOrder));
             result.Add(new ParamGroup(group, list));
         }

@@ -7,7 +7,10 @@ namespace TelemetryPoc.App.Views;
 
 public partial class ParamPanel : UserControl
 {
-    public ParamPanel() => InitializeComponent();
+    public ParamPanel()
+    {
+        InitializeComponent();
+    }
 
     private void OnRowDrag(object sender, MouseEventArgs e)
     {

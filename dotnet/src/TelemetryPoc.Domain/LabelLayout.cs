@@ -15,7 +15,10 @@ public static class LabelLayout
                 if (c.X < p.X + p.W && c.X + c.W > p.X && c.Y < p.Y + p.H && c.Y + c.H > p.Y)
                 { overlaps = true; break; }
             }
-            if (!overlaps) placed.Add(c);
+            if (!overlaps)
+            {
+                placed.Add(c);
+            }
         }
         return placed;
     }

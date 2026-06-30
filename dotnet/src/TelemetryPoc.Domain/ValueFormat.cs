@@ -7,7 +7,11 @@ public static class ValueFormat
     public static IReadOnlyDictionary<(long ChannelId, long Code), EnumValue> BuildEnumIndex(IEnumerable<EnumValue> enums)
     {
         var d = new Dictionary<(long, long), EnumValue>();
-        foreach (var e in enums) d[(e.ChannelId, e.Code)] = e;
+        foreach (var e in enums)
+        {
+            d[(e.ChannelId, e.Code)] = e;
+        }
+
         return d;
     }
 

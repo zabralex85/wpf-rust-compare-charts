@@ -25,7 +25,11 @@ public class RideEngineTests
     private static FakeSampleCursor Cursor()
     {
         var samples = new List<Sample>();
-        for (int i = 0; i <= 5; i++) samples.Add(new Sample(i * 100, new double[] { i, i * 2 }));
+        for (int i = 0; i <= 5; i++)
+        {
+            samples.Add(new Sample(i * 100, new double[] { i, i * 2 }));
+        }
+
         return new FakeSampleCursor(samples);
     }
 

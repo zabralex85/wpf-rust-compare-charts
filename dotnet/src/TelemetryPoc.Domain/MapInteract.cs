@@ -18,7 +18,10 @@ public static class MapInteract
     public static Region ZoomAt(Region r, double cursorX, double cursorY, int step, int minZoom, int maxZoom)
     {
         var newZoom = Math.Clamp(r.Zoom + step, minZoom, maxZoom);
-        if (newZoom == r.Zoom) return r;
+        if (newZoom == r.Zoom)
+        {
+            return r;
+        }
 
         // Geo point currently under the cursor.
         var (cx, cy) = WebMercator.LonLatToWorld(r.CenterLon, r.CenterLat, r.Zoom);

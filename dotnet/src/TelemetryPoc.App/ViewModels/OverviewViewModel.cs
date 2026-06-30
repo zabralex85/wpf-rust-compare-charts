@@ -9,7 +9,7 @@ namespace TelemetryPoc.App.ViewModels;
 public sealed class OverviewViewModel : INotifyPropertyChanged
 {
     private readonly RideSession _session;
-    public ObservableCollection<ParamGroupViewModel> Groups { get; } = new();
+    public ObservableCollection<ParamGroupViewModel> Groups { get; } = [];
     public DashboardViewModel Dashboard { get; }
 
     private string _channelCountText = "ALL · 0 CH";
@@ -32,14 +32,20 @@ public sealed class OverviewViewModel : INotifyPropertyChanged
         Groups.Clear();
         var store = _session.Store;
         foreach (var g in ParamGrouping.Group(store.Channels))
+        {
             Groups.Add(new ParamGroupViewModel(g.Name, g.Channels));
+        }
+
         ChannelCountText = string.Format(CultureInfo.InvariantCulture, "ALL · {0} CH", store.Channels.Count);
         RefreshRows();
     }
 
     private void RefreshRows()
     {
-        foreach (var g in Groups) g.Refresh(_session.Store);
+        foreach (var g in Groups)
+        {
+            g.Refresh(_session.Store);
+        }
     }
 
     public event PropertyChangedEventHandler? PropertyChanged;

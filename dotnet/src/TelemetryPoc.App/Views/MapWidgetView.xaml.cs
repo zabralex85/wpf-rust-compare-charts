@@ -30,7 +30,7 @@ public partial class MapWidgetView : UserControl
     {
         InitializeComponent();
         DataContextChanged += OnDataContextChanged;
-        Loaded += (_, _) => { if (_vm is null) OnDataContextChanged(this, default); };
+        Loaded += (_, _) => { if (_vm is null) { OnDataContextChanged(this, default); } };
         Unloaded += (_, _) => Detach();
         Skia.MouseWheel += OnWheel;
         Skia.MouseLeftButtonDown += OnDown;
@@ -64,7 +64,11 @@ public partial class MapWidgetView : UserControl
 
     private void OnWheel(object sender, MouseWheelEventArgs e)
     {
-        if (_vm?.Region is null) return;
+        if (_vm?.Region is null)
+        {
+            return;
+        }
+
         var p = e.GetPosition(Skia);
         int step = e.Delta > 0 ? +1 : -1;
         int cur = _vm.Region.Zoom;
@@ -92,14 +96,26 @@ public partial class MapWidgetView : UserControl
 
     private void OnDown(object sender, MouseButtonEventArgs e)
     {
-        if (_vm?.Region is null) return;
-        if (_pendingZoomSteps != 0) CommitZoom(); // settle any in-flight zoom before panning
+        if (_vm?.Region is null)
+        {
+            return;
+        }
+
+        if (_pendingZoomSteps != 0)
+        {
+            CommitZoom(); // settle any in-flight zoom before panning
+        }
+
         _dragging = true; _lastDrag = e.GetPosition(Skia); _panX = 0; _panY = 0; Skia.CaptureMouse();
     }
 
     private void OnMove(object sender, MouseEventArgs e)
     {
-        if (!_dragging || _vm?.Region is null) return;
+        if (!_dragging || _vm?.Region is null)
+        {
+            return;
+        }
+
         var p = e.GetPosition(Skia);
         _panX += p.X - _lastDrag.X; _panY += p.Y - _lastDrag.Y;
         _lastDrag = p;
@@ -110,7 +126,10 @@ public partial class MapWidgetView : UserControl
     private void OnUp(object sender, MouseButtonEventArgs e)
     {
         if (_dragging && _vm?.Region is not null && (_panX != 0 || _panY != 0))
+        {
             _vm.SetRegion(MapInteract.Pan(_vm.Region, _panX, _panY));
+        }
+
         _dragging = false; _panX = 0; _panY = 0;
         Skia.ReleaseMouseCapture();
         Skia.InvalidateVisual();
@@ -118,11 +137,19 @@ public partial class MapWidgetView : UserControl
 
     private void OnMaybeDoubleClick(object sender, MouseButtonEventArgs e)
     {
-        if (e.ClickCount < 2 || _vm is null) return;
+        if (e.ClickCount < 2 || _vm is null)
+        {
+            return;
+        }
+
         _dragging = false; // OnDown already fired for this click; cancel the pan it started
         // re-fit to the whole-ride GPS bounds (the original FitBbox view)
         var b = _vm.GpsBoundsForRefit();
-        if (b is null || _vm.Region is null) return;
+        if (b is null || _vm.Region is null)
+        {
+            return;
+        }
+
         var (cLat, cLon, z) = TileMath.FitBbox(b.Value.MinLat, b.Value.MinLon, b.Value.MaxLat, b.Value.MaxLon,
                                                _vm.Region.Width, _vm.Region.Height);
         _vm.SetRegion(_vm.Region with { CenterLat = cLat, CenterLon = cLon, Zoom = z });
@@ -133,12 +160,18 @@ public partial class MapWidgetView : UserControl
     {
         var canvas = e.Surface.Canvas;
         canvas.Clear(SKColor.Parse(MapStyle.BackgroundHex));
-        if (_vm is null) return;
+        if (_vm is null)
+        {
+            return;
+        }
 
         var w = e.Info.Width;
         var h = e.Info.Height;
         _vm.EnsureRegion(w, h);
-        if (_vm.Region is null) return;
+        if (_vm.Region is null)
+        {
+            return;
+        }
 
         if (_basemap is null || _basemapW != w || _basemapH != h || !_vm.Region.Equals(_renderedFor))
         {
@@ -156,15 +189,29 @@ public partial class MapWidgetView : UserControl
         if (shifted || zooming)
         {
             canvas.Save();
-            if (shifted) canvas.Translate((float)_panX, (float)_panY);
-            if (zooming) canvas.Scale((float)_zoomScale, (float)_zoomScale, (float)_zoomFocusX, (float)_zoomFocusY);
+            if (shifted)
+            {
+                canvas.Translate((float)_panX, (float)_panY);
+            }
+
+            if (zooming)
+            {
+                canvas.Scale((float)_zoomScale, (float)_zoomScale, (float)_zoomFocusX, (float)_zoomFocusY);
+            }
         }
 
-        if (_basemap is not null) canvas.DrawImage(_basemap, 0, 0, new SKSamplingOptions(SKFilterMode.Linear)); // fast blit, no vector re-raster
+        if (_basemap is not null)
+        {
+            canvas.DrawImage(_basemap, 0, 0, new SKSamplingOptions(SKFilterMode.Linear)); // fast blit, no vector re-raster
+        }
+
         var (lat, lon) = _vm.Track;
         TrackOverlay.Draw(canvas, _vm.Region, lat, lon);
 
-        if (shifted || zooming) canvas.Restore();
+        if (shifted || zooming)
+        {
+            canvas.Restore();
+        }
     }
 
     private void BuildBasemap(Region region, int w, int h)

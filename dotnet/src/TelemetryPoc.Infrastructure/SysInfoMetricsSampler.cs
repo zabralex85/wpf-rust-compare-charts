@@ -22,7 +22,10 @@ public sealed class SysInfoMetricsSampler : IMetricsSampler
             var dtMs = (now - _lastTime).TotalMilliseconds;
             var dcMs = (cpu - _lastCpu).TotalMilliseconds;
             // Per-core CPU% (100% = one full core), matching the Rust app's sysinfo convention for a fair comparison.
-            if (dtMs > 0) pct = dcMs / dtMs * 100.0;
+            if (dtMs > 0)
+            {
+                pct = dcMs / dtMs * 100.0;
+            }
         }
         _lastCpu = cpu;
         _lastTime = now;

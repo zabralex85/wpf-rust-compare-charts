@@ -17,13 +17,21 @@ public sealed class RidePathResolver : IRidePathResolver
 
     public string ResolveRideDb()
     {
-        if (!string.IsNullOrWhiteSpace(_options.DbPath) && _exists(_options.DbPath!)) return _options.DbPath!;
+        if (!string.IsNullOrWhiteSpace(_options.DbPath) && _exists(_options.DbPath!))
+        {
+            return _options.DbPath!;
+        }
+
         return WalkUp("data", "ride.db", "ride_small.db") ?? Path.Combine(_baseDir, "data", "ride.db");
     }
 
     public string? ResolveMbTiles()
     {
-        if (!string.IsNullOrWhiteSpace(_options.MbTilesPath) && _exists(_options.MbTilesPath!)) return _options.MbTilesPath;
+        if (!string.IsNullOrWhiteSpace(_options.MbTilesPath) && _exists(_options.MbTilesPath!))
+        {
+            return _options.MbTilesPath;
+        }
+
         return WalkUp("tiles", "israel.mbtiles");
     }
 
@@ -36,7 +44,10 @@ public sealed class RidePathResolver : IRidePathResolver
             foreach (var file in files)
             {
                 var p = Path.Combine(d.FullName, dir, file);
-                if (_exists(p)) return p;
+                if (_exists(p))
+                {
+                    return p;
+                }
             }
             d = d.Parent;
         }

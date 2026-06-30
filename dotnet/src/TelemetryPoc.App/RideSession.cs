@@ -90,7 +90,11 @@ public sealed class RideSession : IDisposable
 
     public void Seek(double fraction)
     {
-        if (_engine is null) return;
+        if (_engine is null)
+        {
+            return;
+        }
+
         _engine.Seek(fraction, _clock.UtcNowUnixMs);
         Ticked?.Invoke();
     }

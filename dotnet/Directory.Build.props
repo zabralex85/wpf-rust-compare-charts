@@ -4,6 +4,13 @@
     <CodeAnalysisRuleSet>$(MSBuildThisFileDirectory)StyleCop.ruleset</CodeAnalysisRuleSet>
     <RunAnalyzers>true</RunAnalyzers>
     <EnableNETAnalyzers>true</EnableNETAnalyzers>
+    <!-- Enforce the IDExxxx code-style rules at build time (not just the editor), so
+         violations surface in `dotnet build` / CI. The code is kept clean via `dotnet format`. -->
+    <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
+    <!-- Required for IDE0005 (remove unnecessary usings) to run at build; suppress the
+         missing-XML-doc noise it pulls in (CS1591) since this is an app, not a doc'd library. -->
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <NoWarn>$(NoWarn);CS1591</NoWarn>
     <!-- Style findings surface as warnings; they must never break the build. -->
     <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
     <CodeAnalysisTreatWarningsAsErrors>false</CodeAnalysisTreatWarningsAsErrors>
