@@ -16,9 +16,11 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="ScottPlot.WPF" Version="5.0.55" />
-    <PackageReference Include="SkiaSharp.Views.WPF" Version="2.88.9" />
-    <PackageReference Include="Microsoft.Extensions.Hosting" Version="8.0.0" />
+    <PackageReference Include="ScottPlot.WPF" Version="5.1.59" />
+    <!-- 4.148.0 ships only a net462 managed assembly for the WPF views; it P/Invokes the same
+         native libSkiaSharp and runs fine on net8-windows, so the NU1701 fallback is expected. -->
+    <PackageReference Include="SkiaSharp.Views.WPF" Version="4.148.0" NoWarn="NU1701" />
+    <PackageReference Include="Microsoft.Extensions.Hosting" Version="10.0.9" />
   </ItemGroup>
 
   <ItemGroup>

@@ -43,18 +43,18 @@ public static class BasemapRenderer
 
     private static SKPath BuildPath(TileRef tile, MapFeature f)
     {
-        var path = new SKPath();
+        using var builder = new SKPathBuilder();
         foreach (var ring in f.Rings)
         {
             for (int i = 0; i < ring.Count; i++)
             {
                 var (sx, sy) = TileProject.ToScreen(tile.ScreenX, tile.ScreenY, ring[i].X, ring[i].Y, f.Extent, tile.PixSize);
-                if (i == 0) path.MoveTo((float)sx, (float)sy);
-                else path.LineTo((float)sx, (float)sy);
+                if (i == 0) builder.MoveTo((float)sx, (float)sy);
+                else builder.LineTo((float)sx, (float)sy);
             }
-            if (f.Type == MvtGeomType.Polygon) path.Close();
+            if (f.Type == MvtGeomType.Polygon) builder.Close();
         }
-        return path;
+        return builder.Snapshot();
     }
 
     // Keep label density readable: major places always, smaller places only as you zoom
@@ -78,11 +78,14 @@ public static class BasemapRenderer
 
     private static void DrawLabels(SKCanvas canvas, List<(TileRef Tile, IReadOnlyList<MapFeature> Feats)> decoded, int zoom)
     {
-        using var fill = new SKPaint { IsAntialias = true, TextSize = 11, Color = SKColor.Parse("#aebccd") };
-        using var roadFill = new SKPaint { IsAntialias = true, TextSize = 10, Color = SKColor.Parse("#8a99ad") };
-        using var halo = new SKPaint { IsAntialias = true, TextSize = 11, Color = SKColor.Parse("#0a0e14"), Style = SKPaintStyle.Stroke, StrokeWidth = 2.5f };
+        // SkiaSharp 3+ moved text sizing/metrics onto SKFont; SKPaint only carries colour/stroke.
+        using var placeFont = new SKFont { Size = 11 };
+        using var roadFont = new SKFont { Size = 10 };
+        using var fill = new SKPaint { IsAntialias = true, Color = SKColor.Parse("#aebccd") };
+        using var roadFill = new SKPaint { IsAntialias = true, Color = SKColor.Parse("#8a99ad") };
+        using var halo = new SKPaint { IsAntialias = true, Color = SKColor.Parse("#0a0e14"), Style = SKPaintStyle.Stroke, StrokeWidth = 2.5f };
 
-        var candidates = new List<(LabelBox Box, SKPaint Paint)>();
+        var candidates = new List<(LabelBox Box, SKPaint Paint, SKFont Font)>();
         foreach (var (tile, feats) in decoded)
             foreach (var f in feats)
             {
@@ -92,19 +95,20 @@ public static class BasemapRenderer
                 if (string.IsNullOrWhiteSpace(name) || f.Rings.Count == 0 || f.Rings[0].Count == 0) continue;
                 var pt = f.Rings[0][f.Rings[0].Count / 2]; // a representative vertex
                 var (sx, sy) = TileProject.ToScreen(tile.ScreenX, tile.ScreenY, pt.X, pt.Y, f.Extent, tile.PixSize);
-                var paint = f.SourceLayer == "place" ? fill : roadFill;
-                var w = paint.MeasureText(name);
-                candidates.Add((new LabelBox(name, sx, sy - paint.TextSize, w, paint.TextSize), paint));
+                var isPlace = f.SourceLayer == "place";
+                var paint = isPlace ? fill : roadFill;
+                var font = isPlace ? placeFont : roadFont;
+                var w = font.MeasureText(name);
+                candidates.Add((new LabelBox(name, sx, sy - font.Size, w, font.Size), paint, font));
             }
 
         var placed = LabelLayout.Place(candidates.Select(c => c.Box).ToList());
         var placedSet = new HashSet<LabelBox>(placed);
-        foreach (var (box, paint) in candidates)
+        foreach (var (box, paint, font) in candidates)
         {
             if (!placedSet.Contains(box)) continue;
-            halo.TextSize = paint.TextSize;
-            canvas.DrawText(box.Text, (float)box.X, (float)(box.Y + box.H), halo);
-            canvas.DrawText(box.Text, (float)box.X, (float)(box.Y + box.H), paint);
+            canvas.DrawText(box.Text, (float)box.X, (float)(box.Y + box.H), SKTextAlign.Left, font, halo);
+            canvas.DrawText(box.Text, (float)box.X, (float)(box.Y + box.H), SKTextAlign.Left, font, paint);
         }
     }
 }
