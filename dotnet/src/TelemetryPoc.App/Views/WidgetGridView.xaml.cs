@@ -1,6 +1,10 @@
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
+using System.Windows.Input;
+using System.Windows.Media;
+using TelemetryPoc.App.ViewModels;
+using TelemetryPoc.App.Viz;
 
 namespace TelemetryPoc.App.Views;
 
@@ -16,23 +20,23 @@ public partial class WidgetGridView : UserControl
 
     private void OnCanvasDrop(object sender, DragEventArgs e)
     {
-        if (DataContext is not ViewModels.DashboardViewModel dvm) return;
+        if (DataContext is not DashboardViewModel dvm) return;
         if (!e.Data.GetDataPresent("inu-channel")) return;
         var channelId = (int)e.Data.GetData("inu-channel");
         var canvas = FindCanvas();
         if (canvas is null) return;
         var p = e.GetPosition(canvas);
-        var (col, row) = TelemetryPoc.App.Viz.WidgetLayout.CellFromPoint(p.X, p.Y);
+        var (col, row) = WidgetLayout.CellFromPoint(p.X, p.Y);
         dvm.AddGauge(channelId, col, row);
     }
 
-    private ViewModels.WidgetViewModel? _moving;
+    private WidgetViewModel? _moving;
     private int _moveCol, _moveRow;
 
-    private void OnHeaderDown(object sender, System.Windows.Input.MouseButtonEventArgs e)
+    private void OnHeaderDown(object sender, MouseButtonEventArgs e)
     {
         if (_moving is not null) return; // ignore a second grab while a move is active (no leaked handlers)
-        if (sender is not FrameworkElement fe || fe.DataContext is not ViewModels.WidgetViewModel w) return;
+        if (sender is not FrameworkElement fe || fe.DataContext is not WidgetViewModel w) return;
         _moving = w;
         _moveCol = w.Col; _moveRow = w.Row;
         fe.CaptureMouse();
@@ -42,18 +46,18 @@ public partial class WidgetGridView : UserControl
         e.Handled = true;
     }
 
-    private void OnHeaderMove(object sender, System.Windows.Input.MouseEventArgs e)
+    private void OnHeaderMove(object sender, MouseEventArgs e)
     {
         if (_moving is null) return;
         var canvas = FindCanvas();
         if (canvas is null) return;
         var p = e.GetPosition(canvas);
-        (_moveCol, _moveRow) = TelemetryPoc.App.Viz.WidgetLayout.CellFromPoint(p.X, p.Y);
+        (_moveCol, _moveRow) = WidgetLayout.CellFromPoint(p.X, p.Y);
         // Don't move the widget live — show a ghost at the target; commit on release.
         ShowGhost(_moveCol, _moveRow, _moving.Width, _moving.Height);
     }
 
-    private void OnHeaderUp(object sender, System.Windows.Input.MouseButtonEventArgs e)
+    private void OnHeaderUp(object sender, MouseButtonEventArgs e)
     {
         if (sender is FrameworkElement fe)
         {
@@ -61,7 +65,7 @@ public partial class WidgetGridView : UserControl
             fe.MouseMove -= OnHeaderMove;
             fe.MouseLeftButtonUp -= OnHeaderUp;
         }
-        if (_moving is not null && DataContext is ViewModels.DashboardViewModel dvm)
+        if (_moving is not null && DataContext is DashboardViewModel dvm)
             dvm.Move(_moving.Id, _moveCol, _moveRow);
         DropGhost.Visibility = Visibility.Collapsed;
         _moving = null;
@@ -69,7 +73,7 @@ public partial class WidgetGridView : UserControl
 
     private void ShowGhost(int col, int row, double width, double height)
     {
-        const int pitch = TelemetryPoc.App.Viz.WidgetLayout.Pitch;
+        const int pitch = WidgetLayout.Pitch;
         Canvas.SetLeft(DropGhost, (col - 1) * pitch);
         Canvas.SetTop(DropGhost, (row - 1) * pitch);
         DropGhost.Width = width;
@@ -79,12 +83,12 @@ public partial class WidgetGridView : UserControl
 
     private void ShowGhostCells(int col, int row, int cols, int rows)
     {
-        const int pitch = TelemetryPoc.App.Viz.WidgetLayout.Pitch;
-        const int gap = TelemetryPoc.App.Viz.WidgetLayout.Gap;
+        const int pitch = WidgetLayout.Pitch;
+        const int gap = WidgetLayout.Gap;
         ShowGhost(col, row, cols * pitch - gap, rows * pitch - gap);
     }
 
-    private ViewModels.WidgetViewModel? _resizing;
+    private WidgetViewModel? _resizing;
     private int _resizeStartCols, _resizeStartRows, _resizeCols, _resizeRows;
     private double _accumX, _accumY;
 
@@ -106,26 +110,26 @@ public partial class WidgetGridView : UserControl
         _accumX = e.HorizontalChange;
         _accumY = e.VerticalChange;
 
-        const int pitch = TelemetryPoc.App.Viz.WidgetLayout.Pitch;
-        const int gap = TelemetryPoc.App.Viz.WidgetLayout.Gap;
+        const int pitch = WidgetLayout.Pitch;
+        const int gap = WidgetLayout.Gap;
         // Snapped cell size to commit on release.
-        var cols = _resizeStartCols + TelemetryPoc.App.Viz.WidgetLayout.ResizeStep(_accumX);
-        var rows = _resizeStartRows + TelemetryPoc.App.Viz.WidgetLayout.ResizeStep(_accumY);
-        (_resizeCols, _resizeRows) = TelemetryPoc.App.Viz.WidgetLayout.ClampSize(w.Kind, cols, rows);
+        var cols = _resizeStartCols + WidgetLayout.ResizeStep(_accumX);
+        var rows = _resizeStartRows + WidgetLayout.ResizeStep(_accumY);
+        (_resizeCols, _resizeRows) = WidgetLayout.ClampSize(w.Kind, cols, rows);
 
         // Ghost follows the cursor 1:1 (raw pixels), clamped to the kind's min/max,
         // so the preview tracks the mouse like a normal window resize; the actual
         // widget snaps to whole cells only on release (one re-render, no blink).
-        var (minC, minR) = TelemetryPoc.App.Viz.WidgetLayout.ClampSize(w.Kind, 0, 0);
-        var (maxC, maxR) = TelemetryPoc.App.Viz.WidgetLayout.ClampSize(w.Kind, 999, 999);
-        double rawW = System.Math.Clamp((_resizeStartCols * pitch - gap) + _accumX, minC * pitch - gap, maxC * pitch - gap);
-        double rawH = System.Math.Clamp((_resizeStartRows * pitch - gap) + _accumY, minR * pitch - gap, maxR * pitch - gap);
+        var (minC, minR) = WidgetLayout.ClampSize(w.Kind, 0, 0);
+        var (maxC, maxR) = WidgetLayout.ClampSize(w.Kind, 999, 999);
+        double rawW = Math.Clamp((_resizeStartCols * pitch - gap) + _accumX, minC * pitch - gap, maxC * pitch - gap);
+        double rawH = Math.Clamp((_resizeStartRows * pitch - gap) + _accumY, minR * pitch - gap, maxR * pitch - gap);
         ShowGhost(w.Col, w.Row, rawW, rawH);
     }
 
     private void OnResizeCompleted(object sender, DragCompletedEventArgs e)
     {
-        if (_resizing is { } w && DataContext is ViewModels.DashboardViewModel dvm)
+        if (_resizing is { } w && DataContext is DashboardViewModel dvm)
             dvm.Resize(w.Id, _resizeCols, _resizeRows);
         DropGhost.Visibility = Visibility.Collapsed;
         _resizing = null;
@@ -133,34 +137,34 @@ public partial class WidgetGridView : UserControl
 
     private void OnToggle(object sender, RoutedEventArgs e)
     {
-        if (DataContext is ViewModels.DashboardViewModel dvm && Widget(sender) is { } w) dvm.Toggle(w.Id);
+        if (DataContext is DashboardViewModel dvm && Widget(sender) is { } w) dvm.Toggle(w.Id);
     }
 
     private void OnRemove(object sender, RoutedEventArgs e)
     {
-        if (DataContext is ViewModels.DashboardViewModel dvm && Widget(sender) is { } w) dvm.Remove(w.Id);
+        if (DataContext is DashboardViewModel dvm && Widget(sender) is { } w) dvm.Remove(w.Id);
     }
 
-    private static ViewModels.WidgetViewModel? Widget(object sender)
-        => (sender as FrameworkElement)?.DataContext as ViewModels.WidgetViewModel;
+    private static WidgetViewModel? Widget(object sender)
+        => (sender as FrameworkElement)?.DataContext as WidgetViewModel;
 
     private void OnZoomIn(object sender, RoutedEventArgs e) => Zoom(sender, 2.0);
     private void OnZoomOut(object sender, RoutedEventArgs e) => Zoom(sender, 0.5);
     private void OnZoomReset(object sender, RoutedEventArgs e)
     {
-        if (MenuWidget(sender) is { Content: ViewModels.LineChartViewModel l }) { l.ResetZoom(); }
+        if (MenuWidget(sender) is { Content: LineChartViewModel l }) { l.ResetZoom(); }
     }
 
     private void Zoom(object sender, double factor)
     {
-        if (DataContext is ViewModels.DashboardViewModel dvm && MenuWidget(sender) is { } w) dvm.ZoomBy(w.Id, factor);
+        if (DataContext is DashboardViewModel dvm && MenuWidget(sender) is { } w) dvm.ZoomBy(w.Id, factor);
     }
 
-    private static ViewModels.WidgetViewModel? MenuWidget(object sender)
+    private static WidgetViewModel? MenuWidget(object sender)
     {
         // MenuItem.DataContext is the WidgetViewModel (inherited through the ContextMenu's PlacementTarget).
         var mi = sender as FrameworkElement;
-        if (mi?.DataContext is ViewModels.WidgetViewModel w) return w;
+        if (mi?.DataContext is WidgetViewModel w) return w;
         return null;
     }
 
@@ -173,10 +177,10 @@ public partial class WidgetGridView : UserControl
 
     private static T? FindNamedChild<T>(DependencyObject root, string name) where T : FrameworkElement
     {
-        int n = System.Windows.Media.VisualTreeHelper.GetChildrenCount(root);
+        int n = VisualTreeHelper.GetChildrenCount(root);
         for (int i = 0; i < n; i++)
         {
-            var c = System.Windows.Media.VisualTreeHelper.GetChild(root, i);
+            var c = VisualTreeHelper.GetChild(root, i);
             if (c is T t && t.Name == name) return t;
             var r = FindNamedChild<T>(c, name);
             if (r is not null) return r;
@@ -186,10 +190,10 @@ public partial class WidgetGridView : UserControl
 
     private static T? FindVisualChild<T>(DependencyObject root) where T : DependencyObject
     {
-        int n = System.Windows.Media.VisualTreeHelper.GetChildrenCount(root);
+        int n = VisualTreeHelper.GetChildrenCount(root);
         for (int i = 0; i < n; i++)
         {
-            var c = System.Windows.Media.VisualTreeHelper.GetChild(root, i);
+            var c = VisualTreeHelper.GetChild(root, i);
             if (c is T t) return t;
             var r = FindVisualChild<T>(c);
             if (r is not null) return r;

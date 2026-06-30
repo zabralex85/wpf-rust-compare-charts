@@ -17,6 +17,6 @@ public partial class TransportBar : UserControl
         if (sender is not FrameworkElement track || track.ActualWidth < 1) return;
         if (DataContext is not TransportViewModel vm) return;
         var x = e.GetPosition(track).X;
-        vm.Seek(System.Math.Clamp(x / track.ActualWidth, 0, 1));
+        vm.Seek(Math.Clamp(x / track.ActualWidth, 0, 1));
     }
 }

@@ -17,7 +17,7 @@ public static class MvtBasemap
             for (int i = 0; i < layer.FeatureCount(); i++)
             {
                 // API deviation: GetFeature(int feature, Nullable<uint> clipBuffer, float scale)
-                var feat = layer.GetFeature(i, null, 1.0f);
+                var feat = layer.GetFeature(i);
                 var type = feat.GeometryType switch
                 {
                     GeomType.POINT => MvtGeomType.Point,
@@ -27,7 +27,7 @@ public static class MvtBasemap
                 };
                 var rings = new List<IReadOnlyList<(long X, long Y)>>();
                 // API deviation: Geometry<T>(Nullable<uint> clipBuffer, Nullable<float> scale) — generic method with two params
-                foreach (var ring in feat.Geometry<long>(null, null))
+                foreach (var ring in feat.Geometry<long>())
                 {
                     var pts = new List<(long X, long Y)>(ring.Count);
                     // Point2d<T>.X/.Y are public fields (not properties)

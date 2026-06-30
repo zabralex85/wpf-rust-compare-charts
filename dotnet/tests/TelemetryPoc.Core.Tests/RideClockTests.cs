@@ -1,5 +1,4 @@
 using TelemetryPoc.App.Viz;
-using Xunit;
 
 namespace TelemetryPoc.Core.Tests;
 

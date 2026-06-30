@@ -74,7 +74,7 @@ public sealed class RideSession : INotifyPropertyChanged
                 var lat = new double[samples.Count];
                 var lon = new double[samples.Count];
                 for (int i = 0; i < samples.Count; i++) { lat[i] = samples[i].Values[latIdx]; lon[i] = samples[i].Values[lonIdx]; }
-                GpsBounds = TelemetryPoc.Map.MapProject.TrackBounds(lat, lon);
+                GpsBounds = MapProject.TrackBounds(lat, lon);
             }
 
             Store.ApplyMeta(channels, enums);

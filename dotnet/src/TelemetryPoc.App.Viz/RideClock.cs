@@ -19,7 +19,7 @@ public sealed class RideClock
     public long SeekTo(long targetMs, long durationMs)
     {
         var max = durationMs > 0 ? durationMs : 0;
-        RideMs = System.Math.Clamp(targetMs, 0, max);
+        RideMs = Math.Clamp(targetMs, 0, max);
         return RideMs;
     }
 }

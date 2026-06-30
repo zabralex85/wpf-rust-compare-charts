@@ -1,6 +1,4 @@
-using System.Collections.Generic;
 using System.Collections.ObjectModel;
-using System.Linq;
 using TelemetryPoc.App.Viz;
 using TelemetryPoc.Core;
 
@@ -101,7 +99,7 @@ public sealed class DashboardViewModel
         };
         if (channelId < 0 || !_byId.TryGetValue(channelId, out var ch)) return;
         var (kind, cols, rows) = WidgetLayout.Toggle(w.Kind, w.Cols, w.Rows);
-        w.Content = kind == WidgetKind.Line ? new LineChartViewModel(ch) : (object)new GaugeViewModel(ch);
+        w.Content = kind == WidgetKind.Line ? new LineChartViewModel(ch) : new GaugeViewModel(ch);
         w.Kind = kind; w.Cols = cols; w.Rows = rows;
         Refresh();
     }

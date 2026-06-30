@@ -28,7 +28,7 @@ public sealed class LineChartViewModel
 
     public void Refresh(TelemetryStore store)
     {
-        var (xs, ys) = store.Series(_ch.Id)?.Arrays() ?? ((IReadOnlyList<long>)Array.Empty<long>(), (IReadOnlyList<double>)Array.Empty<double>());
+        var (xs, ys) = store.Series(_ch.Id)?.Arrays() ?? (Array.Empty<long>(), Array.Empty<double>());
         XsSeconds = LineData.ToSeconds(xs);
         var yy = new double[ys.Count];
         for (int i = 0; i < yy.Length; i++) yy[i] = ys[i];

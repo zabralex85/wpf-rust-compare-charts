@@ -1,5 +1,3 @@
-using Xunit;
-
 namespace TelemetryPoc.Core.Tests;
 
 public class PacerTests
