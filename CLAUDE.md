@@ -13,12 +13,12 @@ The reference dashboard layout is `docs/reference/dashboard-target.md`.
 ```
 data/    Python telemetry simulator → ride.db (the shared data; gitignored). Source of truth for the schema.
 rust/    Tauri 2 + React + TypeScript app. Rust backend streams the ride over a local WebSocket + serves offline map tiles; React renders it (uPlot charts, MapLibre map).
-dotnet/  .NET solution: TelemetryPoc.Core (net8.0 data layer) + TelemetryPoc.App (native WPF/XAML, MVVM) + TelemetryPoc.App.Viz (net8.0 pure UI logic).
+dotnet/  .NET solution: 4-ring onion — TelemetryPoc.Domain (entities + pure logic) → TelemetryPoc.Application (use cases + ports) → TelemetryPoc.Infrastructure (DB/tile/metrics adapters) → TelemetryPoc.Presentation (UI-shaping logic + Skia draw) + TelemetryPoc.App (WPF shell, Generic Host DI).
 tiles/   Offline vector basemap pipeline: build israel.mbtiles + glyphs (gitignored); committed fixture.mbtiles for tests. See tiles/README.md.
 docs/    specs, plans (docs/superpowers/), and the dashboard reference target.
 ```
 
-> The .NET UI is mid-reskin from Blazor Hybrid to **native WPF/XAML** (to match the Rust INU dashboard). Pure UI logic lives in `TelemetryPoc.App.Viz` (no WPF, xUnit-tested); XAML/charts/map are build-verified + launch-confirmed.
+> The .NET solution uses a **4-ring onion architecture** (Domain → Application → Infrastructure → Presentation) with `TelemetryPoc.App` as the WPF composition root. **NetArchTest** rules enforce ring dependency directions. 170 xUnit tests span all rings; XAML/charts/map are build-verified + launch-confirmed.
 
 The two apps share **no code** — each is its stack's idiomatic implementation. They share only `ride.db` and the schema contract.
 
@@ -35,10 +35,10 @@ Default ride: ~30 channels @ 10 Hz, 12h. A committed `data/ride_small.db` (10s) 
 ## Architecture notes
 
 - **Transport differs by design** (the realistic per-stack idiom): Rust replays over a local **WebSocket** (`ws://127.0.0.1:9001`) with JSON `meta`/`frame`/`metrics` messages; .NET replays **in-process** (no socket), a timer feeding the store on the UI dispatcher.
-- **Mirrored data layer**: both stacks have the same logical pieces — DB reader, deterministic replay pacer, windowed strip-series buffer, enum/value formatting, telemetry store (O(1) latest, GPS track, partial-frame guard, re-meta reset), metrics sampler. Rust: `rust/src/data,ws,format,hud,gauge` (TS) + `rust/src-tauri/src` (backend). .NET: `dotnet/src/TelemetryPoc.Core`.
+- **Mirrored data layer**: both stacks have the same logical pieces — DB reader, deterministic replay pacer, windowed strip-series buffer, enum/value formatting, telemetry store (O(1) latest, GPS track, partial-frame guard, re-meta reset), metrics sampler. Rust: `rust/src/data,ws,format,hud,gauge` (TS) + `rust/src-tauri/src` (backend). .NET: four onion rings — Domain (models/store/logic), Application (use cases/ports), Infrastructure (DB/tile/metrics adapters), Presentation (UI-shaping/Skia draw) — wired by Generic Host DI in `TelemetryPoc.App`.
 - **Latency** = `now − emit_unix_ms` (Rust) / `now − store.LastEmitUnixMs` (.NET).
 - **CPU%** is per-core in both (matching `sysinfo`) so the HUD numbers are comparable.
-- **Offline map** (Rust): the backend runs an `axum` tile server (`127.0.0.1:9002`) that reads a local `israel.mbtiles` (rusqlite, TMS→XYZ Y-flip, gzip MVT) + serves glyph PBFs; MapLibre GL renders it with a dark INU style. On first launch the app auto-provisions the tileset (download a prebuilt `.mbtiles` via `RIDE_MBTILES_URL`, else `tilemaker`-convert a geofabrik extract); missing → SVG track-only "grid" view. The .NET app will use **Mapsui** to read the same MBTiles. Tile/glyph build: `tiles/README.md`.
+- **Offline map** (Rust): the backend runs an `axum` tile server (`127.0.0.1:9002`) that reads a local `israel.mbtiles` (rusqlite, TMS→XYZ Y-flip, gzip MVT) + serves glyph PBFs; MapLibre GL renders it with a dark INU style. On first launch the app auto-provisions the tileset (download a prebuilt `.mbtiles` via `RIDE_MBTILES_URL`, else `tilemaker`-convert a geofabrik extract); missing → SVG track-only "grid" view. The .NET app reads the same MBTiles with a native SkiaSharp MVT renderer (`TelemetryPoc.Infrastructure.MbTilesTileSource` + `TelemetryPoc.Presentation.BasemapRenderer`); no Mapsui. Tile/glyph build: `tiles/README.md`.
 
 ## Commands
 
@@ -70,7 +70,7 @@ python make_fixture.py                  # committed fixture.mbtiles for cargo te
 
 **dotnet/** (.NET 8; solution is `TelemetryPoc.slnx`)
 ```
-cd dotnet && dotnet test                # xUnit (Core data layer + App.Viz pure UI logic; XAML UI is build-verify only)
+cd dotnet && dotnet test                # xUnit (170 tests across all four rings; NetArchTest enforces ring boundaries; XAML UI is build-verify only)
 dotnet build
 dotnet run --project dotnet/src/TelemetryPoc.App   # launch native WPF app (env: RIDE_DB, RIDE_SPEED)
 ```
@@ -79,9 +79,9 @@ dotnet run --project dotnet/src/TelemetryPoc.App   # launch native WPF app (env:
 ## Conventions
 
 - This repo was built plan-by-plan with the superpowers workflow (`docs/superpowers/specs` + `plans`), one feature branch + PR per plan, subagent-driven TDD with a final whole-branch review before merge.
-- Chart/map/GUI code (uPlot, MapLibre, ScottPlot.WPF, Mapsui, WPF/XAML) is **build-verified, not unit-tested** — pure logic (TS modules; .NET `TelemetryPoc.App.Viz`) carries the test coverage; visual correctness is checked by launching the app against `docs/reference/dashboard-target.md`.
+- Chart/map/GUI code (uPlot, MapLibre, ScottPlot.WPF, WPF/XAML) is **build-verified, not unit-tested** — pure logic (TS modules; .NET Domain/Application/Infrastructure/Presentation) carries the test coverage; visual correctness is checked by launching the app against `docs/reference/dashboard-target.md`.
 - Keep the two stacks behaviorally equivalent (same eviction boundary, rounding, latency model, metrics cadence) so the comparison stays fair.
 
 ## Status / not yet done
 
-Both apps build, test, and run. The **Rust app** is fully reskinned to the INU dashboard (parameters, gauges, uPlot charts, offline MapLibre map, transport controls, frameless window, perf HUD). The **.NET app** is mid-reskin to native WPF (shell + parameters panel done; gauges, ScottPlot.WPF charts, Mapsui map, perf HUD still to do — see `docs/superpowers/specs/2026-06-28-dotnet-wpf-inu-reskin-design.md`). Final visual alignment against the reference needs a live GUI launch (it can't be verified headless).
+Both apps build, test, and run. The **Rust app** is fully reskinned to the INU dashboard (parameters, gauges, uPlot charts, offline MapLibre map, transport controls, frameless window, perf HUD). The **.NET app** is complete: native WPF/XAML INU dashboard (parameters panel, gauges, ScottPlot.WPF charts, offline Skia MVT map, perf HUD, interactive widget grid, transport controls) backed by a 4-ring onion architecture with Generic Host DI. Final visual alignment against the reference needs a live GUI launch (it can't be verified headless).
