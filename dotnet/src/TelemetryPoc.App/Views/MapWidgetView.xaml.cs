@@ -169,15 +169,14 @@ public partial class MapWidgetView : UserControl
 
     private void BuildBasemap(Region region, int w, int h)
     {
-        var reader = _vm?.Reader; // cached open connection + decoded-tile memo
-        if (reader is null || w < 1 || h < 1) { _basemap = null; return; }
+        if (_vm is null || w < 1 || h < 1) { _basemap = null; return; }
         try
         {
             // Rasterise the vector basemap once into an image. Per-frame paint then blits
             // this image (cheap) instead of replaying every path via DrawPicture (the ~80%
             // CPU sink) — the tile set only changes on pan-release / zoom-commit / resize.
             using var surface = SKSurface.Create(new SKImageInfo(w, h, SKColorType.Bgra8888, SKAlphaType.Premul));
-            BasemapRenderer.Render(surface.Canvas, region, reader);
+            BasemapRenderer.Render(surface.Canvas, region, _vm.Tiles);
             _basemap = surface.Snapshot();
         }
         catch { _basemap = null; }
