@@ -2,8 +2,6 @@ using System.Diagnostics;
 
 namespace TelemetryPoc.Core;
 
-public sealed record Metrics(double CpuPct, double RamMb);
-
 public sealed class MetricsSampler
 {
     private readonly Process _p = Process.GetCurrentProcess();

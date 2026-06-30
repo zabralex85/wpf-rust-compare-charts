@@ -1,4 +1,4 @@
-namespace TelemetryPoc.Map;
+namespace TelemetryPoc.Domain;
 
 public sealed record TileRef(int Z, int X, int Y, double ScreenX, double ScreenY, double PixSize = 256.0);
 

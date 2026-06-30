@@ -1,6 +1,6 @@
 using System.Globalization;
 
-namespace TelemetryPoc.Core;
+namespace TelemetryPoc.Domain;
 
 public static class ValueFormat
 {

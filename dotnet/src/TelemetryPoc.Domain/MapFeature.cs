@@ -1,4 +1,4 @@
-namespace TelemetryPoc.Map;
+namespace TelemetryPoc.Domain;
 
 public enum MvtGeomType { Point, Line, Polygon, Unknown }
 

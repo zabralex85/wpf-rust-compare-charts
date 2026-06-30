@@ -1,4 +1,4 @@
-namespace TelemetryPoc.Core;
+namespace TelemetryPoc.Domain;
 
 public sealed record ChannelMeta(
     long Id, string Name, string ColumnName, string Unit, string Type,

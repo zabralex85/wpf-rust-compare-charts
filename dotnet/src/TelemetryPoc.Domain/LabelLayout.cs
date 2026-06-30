@@ -1,4 +1,4 @@
-namespace TelemetryPoc.Map;
+namespace TelemetryPoc.Domain;
 
 public sealed record LabelBox(string Text, double X, double Y, double W, double H);
 

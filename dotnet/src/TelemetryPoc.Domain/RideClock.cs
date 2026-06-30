@@ -1,4 +1,4 @@
-namespace TelemetryPoc.App.Viz;
+namespace TelemetryPoc.Domain;
 
 /// <summary>The .NET app drives its own replay clock. Pause freezes it; seek jumps it.
 /// Speed scaling happens in the caller (delta × speed) before <see cref="Advance"/>.</summary>

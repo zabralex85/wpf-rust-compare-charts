@@ -1,4 +1,4 @@
-namespace TelemetryPoc.Core;
+namespace TelemetryPoc.Domain;
 
 public sealed class ChannelSeries
 {

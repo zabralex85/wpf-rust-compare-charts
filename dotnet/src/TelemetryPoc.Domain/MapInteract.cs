@@ -1,4 +1,4 @@
-namespace TelemetryPoc.Map;
+namespace TelemetryPoc.Domain;
 
 /// <summary>Pure interaction math for the Skia map: drag-pan and zoom-toward-cursor.
 /// All geometry goes through Web Mercator world coordinates at the relevant zoom.</summary>

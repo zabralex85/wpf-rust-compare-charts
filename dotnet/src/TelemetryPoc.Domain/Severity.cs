@@ -1,4 +1,4 @@
-namespace TelemetryPoc.App.Viz;
+namespace TelemetryPoc.Domain;
 
 public static class Severity
 {
