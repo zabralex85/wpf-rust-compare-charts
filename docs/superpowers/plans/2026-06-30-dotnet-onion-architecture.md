@@ -474,7 +474,12 @@ git mv dotnet/src/TelemetryPoc.Map/MbTilesReader.cs dotnet/src/TelemetryPoc.Infr
 git rm dotnet/src/TelemetryPoc.Map/MvtBasemap.cs   # paste its DecodeTile body into MbTilesTileSource
 ```
 
-Rename `MbTilesReader` → `MbTilesTileSource`, `namespace TelemetryPoc.Infrastructure;`, implement `ITileSource`, and inline the old `MvtBasemap.DecodeTile` as a private method (the `Decoded(z,x,y)` cache already calls it). Keep the existing read/gunzip/decode/cache bodies verbatim. The ctor takes the mbtiles path (resolved by the host from `IRidePathResolver`).
+Rename `MbTilesReader` → `MbTilesTileSource`, `namespace TelemetryPoc.Infrastructure;`, implement `ITileSource`, and inline the old `MvtBasemap.DecodeTile` as a private method (the `Decoded(z,x,y)` cache already calls it). Keep the existing read/gunzip/decode/cache bodies verbatim.
+
+**The ctor must accept a nullable path and degrade gracefully** (the DI container always constructs one tile source; when no tileset is present the map shows the dark background — current behavior). Concretely:
+- ctor signature `public MbTilesTileSource(string? path)`; open the `SqliteConnection` only when `path` is non-null and the file exists, store it (or null) in a nullable field.
+- `Decoded(int z, int x, int y)` returns `null` immediately when there is no open connection; otherwise the existing read+gunzip+decode+cache.
+- `Dispose()` disposes the connection if it was opened (null-safe).
 
 - [ ] **Step 2: Build Infrastructure**
 
