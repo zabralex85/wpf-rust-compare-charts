@@ -5,7 +5,7 @@
     <Nullable>enable</Nullable>
   </PropertyGroup>
   <ItemGroup>
-    <PackageReference Include="SkiaSharp" Version="2.88.9" />
+    <PackageReference Include="SkiaSharp" Version="4.148.0" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\TelemetryPoc.Application\TelemetryPoc.Application.csproj" />

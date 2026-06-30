@@ -160,7 +160,7 @@ public partial class MapWidgetView : UserControl
             if (zooming) canvas.Scale((float)_zoomScale, (float)_zoomScale, (float)_zoomFocusX, (float)_zoomFocusY);
         }
 
-        if (_basemap is not null) canvas.DrawImage(_basemap, 0, 0); // fast blit, no vector re-raster
+        if (_basemap is not null) canvas.DrawImage(_basemap, 0, 0, new SKSamplingOptions(SKFilterMode.Linear)); // fast blit, no vector re-raster
         var (lat, lon) = _vm.Track;
         TrackOverlay.Draw(canvas, _vm.Region, lat, lon);
 

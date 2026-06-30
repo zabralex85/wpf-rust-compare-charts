@@ -23,21 +23,22 @@ public static class TrackOverlay
 	        StrokeJoin = SKStrokeJoin.Round
         };
 
-        using var path = new SKPath();
+        using var builder = new SKPathBuilder();
 
         for (int i = 0; i < n; i++)
         {
             var (x, y) = MapProject.GpsToScreen(region, lat[i], lon[i]);
             if (i == 0)
-			{
-				path.MoveTo((float)x, (float)y);
-			}
-			else
-			{
-				path.LineTo((float)x, (float)y);
-			}
-		}
+            {
+                builder.MoveTo((float)x, (float)y);
+            }
+            else
+            {
+                builder.LineTo((float)x, (float)y);
+            }
+        }
 
+        using var path = builder.Snapshot();
         canvas.DrawPath(path, line);
 
         using var marker = new SKPaint

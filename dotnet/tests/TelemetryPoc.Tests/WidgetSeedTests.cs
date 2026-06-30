@@ -20,7 +20,7 @@ public class WidgetSeedTests
 		};
 		var w = WidgetSeed.SeedLayout(channels);
 
-		var map = Assert.Single(w.Where(x => x.Kind == WidgetKind.Map));
+		var map = Assert.Single(w, x => x.Kind == WidgetKind.Map);
 		Assert.Equal((4, 4), (map.Cols, map.Rows));
 		Assert.Equal("map", map.Id);
 
@@ -28,7 +28,7 @@ public class WidgetSeedTests
 		Assert.All(w.Where(x => x.Kind == WidgetKind.Gauge), g => Assert.Equal((1, 1), (g.Cols, g.Rows)));
 		Assert.Contains(w, x => x.Id == "gauge-3");
 
-		var line = Assert.Single(w.Where(x => x.Kind == WidgetKind.Line));
+		var line = Assert.Single(w, x => x.Kind == WidgetKind.Line);
 		Assert.Equal((2, 1), (line.Cols, line.Rows));
 		Assert.Equal("line-5", line.Id);
 		Assert.Equal(5, line.ChannelId);
