@@ -1,10 +1,48 @@
+using System.Collections.Generic;
+using System.Threading;
+using System.Threading.Tasks;
 using Microsoft.Data.Sqlite;
+using TelemetryPoc.Application;
 using TelemetryPoc.Domain;
 
-namespace TelemetryPoc.Core;
+namespace TelemetryPoc.Infrastructure;
 
-public static class TelemetryDb
+public sealed class SqliteRideSource : IRideSource
 {
+    private readonly IRidePathResolver _paths;
+
+    public SqliteRideSource(IRidePathResolver paths) => _paths = paths;
+
+    public Task<RideData> LoadAsync(CancellationToken ct = default) =>
+        Task.Run(() => Load(_paths.ResolveRideDb()), ct);
+
+    public static RideData Load(string dbPath)
+    {
+        using var conn = new SqliteConnection($"Data Source={dbPath};Mode=ReadOnly");
+        conn.Open();
+        var channels = LoadChannels(conn);
+        var enums = LoadEnumValues(conn);
+        var samples = LoadSamples(conn, channels);
+        var meta = LoadRideMeta(conn);
+        return new RideData(channels, enums, samples, meta.DurationS * 1000, GpsBounds(channels, samples));
+    }
+
+    private static (double, double, double, double)? GpsBounds(
+        IReadOnlyList<ChannelMeta> channels, IReadOnlyList<Sample> samples)
+    {
+        int latIdx = -1, lonIdx = -1;
+        for (int i = 0; i < channels.Count; i++)
+        {
+            if (channels[i].Widget == "map_lat") latIdx = i;
+            if (channels[i].Widget == "map_lon") lonIdx = i;
+        }
+        if (latIdx < 0 || lonIdx < 0 || samples.Count == 0) return null;
+        var lat = new double[samples.Count];
+        var lon = new double[samples.Count];
+        for (int i = 0; i < samples.Count; i++) { lat[i] = samples[i].Values[latIdx]; lon[i] = samples[i].Values[lonIdx]; }
+        return MapProject.TrackBounds(lat, lon);
+    }
+
     public static IReadOnlyList<ChannelMeta> LoadChannels(SqliteConnection conn)
     {
         var list = new List<ChannelMeta>();
