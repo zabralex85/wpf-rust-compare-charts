@@ -246,6 +246,7 @@ git commit -m "feat(dotnet): ReplayPlayer streams from ISampleCursor (+ fake cur
 **Files:**
 - Modify: `dotnet/src/TelemetryPoc.Application/RideData.cs`
 - Modify: `dotnet/src/TelemetryPoc.Application/RideEngine.cs`
+- Delete: `dotnet/src/TelemetryPoc.Application/ListSampleCursor.cs` (a temporary scaffold Task 2 added to keep the Application project building; the cursor now comes from the host, so it's dead — `git rm` it)
 - Modify: `dotnet/tests/TelemetryPoc.Tests/RideEngineTests.cs`
 
 **Interfaces:**
@@ -330,12 +331,20 @@ still compiles since `SeekTo` is now void and `PeekTs` is read after.)
 
 The existing assertions (`Ctor_applies_meta…`, `Advance_*`, `Seek_*`, `Paused_*`) are unchanged.
 
-- [ ] **Step 4: Build Application**
+- [ ] **Step 4: Delete the Task-2 scaffold**
+
+`dotnet/src/TelemetryPoc.Application/ListSampleCursor.cs` was a temporary adapter Task 2 added so the Application project kept building before RideEngine took a real cursor. RideEngine no longer references it (it now receives an `ISampleCursor` from the host). Remove it:
+
+```bash
+git rm dotnet/src/TelemetryPoc.Application/ListSampleCursor.cs
+```
+
+- [ ] **Step 5: Build Application**
 
 Run: `dotnet build dotnet/src/TelemetryPoc.Application/TelemetryPoc.Application.csproj -c Debug --nologo`
-Expected: `0 Warning(s) 0 Error(s)`.
+Expected: `0 Warning(s) 0 Error(s)`. (If it complains `ListSampleCursor` is missing, a stray reference remains — RideEngine should construct `new ReplayPlayer(cursor, Store)` directly.)
 
-- [ ] **Step 5: Commit**
+- [ ] **Step 6: Commit**
 
 ```bash
 git add dotnet/src/TelemetryPoc.Application/RideData.cs dotnet/src/TelemetryPoc.Application/RideEngine.cs dotnet/tests/TelemetryPoc.Tests/RideEngineTests.cs
