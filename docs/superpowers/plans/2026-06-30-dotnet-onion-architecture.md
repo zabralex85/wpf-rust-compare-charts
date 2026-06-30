@@ -393,7 +393,7 @@ git mv dotnet/src/TelemetryPoc.Core/TelemetryDb.cs dotnet/src/TelemetryPoc.Infra
 
 - [ ] **Step 2: Rewrite to implement IRideSource (keep the load helpers)**
 
-Set `namespace TelemetryPoc.Infrastructure;`. Keep the four `Load*` methods (make them `internal static` so tests in the same assembly can call them). Add the adapter class wrapping them. Move the GPS-bounds computation out of the old `RideSession.LoadRide`/`GpsBoundsOf` into here:
+Set `namespace TelemetryPoc.Infrastructure;`. Keep the four `Load*` methods as **`public static`** (they were already `public static` in `TelemetryDb` — leave them so the test assembly can call them in Task 16 without `InternalsVisibleTo`). Add the adapter class wrapping them. Move the GPS-bounds computation out of the old `RideSession.LoadRide`/`GpsBoundsOf` into here:
 
 ```csharp
 // dotnet/src/TelemetryPoc.Infrastructure/SqliteRideSource.cs (adapter portion)
@@ -415,7 +415,7 @@ public sealed class SqliteRideSource : IRideSource
     public Task<RideData> LoadAsync(CancellationToken ct = default) =>
         Task.Run(() => Load(_paths.ResolveRideDb()), ct);
 
-    internal static RideData Load(string dbPath)
+    public static RideData Load(string dbPath)
     {
         using var conn = new SqliteConnection($"Data Source={dbPath};Mode=ReadOnly");
         conn.Open();
@@ -442,8 +442,8 @@ public sealed class SqliteRideSource : IRideSource
         return MapProject.TrackBounds(lat, lon);
     }
 
-    // ... keep the existing LoadChannels / LoadEnumValues / LoadSamples / LoadRideMeta bodies here,
-    //     changed from `public static` to `internal static`.
+    // ... keep the existing LoadChannels / LoadEnumValues / LoadSamples / LoadRideMeta bodies here
+    //     unchanged, as `public static`.
 }
 ```
 
