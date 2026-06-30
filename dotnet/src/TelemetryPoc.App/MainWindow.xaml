@@ -19,5 +19,9 @@
         <views:OverviewView x:Name="Overview" Grid.Row="1" />
         <views:TransportBar x:Name="Transport" Grid.Row="2" />
         <views:Hud x:Name="Hud" Grid.RowSpan="3" />
+        <TextBlock x:Name="ErrorBanner" Visibility="Collapsed" Foreground="{StaticResource Red}"
+                   Background="{StaticResource Panel2}" Padding="12,8" FontFamily="{StaticResource MonoFont}"
+                   HorizontalAlignment="Center" VerticalAlignment="Top" Panel.ZIndex="100"
+                   Grid.RowSpan="3" />
     </Grid>
 </Window>

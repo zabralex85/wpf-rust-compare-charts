@@ -1,5 +1,5 @@
 using System.ComponentModel;
-using TelemetryPoc.App.Viz;
+using TelemetryPoc.Presentation;
 
 namespace TelemetryPoc.App.ViewModels;
 

@@ -1,7 +1,8 @@
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Globalization;
-using TelemetryPoc.App.Viz;
+using TelemetryPoc.Application;
+using TelemetryPoc.Presentation;
 
 namespace TelemetryPoc.App.ViewModels;
 
@@ -18,10 +19,10 @@ public sealed class OverviewViewModel : INotifyPropertyChanged
         private set { _channelCountText = value; Raise(nameof(ChannelCountText)); }
     }
 
-    public OverviewViewModel(RideSession session)
+    public OverviewViewModel(RideSession session, ITileSource tiles)
     {
         _session = session;
-        Dashboard = new DashboardViewModel(session);
+        Dashboard = new DashboardViewModel(session, tiles);
         _session.MetaLoaded += BuildGroups;
         _session.Ticked += RefreshRows;
     }

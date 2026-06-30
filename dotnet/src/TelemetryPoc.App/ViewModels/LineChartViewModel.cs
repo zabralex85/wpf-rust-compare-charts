@@ -1,5 +1,5 @@
-using TelemetryPoc.App.Viz;
-using TelemetryPoc.Core;
+using TelemetryPoc.Domain;
+using TelemetryPoc.Presentation;
 
 namespace TelemetryPoc.App.ViewModels;
 

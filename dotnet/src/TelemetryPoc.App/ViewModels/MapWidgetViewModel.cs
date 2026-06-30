@@ -1,30 +1,20 @@
-using System.IO;
-using TelemetryPoc.Map;
+using TelemetryPoc.Application;
+using TelemetryPoc.Domain;
 
 namespace TelemetryPoc.App.ViewModels;
 
 public sealed class MapWidgetViewModel
 {
     private readonly RideSession _session;
-    public MapWidgetViewModel(RideSession session) { _session = session; }
+    public ITileSource Tiles { get; }
+
+    public MapWidgetViewModel(RideSession session, ITileSource tiles)
+    {
+        _session = session;
+        Tiles = tiles;
+    }
 
     public Region? Region { get; private set; }
-    public string? MbTilesPath { get; private set; }
-
-    // One open reader for the VM lifetime. Reopening the sqlite connection (and
-    // re-decoding tiles) every frame is what froze interactive pan/zoom.
-    private MbTilesReader? _reader;
-    public MbTilesReader? Reader
-    {
-        get
-        {
-            if (_reader is null && !string.IsNullOrEmpty(MbTilesPath))
-            {
-                try { _reader = new MbTilesReader(MbTilesPath); } catch { _reader = null; }
-            }
-            return _reader;
-        }
-    }
 
     public event Action? Updated;
     public event Action? Reset;
@@ -40,9 +30,8 @@ public sealed class MapWidgetViewModel
     public void EnsureRegion(double width, double height)
     {
         if (Region is not null || width < 1 || height < 1) return;
-        MbTilesPath ??= ResolveMbTiles();
         var b = _session.GpsBounds;
-        if (b is null) return; // bounds set in RideSession.Start; wait rather than freeze wrong
+        if (b is null) return; // bounds set in RideSession.StartAsync; wait rather than freeze wrong
         var (cLat, cLon, z) = TileMath.FitBbox(b.Value.MinLat, b.Value.MinLon, b.Value.MaxLat, b.Value.MaxLon, width, height);
         Region = new Region(cLat, cLon, z, width, height);
     }
@@ -60,19 +49,5 @@ public sealed class MapWidgetViewModel
         if (lat.Count == _lastTrackLen) return;
         _lastTrackLen = lat.Count;
         Updated?.Invoke();
-    }
-
-    private static string? ResolveMbTiles()
-    {
-        var env = Environment.GetEnvironmentVariable("RIDE_MBTILES");
-        if (!string.IsNullOrWhiteSpace(env) && File.Exists(env)) return env;
-        var dir = new DirectoryInfo(AppContext.BaseDirectory);
-        while (dir is not null)
-        {
-            var p = Path.Combine(dir.FullName, "tiles", "israel.mbtiles");
-            if (File.Exists(p)) return p;
-            dir = dir.Parent;
-        }
-        return null;
     }
 }

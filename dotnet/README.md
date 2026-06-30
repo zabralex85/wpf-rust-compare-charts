@@ -8,10 +8,16 @@ The .NET implementation of the telemetry charting PoC. A **native WPF/XAML (MVVM
 
 ## Architecture
 
-- **Native WPF/XAML + MVVM**: no WebView, no JS. `TelemetryPoc.App` (WPF) + `TelemetryPoc.App.Viz` (net8.0 pure UI logic, xUnit-tested) + `TelemetryPoc.Map` (net8.0 offline MVT map renderer, xUnit-tested) + `TelemetryPoc.Core` (data layer).
+The .NET solution is structured as a **4-ring onion architecture** with the WPF shell as the composition root.
+
+- **`TelemetryPoc.Domain`** (net8.0, no external deps) — entities and pure logic: telemetry models, `TelemetryStore`, `ChannelSeries`, `RideClock`, `Severity`, `ValueFormat`, and all map math (projection, tile math, MVT geometry, styling, interaction).
+- **`TelemetryPoc.Application`** (→ Domain) — use cases (`RideEngine`, `RideData`, `ReplayPlayer`, `Pacer`) and ports (`IRideSource`, `IMetricsSampler`, `ISystemClock`, `ITileSource`, `IRidePathResolver`).
+- **`TelemetryPoc.Infrastructure`** (→ Application, Domain) — adapters: `SqliteRideSource` (ride DB), `MbTilesTileSource` (offline MVT tiles + protobuf decode), `SysInfoMetricsSampler`, `SystemClock`, `RidePathResolver`.
+- **`TelemetryPoc.Presentation`** (net8.0, → Application, Domain; SkiaSharp) — pure UI-shaping logic (gauge/line/param/widget/hud helpers, `MissionClock`, `StatusCounts`) and Skia draw helpers (`BasemapRenderer`, `TrackOverlay`).
+- **`TelemetryPoc.App`** (net8.0-windows, WPF) — the composition root: a `Microsoft.Extensions.Hosting` Generic Host wires Infrastructure adapters to Application ports via DI, with `IOptions<RideOptions>` config (appsettings.json + `RIDE_DB`/`RIDE_SPEED`/`RIDE_MBTILES` env), `ILogger` logging, async ride load, `IDisposable` lifecycle, and a load-error banner.
 - **In-process replay**: a `DispatcherTimer` advances the store on the UI thread; rendering is gated to new frames (the 10 Hz data cadence) — no WebSocket (the .NET-idiomatic transport).
 - **Charts**: ScottPlot.WPF for realtime time-series strip charts (60s scrolling window, relative `m:ss` axis).
-- **Map**: a **native MVT vector renderer** (`TelemetryPoc.Map` — `MbTilesReader` + protobuf decode + SkiaSharp draw) reading the same offline `israel.mbtiles` as the Rust app — no CDN/network, no Mapsui. The basemap is rasterised once per view into an `SKImage` and blitted each frame; pan/zoom/over-zoom (to street level, scaling z14 tiles) are interactive.
+- **Map**: a native MVT vector renderer (SkiaSharp) split across Presentation (`BasemapRenderer`, `TrackOverlay`) and Infrastructure (`MbTilesTileSource`) reads the same offline `israel.mbtiles` as the Rust app — no CDN/network, no Mapsui. The basemap is rasterised once per view into an `SKImage` and blitted each frame; pan/zoom/over-zoom (to street level, scaling z14 tiles) are interactive.
 - **Layout**: the INU OVERVIEW screen (parameters panel + widget grid + perf HUD) per `docs/reference/dashboard-target.md`.
 
 ## Prerequisites
@@ -46,10 +52,10 @@ RIDE_DB=D:\Projects\my\wpf-rust-compare-charts\data\ride.db dotnet run --project
 ## Testing
 
 ```bash
-cd dotnet && dotnet test     # xUnit: Core data layer + App.Viz pure UI logic
+cd dotnet && dotnet test     # xUnit: 170 tests spanning all four rings; NetArchTest rules enforce ring dependency directions
 ```
 
-XAML views / ScottPlot / the Skia map host are build-verified + confirmed by launching the app; pure logic (`TelemetryPoc.App.Viz`, `TelemetryPoc.Map`, `TelemetryPoc.Core`) carries the unit coverage.
+XAML views / ScottPlot / the Skia map host are build-verified + confirmed by launching the app; pure logic (Domain, Application, Infrastructure, Presentation) carries the unit coverage. **NetArchTest** boundary rules are part of the suite and fail the build if any ring imports something it should not.
 
 ## Build
 

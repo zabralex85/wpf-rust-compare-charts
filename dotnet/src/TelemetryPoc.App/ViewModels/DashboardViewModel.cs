@@ -1,6 +1,7 @@
 using System.Collections.ObjectModel;
-using TelemetryPoc.App.Viz;
-using TelemetryPoc.Core;
+using TelemetryPoc.Application;
+using TelemetryPoc.Domain;
+using TelemetryPoc.Presentation;
 
 namespace TelemetryPoc.App.ViewModels;
 
@@ -16,10 +17,10 @@ public sealed class DashboardViewModel
 
     public ObservableCollection<WidgetViewModel> Widgets { get; } = new();
 
-    public DashboardViewModel(RideSession session)
+    public DashboardViewModel(RideSession session, ITileSource tiles)
     {
         _session = session;
-        _map = new MapWidgetViewModel(session);
+        _map = new MapWidgetViewModel(session, tiles);
         _session.MetaLoaded += Build;
         _session.Ticked += Refresh;
         _session.Ticked += _map.Tick;
