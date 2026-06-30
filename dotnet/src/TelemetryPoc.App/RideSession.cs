@@ -1,4 +1,3 @@
-using System.ComponentModel;
 using System.Diagnostics;
 using System.Globalization;
 using System.IO;
@@ -10,37 +9,28 @@ using TelemetryPoc.Map;
 
 namespace TelemetryPoc.App;
 
-public sealed class RideSession : INotifyPropertyChanged
+/// <summary>WPF host for the replay. Loads the ride DB, drives a <see cref="RideEngine"/>
+/// from a 30 Hz dispatcher timer (wall-clock delta in, repaint signal out) on the UI
+/// thread, and exposes the engine state to the view-models. All replay logic lives in the
+/// UI-free engine; this class only owns the timer, the wall clock and the IO.</summary>
+public sealed class RideSession
 {
-    public TelemetryStore Store { get; } = new();
-    private readonly MetricsSampler _metrics = new();
     private readonly Stopwatch _sw = new();
-    private readonly RideClock _clock = new();
-    private ReplayPlayer? _player;
+    private RideEngine? _engine;
     private DispatcherTimer? _timer;
     private double _speed = 1.0;
-    private long _lastMetricSec = -1;
     private long _lastElapsed;
-    private IReadOnlyList<ChannelMeta> _channels = Array.Empty<ChannelMeta>();
-    private IReadOnlyList<EnumValue> _enums = Array.Empty<EnumValue>();
-    private IReadOnlyList<Sample> _samples = Array.Empty<Sample>();
 
-    public long DurationMs { get; private set; }
-    public long RideMs { get; private set; }
-    public (double MinLat, double MinLon, double MaxLat, double MaxLon)? GpsBounds { get; private set; }
-
-    private string _clockText = "00:00:00.000";
-    public string ClockText { get => _clockText; private set { _clockText = value; Raise(nameof(ClockText)); } }
-
-    private string _tplus = "T+00:00:00.000";
-    public string TPlusText { get => _tplus; private set { _tplus = value; Raise(nameof(TPlusText)); } }
-
+    public TelemetryStore Store { get; } = new();
+    public long DurationMs => _engine?.DurationMs ?? 0;
+    public long RideMs => _engine?.RideMs ?? 0;
+    public (double MinLat, double MinLon, double MaxLat, double MaxLon)? GpsBounds => _engine?.GpsBounds;
+    public bool IsPaused => _engine?.IsPaused ?? true;
     public string? Error { get; private set; }
 
     public event Action? MetaLoaded;
     public event Action? Ticked;
     public event Action? Reset;
-    public bool IsPaused => !_clock.Playing;
 
     public void Start()
     {
@@ -51,110 +41,65 @@ public sealed class RideSession : INotifyPropertyChanged
             _speed = double.TryParse(Environment.GetEnvironmentVariable("RIDE_SPEED"),
                 NumberStyles.Float, CultureInfo.InvariantCulture, out var s) ? s : 1.0;
 
-            using var conn = new SqliteConnection($"Data Source={dbPath};Mode=ReadOnly");
-            conn.Open();
-            var channels = TelemetryDb.LoadChannels(conn);
-            var enums = TelemetryDb.LoadEnumValues(conn);
-            var samples = TelemetryDb.LoadSamples(conn, channels);
-            var meta = TelemetryDb.LoadRideMeta(conn);
-            DurationMs = meta.DurationS * 1000;
-
-            _channels = channels;
-            _enums = enums;
-            _samples = samples;
-
-            int latIdx = -1, lonIdx = -1;
-            for (int i = 0; i < channels.Count; i++)
-            {
-                if (channels[i].Widget == "map_lat") latIdx = i;
-                if (channels[i].Widget == "map_lon") lonIdx = i;
-            }
-            if (latIdx >= 0 && lonIdx >= 0 && samples.Count > 0)
-            {
-                var lat = new double[samples.Count];
-                var lon = new double[samples.Count];
-                for (int i = 0; i < samples.Count; i++) { lat[i] = samples[i].Values[latIdx]; lon[i] = samples[i].Values[lonIdx]; }
-                GpsBounds = MapProject.TrackBounds(lat, lon);
-            }
-
-            Store.ApplyMeta(channels, enums);
+            _engine = new RideEngine(LoadRide(dbPath), Store);
+            _engine.Reset += () => Reset?.Invoke();
             MetaLoaded?.Invoke();
-            _player = new ReplayPlayer(samples, Store);
 
             _sw.Start();
             _timer = new DispatcherTimer(DispatcherPriority.Render) { Interval = TimeSpan.FromMilliseconds(33) };
-            _timer.Tick += (_, _) => Tick();
+            _timer.Tick += (_, _) => OnTick();
             _timer.Start();
         }
         catch (Exception ex)
         {
             Error = $"DB load failed: {ex.Message}";
-            Raise(nameof(Error));
         }
     }
 
-    private void Tick()
+    private void OnTick()
     {
         var elapsed = _sw.ElapsedMilliseconds;
         var delta = elapsed - _lastElapsed;
         _lastElapsed = elapsed;
-        // Paused: the clock is frozen and no data changes, so skip the whole per-tick
-        // UI refresh. This lets WPF's compositor go idle (CPU drops to ~0) instead of
-        // repainting the map/charts/gauges 30×/s for nothing — mirrors the Rust app,
-        // which stops emitting frames (and thus stops re-rendering) while paused.
-        if (!_clock.Playing) return;
-        _clock.Advance((long)(delta * _speed));
-
         var now = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
-        // The render timer runs at 30Hz to advance the clock smoothly, but the ride
-        // data is only 10Hz. Repainting charts/map/gauges on every tick would redraw
-        // identical data 2 of every 3 frames. Fire Ticked (the heavy redraw signal)
-        // only when a new frame was actually emitted — ~3x fewer repaints, and it
-        // mirrors Rust, which renders per frame-message rather than on a fixed clock.
-        int applied = _player?.Advance(_clock.RideMs, now) ?? 0;
-
-        var rideMs = _clock.RideMs;
-        RideMs = rideMs;
-        var rideSec = rideMs / 1000;
-        if (Store.LastEmitUnixMs > 0 && rideSec != _lastMetricSec)
-        {
-            _lastMetricSec = rideSec;
-            Store.ApplyMetrics(_metrics.Sample());
-            applied++; // metrics changed (CPU/RAM) → refresh the HUD even between frames
-        }
-
-        // Clock text advances every tick so the mission clock stays smooth (cheap text).
-        ClockText = MissionClock.Format(rideMs);
-        TPlusText = MissionClock.FormatTPlus(rideMs);
-        if (applied > 0) Ticked?.Invoke();
+        if (_engine!.Advance(delta, now, _speed)) Ticked?.Invoke();
     }
 
-    public void Pause() => _clock.Pause();
-    public void Resume() => _clock.Resume();
+    public void Pause() => _engine?.Pause();
+    public void Resume() => _engine?.Resume();
 
     public void Seek(double fraction)
     {
-        if (_player is null) return;
-        var target = (long)(Math.Clamp(fraction, 0, 1) * DurationMs);
-
-        // Reset the store to the re-meta state (clears strip series, GPS track, latest).
-        Store.ApplyMeta(_channels, _enums);
-
-        _player.SeekTo(target);
-        var snapped = _player.PeekTs ?? target;   // snap to the landed sample so one frame shows
-        _clock.SeekTo(snapped, DurationMs);
-
-        var now = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
-        _player.Advance(_clock.RideMs, now);
-
-        RideMs = _clock.RideMs;
-        _lastMetricSec = -1;
-        ClockText = MissionClock.Format(RideMs);
-        TPlusText = MissionClock.FormatTPlus(RideMs);
-        Reset?.Invoke();   // fires BEFORE Ticked so views clear, then repaint with the landed frame
+        if (_engine is null) return;
+        _engine.Seek(fraction, DateTimeOffset.UtcNow.ToUnixTimeMilliseconds());
         Ticked?.Invoke();
     }
 
-    public event PropertyChangedEventHandler? PropertyChanged;
-    private void Raise(string n) => PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(n));
+    private static RideData LoadRide(string dbPath)
+    {
+        using var conn = new SqliteConnection($"Data Source={dbPath};Mode=ReadOnly");
+        conn.Open();
+        var channels = TelemetryDb.LoadChannels(conn);
+        var enums = TelemetryDb.LoadEnumValues(conn);
+        var samples = TelemetryDb.LoadSamples(conn, channels);
+        var meta = TelemetryDb.LoadRideMeta(conn);
+        return new RideData(channels, enums, samples, meta.DurationS * 1000, GpsBoundsOf(channels, samples));
+    }
+
+    private static (double, double, double, double)? GpsBoundsOf(
+        IReadOnlyList<ChannelMeta> channels, IReadOnlyList<Sample> samples)
+    {
+        int latIdx = -1, lonIdx = -1;
+        for (int i = 0; i < channels.Count; i++)
+        {
+            if (channels[i].Widget == "map_lat") latIdx = i;
+            if (channels[i].Widget == "map_lon") lonIdx = i;
+        }
+        if (latIdx < 0 || lonIdx < 0 || samples.Count == 0) return null;
+
+        var lat = new double[samples.Count];
+        var lon = new double[samples.Count];
+        for (int i = 0; i < samples.Count; i++) { lat[i] = samples[i].Values[latIdx]; lon[i] = samples[i].Values[lonIdx]; }
+        return MapProject.TrackBounds(lat, lon);
+    }
 }

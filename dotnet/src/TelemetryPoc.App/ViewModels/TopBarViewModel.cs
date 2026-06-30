@@ -13,7 +13,7 @@ public sealed class TopBarViewModel : INotifyPropertyChanged
         _session.Ticked += Refresh;
     }
 
-    public string ClockText => _session.ClockText;
+    public string ClockText => MissionClock.Format(_session.RideMs);
 
     private string _alarm = "0 ALARM", _caution = "0 CAUTION";
     public string AlarmText { get => _alarm; private set { _alarm = value; Raise(nameof(AlarmText)); } }

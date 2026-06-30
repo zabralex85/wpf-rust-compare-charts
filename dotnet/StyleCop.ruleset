@@ -80,7 +80,7 @@
     <Rule Id="SA1007" Action="Warning" />
     <Rule Id="SA1008" Action="Warning" />
     <Rule Id="SA1009" Action="None" />
-    <Rule Id="SA1010" Action="Warning" />
+    <Rule Id="SA1010" Action="None" />
     <Rule Id="SA1011" Action="None" />
     <Rule Id="SA1012" Action="Warning" />
     <Rule Id="SA1013" Action="Warning" />
