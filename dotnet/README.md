@@ -4,6 +4,8 @@ The .NET implementation of the telemetry charting PoC. A **native WPF/XAML (MVVM
 
 > Originally WPF + Blazor Hybrid; reskinned to native WPF/XAML to match the Rust INU dashboard for a fair native-vs-WebView perf comparison. The reskin is complete: parameters panel, gauges, ScottPlot.WPF charts, offline Skia map, perf HUD, read-only + interactive widget grid (drag / move / resize / gauge↔chart toggle / remove, line zoom + hover, map pan / zoom), and transport pause/seek.
 
+![.NET WPF INU-MONITOR dashboard](../docs/screenshots/dotnet-wpf.png)
+
 ## Architecture
 
 - **Native WPF/XAML + MVVM**: no WebView, no JS. `TelemetryPoc.App` (WPF) + `TelemetryPoc.App.Viz` (net8.0 pure UI logic, xUnit-tested) + `TelemetryPoc.Map` (net8.0 offline MVT map renderer, xUnit-tested) + `TelemetryPoc.Core` (data layer).
