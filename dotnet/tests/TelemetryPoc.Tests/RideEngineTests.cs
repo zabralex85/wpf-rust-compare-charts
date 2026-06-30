@@ -10,20 +10,26 @@ public class RideEngineTests
         public Metrics Sample() => new(0, 0);
     }
 
-    private static RideData Ride()
+    private static RideData Ride() =>
+        new(
+            new ChannelMeta[]
+            {
+                new(1, "A", "a", "u", "f", 0, 100, "strip", 0, "I_01"),
+                new(2, "B", "b", "u", "f", 0, 100, "gauge", 1, "I_02"),
+            },
+            [],
+            DurationMs: 1000,
+            GpsBounds: (1, 2, 3, 4));
+
+    // 6 samples at 0,100,...,500 ms — fed through a fake cursor.
+    private static FakeSampleCursor Cursor()
     {
-        var channels = new ChannelMeta[]
-        {
-            new(1, "A", "a", "u", "f", 0, 100, "strip", 0, "I_01"),
-            new(2, "B", "b", "u", "f", 0, 100, "gauge", 1, "I_02"),
-        };
-        // 6 samples at 0,100,...,500 ms; ride is 1000 ms long.
         var samples = new List<Sample>();
         for (int i = 0; i <= 5; i++) samples.Add(new Sample(i * 100, new double[] { i, i * 2 }));
-        return new RideData(channels, [], samples, DurationMs: 1000, GpsBounds: (1, 2, 3, 4));
+        return new FakeSampleCursor(samples);
     }
 
-    private static RideEngine NewEngine() => new(Ride(), new TelemetryStore(), new FakeMetrics());
+    private static RideEngine NewEngine() => new(Ride(), Cursor(), new TelemetryStore(), new FakeMetrics());
 
     [Fact]
     public void Ctor_applies_meta_to_the_store()

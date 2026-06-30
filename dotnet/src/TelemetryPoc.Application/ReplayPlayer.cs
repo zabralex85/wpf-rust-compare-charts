@@ -2,47 +2,35 @@ using TelemetryPoc.Domain;
 
 namespace TelemetryPoc.Application;
 
+/// <summary>Drives the store from a forward sample cursor: each Advance applies every
+/// row now due (ts &lt;= rideMs). The cursor streams rows, so the whole ride is never in memory.</summary>
 public sealed class ReplayPlayer
 {
-    private readonly IReadOnlyList<Sample> _samples;
+    private readonly ISampleCursor _cursor;
     private readonly TelemetryStore _store;
-    private int _next;
 
-    public ReplayPlayer(IReadOnlyList<Sample> samples, TelemetryStore store)
+    public ReplayPlayer(ISampleCursor cursor, TelemetryStore store)
     {
-        _samples = samples;
+        _cursor = cursor;
         _store = store;
     }
 
-    public bool Done => _next >= _samples.Count;
+    public bool Done => _cursor.PeekTs is null;
 
-    /// <summary>TsMs of the sample at the playhead, or null if past the end.</summary>
-    public long? PeekTs => _next < _samples.Count ? _samples[_next].TsMs : null;
+    public long? PeekTs => _cursor.PeekTs;
 
-    /// <summary>Apply every sample whose TsMs is at or before the ride clock (ms from ride start).</summary>
+    /// <summary>Apply every sample whose TsMs is at or before the ride clock. Returns the count applied.</summary>
     public int Advance(long rideMs, long nowUnixMs)
     {
         int applied = 0;
-        while (_next < _samples.Count && _samples[_next].TsMs <= rideMs)
+        while (_cursor.PeekTs is { } t && t <= rideMs)
         {
-            _store.ApplyFrame(_samples[_next], nowUnixMs);
-            _next++;
+            _store.ApplyFrame(_cursor.Read(), nowUnixMs);
             applied++;
         }
         return applied;
     }
 
-    /// <summary>Move the playhead to the first sample with TsMs &gt;= rideMs (lower bound). Returns the new index.</summary>
-    public int SeekTo(long rideMs)
-    {
-        int lo = 0, hi = _samples.Count;
-        while (lo < hi)
-        {
-            int mid = lo + (hi - lo) / 2;
-            if (_samples[mid].TsMs < rideMs) lo = mid + 1;
-            else hi = mid;
-        }
-        _next = lo;
-        return _next;
-    }
+    /// <summary>Reposition to the first sample with TsMs &gt;= rideMs.</summary>
+    public void SeekTo(long rideMs) => _cursor.SeekTo(rideMs);
 }

@@ -6,11 +6,12 @@ namespace TelemetryPoc.Application;
 /// the once-per-second metrics gate. Time is injected (wall-time delta + the current
 /// unix ms), so it advances deterministically under test — no timer, stopwatch or
 /// system clock inside. The WPF host (RideSession) supplies the time and the store.</summary>
-public sealed class RideEngine
+public sealed class RideEngine : IDisposable
 {
     private readonly RideData _data;
     private readonly RideClock _clock = new();
     private readonly IMetricsSampler _metrics;
+    private readonly ISampleCursor _cursor;
     private readonly ReplayPlayer _player;
     private long _lastMetricSec = -1;
 
@@ -23,13 +24,14 @@ public sealed class RideEngine
     /// <summary>Raised on seek, after the store is re-meta'd — views clear their buffers.</summary>
     public event Action? Reset;
 
-    public RideEngine(RideData data, TelemetryStore store, IMetricsSampler metrics)
+    public RideEngine(RideData data, ISampleCursor cursor, TelemetryStore store, IMetricsSampler metrics)
     {
         _data = data;
+        _cursor = cursor;
         Store = store;
         _metrics = metrics;
         Store.ApplyMeta(data.Channels, data.Enums);
-        _player = new ReplayPlayer(data.Samples, Store);
+        _player = new ReplayPlayer(cursor, Store);
     }
 
     /// <summary>Advance the clock by a wall-time delta (scaled by speed) and apply any
@@ -69,4 +71,6 @@ public sealed class RideEngine
         _lastMetricSec = -1;
         Reset?.Invoke();
     }
+
+    public void Dispose() => _cursor.Dispose();
 }

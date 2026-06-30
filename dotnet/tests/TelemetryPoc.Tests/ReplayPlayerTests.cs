@@ -26,7 +26,7 @@ public class ReplayPlayerTests
         var (ch, ev, samples) = Setup();
         var store = new TelemetryStore();
         store.ApplyMeta(ch, ev);
-        return (new ReplayPlayer(samples, store), store);
+        return (new ReplayPlayer(new FakeSampleCursor(samples), store), store);
     }
 
     [Fact]
@@ -53,7 +53,7 @@ public class ReplayPlayerTests
     public void SeekTo_lands_on_first_sample_at_or_after_target()
     {
         var (player, _) = NewPlayer();
-        Assert.Equal(1, player.SeekTo(50));    // first ts >= 50 is index 1 (ts=100)
+        player.SeekTo(50);                 // first ts >= 50 is ts=100
         Assert.Equal(100, player.PeekTs);
     }
 
@@ -61,7 +61,7 @@ public class ReplayPlayerTests
     public void SeekTo_before_first_is_index_zero()
     {
         var (player, _) = NewPlayer();
-        Assert.Equal(0, player.SeekTo(-10));
+        player.SeekTo(-10);
         Assert.Equal(0, player.PeekTs);
     }
 
@@ -69,7 +69,7 @@ public class ReplayPlayerTests
     public void SeekTo_past_last_is_count_and_done()
     {
         var (player, _) = NewPlayer();
-        Assert.Equal(3, player.SeekTo(999));
+        player.SeekTo(999);
         Assert.True(player.Done);
         Assert.Null(player.PeekTs);
     }

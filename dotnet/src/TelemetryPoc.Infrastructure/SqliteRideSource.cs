@@ -13,35 +13,44 @@ public sealed class SqliteRideSource : IRideSource
     public Task<RideData> LoadAsync(CancellationToken ct = default) =>
         Task.Run(() => Load(_paths.ResolveRideDb()), ct);
 
+    public ISampleCursor OpenSamples()
+    {
+        var dbPath = _paths.ResolveRideDb();
+        using var conn = new SqliteConnection($"Data Source={dbPath};Mode=ReadOnly");
+        conn.Open();
+        var columns = new List<string>();
+        foreach (var c in LoadChannels(conn)) columns.Add(c.ColumnName);
+        return new SqliteSampleCursor(dbPath, columns);
+    }
+
     private static RideData Load(string dbPath)
     {
         using var conn = new SqliteConnection($"Data Source={dbPath};Mode=ReadOnly");
         conn.Open();
         var channels = LoadChannels(conn);
         var enums = LoadEnumValues(conn);
-        var samples = LoadSamples(conn, channels);
         var meta = LoadRideMeta(conn);
-        return new RideData(channels, enums, samples, meta.DurationS * 1000, GpsBounds(channels, samples));
+        return new RideData(channels, enums, meta.DurationS * 1000, GpsBounds(conn, channels));
     }
 
-    private static (double, double, double, double)? GpsBounds(
-        IReadOnlyList<ChannelMeta> channels, IReadOnlyList<Sample> samples)
+    /// <summary>Whole-ride GPS bbox via a MIN/MAX aggregate — no sample materialisation.</summary>
+    private static (double, double, double, double)? GpsBounds(SqliteConnection conn, IReadOnlyList<ChannelMeta> channels)
     {
-        int latIdx = -1, lonIdx = -1;
-        for (int i = 0; i < channels.Count; i++)
+        string? latCol = null, lonCol = null;
+        foreach (var c in channels)
         {
-            if (channels[i].Widget == "map_lat") latIdx = i;
-            if (channels[i].Widget == "map_lon") lonIdx = i;
+            if (c.Widget == "map_lat") latCol = c.ColumnName;
+            if (c.Widget == "map_lon") lonCol = c.ColumnName;
         }
-        if (latIdx < 0 || lonIdx < 0 || samples.Count == 0)
-		{
-			return null;
-		}
 
-        var lat = new double[samples.Count];
-        var lon = new double[samples.Count];
-        for (int i = 0; i < samples.Count; i++) { lat[i] = samples[i].Values[latIdx]; lon[i] = samples[i].Values[lonIdx]; }
-        return MapProject.TrackBounds(lat, lon);
+        if (latCol is null || lonCol is null) return null;
+
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText =
+            $"SELECT MIN(\"{latCol}\"), MIN(\"{lonCol}\"), MAX(\"{latCol}\"), MAX(\"{lonCol}\") FROM samples";
+        using var r = cmd.ExecuteReader();
+        if (!r.Read() || r.IsDBNull(0)) return null; // empty samples table
+        return (r.GetDouble(0), r.GetDouble(1), r.GetDouble(2), r.GetDouble(3));
     }
 
     public static IReadOnlyList<ChannelMeta> LoadChannels(SqliteConnection conn)
