@@ -8,19 +8,19 @@ An INU-style monitoring dashboard — live parameter table, scrolling strip char
 |---|---|---|
 | Stack | Tauri 2 + React + TypeScript | native **WPF / XAML** (MVVM, C#) |
 | Charts | uPlot (scrolling time-series) | ScottPlot.WPF |
-| Map | MapLibre GL — **offline** vector basemap | Mapsui — **offline** MBTiles |
+| Map | MapLibre GL — **offline** vector basemap | native MVT/Skia renderer — **offline** MBTiles |
 | Transport | local WebSocket | in-process |
 
 This is a **paradigm contrast**: a web WebView UI (Tauri/React) vs a native retained-mode GPU UI (WPF) — each stack in its own idiom. Both read the **same `ride.db`** and show the same HUD — FPS, frame time, end-to-end latency, CPU% (per-core), RAM — so the two stacks can be compared head to head. Target layout: [`docs/reference/dashboard-target.md`](docs/reference/dashboard-target.md).
 
-> The .NET app was originally WPF + Blazor Hybrid and is being reskinned to native WPF/XAML to match the Rust INU dashboard. The Rust app is fully reskinned; the .NET reskin is in progress (shell + parameters panel done; gauges / charts / map / HUD next).
+> The .NET app was originally WPF + Blazor Hybrid and has been reskinned to native WPF/XAML to match the Rust INU dashboard. Both apps are now fully reskinned (parameters, gauges, charts, offline map, transport, interactive widget grid, perf HUD).
 
 ## Repository layout
 
 ```
 data/    Python telemetry simulator → ride.db (shared data; gitignored)
 rust/    Tauri + React + WebSocket dashboard
-dotnet/  .NET solution — TelemetryPoc.Core (data layer) + TelemetryPoc.App (WPF + Blazor UI)
+dotnet/  .NET solution — TelemetryPoc.Core (data) + TelemetryPoc.App (native WPF UI) + TelemetryPoc.App.Viz (pure UI logic) + TelemetryPoc.Map (offline MVT/Skia map)
 docs/    specs, plans, and the dashboard reference target
 ```
 
@@ -49,7 +49,7 @@ Both connect to the same data and render the dashboard with the live HUD. See [`
 
 **3. Offline map tiles (optional — for the basemap)**
 
-Both maps render an **offline** vector basemap from a local `israel.mbtiles` tileset (gitignored, ~80 MB+). The Rust app auto-provisions it on first launch (download a prebuilt `.mbtiles`, else convert a geofabrik extract with `tilemaker`); without it the map falls back to the SVG track-only "grid" view. To build the tileset and label glyphs yourself, see [`tiles/README.md`](tiles/README.md).
+Both maps render an **offline** vector basemap from a local `israel.mbtiles` tileset (gitignored, ~80 MB+). The **Rust** app auto-provisions it on first launch (download a prebuilt `.mbtiles`, else convert a geofabrik extract with `tilemaker`); without it the map falls back to the SVG track-only "grid" view. The **.NET** app does **not** auto-download — the file must already be present (`RIDE_MBTILES`, else `tiles/israel.mbtiles`); without it its map widget shows the dark background while the rest of the dashboard runs. To build the tileset (and, for Rust, label glyphs) yourself, see [`tiles/README.md`](tiles/README.md).
 
 ```bash
 # build israel.mbtiles from a geofabrik OSM extract (see tiles/README.md for details)
@@ -75,7 +75,7 @@ Chart/map/GUI code is build-verified; pure logic carries the unit coverage.
 
 ## Status
 
-Both apps build, test, and run. The **Rust app** is fully reskinned to the INU dashboard (parameters, gauges, uPlot charts, offline MapLibre map, transport controls, perf HUD). The **.NET app** is mid-reskin to native WPF (shell + parameters panel done; gauges / ScottPlot.WPF charts / Mapsui map / HUD next). Final visual alignment against the reference is checked by launching each app (it can't be verified headless).
+Both apps build, test, and run, and are fully reskinned to the INU dashboard. **Rust**: parameters, gauges, uPlot charts, offline MapLibre map, transport controls, interactive widget grid, perf HUD. **.NET**: native WPF parameters panel, gauges, ScottPlot.WPF charts, a native offline MVT/Skia map (`TelemetryPoc.Map`), transport pause/seek, interactive widget grid (drag / resize / toggle / remove, line zoom + hover, map pan / zoom / over-zoom), perf HUD. Final visual alignment against the reference is checked by launching each app (it can't be verified headless).
 
 ## License
 
