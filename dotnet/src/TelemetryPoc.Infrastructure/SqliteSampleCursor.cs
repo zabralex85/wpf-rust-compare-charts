@@ -13,6 +13,7 @@ public sealed class SqliteSampleCursor : ISampleCursor
     private readonly string _colList;     // "ts, \"a\", \"b\""
     private readonly int _channelCount;
     private readonly SqliteConnection _conn;
+    private SqliteCommand? _cmd;
     private SqliteDataReader? _reader;
     private Sample? _peek;
 
@@ -39,10 +40,11 @@ public sealed class SqliteSampleCursor : ISampleCursor
     private void Query(long fromMs)
     {
         _reader?.Dispose();
-        var cmd = _conn.CreateCommand();
-        cmd.CommandText = $"SELECT {_colList} FROM samples WHERE ts >= $from ORDER BY ts";
-        cmd.Parameters.AddWithValue("$from", fromMs);
-        _reader = cmd.ExecuteReader();
+        _cmd?.Dispose();
+        _cmd = _conn.CreateCommand();
+        _cmd.CommandText = $"SELECT {_colList} FROM samples WHERE ts >= $from ORDER BY ts";
+        _cmd.Parameters.AddWithValue("$from", fromMs);
+        _reader = _cmd.ExecuteReader();
         ReadAhead();
     }
 
@@ -63,6 +65,7 @@ public sealed class SqliteSampleCursor : ISampleCursor
     public void Dispose()
     {
         _reader?.Dispose();
+        _cmd?.Dispose();
         _conn.Dispose();
     }
 }

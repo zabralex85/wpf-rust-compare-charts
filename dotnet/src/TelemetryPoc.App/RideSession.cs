@@ -54,7 +54,7 @@ public sealed class RideSession : IDisposable
         {
             _log.LogInformation("Loading ride…");
             var data = await _source.LoadAsync().ConfigureAwait(true); // resume on UI thread
-            var cursor = _source.OpenSamples();
+            var cursor = await Task.Run(() => _source.OpenSamples()).ConfigureAwait(true);
             _log.LogInformation("Ride loaded: {Channels} channels, {DurationMs} ms", data.Channels.Count, data.DurationMs);
 
             _engine = new RideEngine(data, cursor, Store, _metrics);
