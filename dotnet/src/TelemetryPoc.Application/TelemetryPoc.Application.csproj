@@ -6,6 +6,5 @@
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="..\TelemetryPoc.Domain\TelemetryPoc.Domain.csproj" />
-    <ProjectReference Include="..\TelemetryPoc.Core\TelemetryPoc.Core.csproj" />
   </ItemGroup>
 </Project>

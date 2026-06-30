@@ -1,5 +1,4 @@
 using System;
-using TelemetryPoc.Core;
 using TelemetryPoc.Domain;
 
 namespace TelemetryPoc.Application;
@@ -12,7 +11,7 @@ public sealed class RideEngine
 {
     private readonly RideData _data;
     private readonly RideClock _clock = new();
-    private readonly MetricsSampler _metrics;
+    private readonly IMetricsSampler _metrics;
     private readonly ReplayPlayer _player;
     private long _lastMetricSec = -1;
 
@@ -25,11 +24,11 @@ public sealed class RideEngine
     /// <summary>Raised on seek, after the store is re-meta'd — views clear their buffers.</summary>
     public event Action? Reset;
 
-    public RideEngine(RideData data, TelemetryStore store, MetricsSampler? metrics = null)
+    public RideEngine(RideData data, TelemetryStore store, IMetricsSampler metrics)
     {
         _data = data;
         Store = store;
-        _metrics = metrics ?? new MetricsSampler();
+        _metrics = metrics;
         Store.ApplyMeta(data.Channels, data.Enums);
         _player = new ReplayPlayer(data.Samples, Store);
     }
