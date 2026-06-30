@@ -1,6 +1,4 @@
-using System.Collections.Generic;
 using TelemetryPoc.Infrastructure;
-using Xunit;
 
 namespace TelemetryPoc.Tests;
 
