@@ -29,7 +29,7 @@ public sealed class RideEngine
         Store = store;
         _metrics = metrics;
         Store.ApplyMeta(data.Channels, data.Enums);
-        _player = new ReplayPlayer(data.Samples, Store);
+        _player = new ReplayPlayer(new ListSampleCursor(data.Samples), Store);
     }
 
     /// <summary>Advance the clock by a wall-time delta (scaled by speed) and apply any
