@@ -5,6 +5,8 @@ Rust/Tauri backend for the telemetry charting proof-of-concept. Replays a
 client) can consume structured telemetry frames in real time or at a scaled
 replay speed.
 
+![Rust INU-MONITOR dashboard](../docs/screenshots/rust.png)
+
 ## How to run
 
 1. Generate `data/ride.db` (from the repo root):

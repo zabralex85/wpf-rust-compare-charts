@@ -15,6 +15,16 @@ This is a **paradigm contrast**: a web WebView UI (Tauri/React) vs a native reta
 
 > The .NET app was originally WPF + Blazor Hybrid and has been reskinned to native WPF/XAML to match the Rust INU dashboard. Both apps are now fully reskinned (parameters, gauges, charts, offline map, transport, interactive widget grid, perf HUD).
 
+## Screenshots
+
+**.NET — native WPF / XAML** (offline MVT/Skia map)
+
+![.NET WPF INU-MONITOR dashboard](docs/screenshots/dotnet-wpf.png)
+
+**Rust — Tauri + React** (uPlot charts, MapLibre map)
+
+![Rust INU-MONITOR dashboard](docs/screenshots/rust.png)
+
 ## Repository layout
 
 ```
