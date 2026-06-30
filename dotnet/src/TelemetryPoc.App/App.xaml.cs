@@ -27,16 +27,28 @@ public partial class App
         // set, so an unset env never clobbers the appsettings value with null.
         var overrides = new Dictionary<string, string?>();
         var dbEnv = Environment.GetEnvironmentVariable("RIDE_DB");
-        if (!string.IsNullOrWhiteSpace(dbEnv)) overrides["Ride:DbPath"] = dbEnv;
+        if (!string.IsNullOrWhiteSpace(dbEnv))
+        {
+            overrides["Ride:DbPath"] = dbEnv;
+        }
+
         var mbEnv = Environment.GetEnvironmentVariable("RIDE_MBTILES");
-        if (!string.IsNullOrWhiteSpace(mbEnv)) overrides["Ride:MbTilesPath"] = mbEnv;
+        if (!string.IsNullOrWhiteSpace(mbEnv))
+        {
+            overrides["Ride:MbTilesPath"] = mbEnv;
+        }
+
         var speedEnv = Environment.GetEnvironmentVariable("RIDE_SPEED");
         if (double.TryParse(speedEnv, System.Globalization.NumberStyles.Float,
             System.Globalization.CultureInfo.InvariantCulture, out var sp))
         {
             overrides["Ride:Speed"] = sp.ToString(System.Globalization.CultureInfo.InvariantCulture);
         }
-        if (overrides.Count > 0) builder.Configuration.AddInMemoryCollection(overrides);
+        if (overrides.Count > 0)
+        {
+            builder.Configuration.AddInMemoryCollection(overrides);
+        }
+
         builder.Services.Configure<RideOptions>(builder.Configuration.GetSection("Ride"));
         builder.Services.AddSingleton(sp => sp.GetRequiredService<IOptions<RideOptions>>().Value);
 

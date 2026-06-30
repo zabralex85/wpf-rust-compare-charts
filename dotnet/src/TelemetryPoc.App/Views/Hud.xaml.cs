@@ -4,5 +4,8 @@ namespace TelemetryPoc.App.Views;
 
 public partial class Hud : UserControl
 {
-    public Hud() => InitializeComponent();
+    public Hud()
+    {
+        InitializeComponent();
+    }
 }

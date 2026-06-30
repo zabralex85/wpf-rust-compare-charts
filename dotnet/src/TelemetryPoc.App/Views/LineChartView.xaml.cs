@@ -25,7 +25,7 @@ public partial class LineChartView : UserControl
         DataContextChanged += OnDataContextChanged;
         // Re-subscribe when the view re-enters the visual tree with an already-set
         // DataContext (tab-switch / virtualization fires Loaded but not DataContextChanged).
-        Loaded += (_, _) => { if (_vm is null) OnDataContextChanged(this, default); };
+        Loaded += (_, _) => { if (_vm is null) { OnDataContextChanged(this, default); } };
         Unloaded += (_, _) => Detach();
     }
 
@@ -42,7 +42,10 @@ public partial class LineChartView : UserControl
         _logger.ManageAxisLimits = false;
         // relative m:ss x-axis labels
         if (p.Axes.Bottom.TickGenerator is NumericAutomatic gen)
+        {
             gen.LabelFormatter = x => LineAxis.FormatElapsed(x);
+        }
+
         Plot.Refresh();
         Plot.UserInputProcessor.IsEnabled = false; // window-based zoom only (Rust parity)
     }
@@ -61,8 +64,16 @@ public partial class LineChartView : UserControl
 
     private void Detach()
     {
-        if (_vm is not null) _vm.Updated -= Redraw;
-        if (_vm is not null) _vm.Reset -= OnReset;
+        if (_vm is not null)
+        {
+            _vm.Updated -= Redraw;
+        }
+
+        if (_vm is not null)
+        {
+            _vm.Reset -= OnReset;
+        }
+
         _vm = null;
         _logger?.Clear();
         _lastX = double.NegativeInfinity;
@@ -96,7 +107,11 @@ public partial class LineChartView : UserControl
 
     private void Redraw()
     {
-        if (_vm is null || _logger is null) return;
+        if (_vm is null || _logger is null)
+        {
+            return;
+        }
+
         var xs = _vm.XsSeconds;
         var ys = _vm.Ys;
 
@@ -108,8 +123,14 @@ public partial class LineChartView : UserControl
             start = 0;
         }
         for (int i = start; i < xs.Length && i < ys.Length; i++)
+        {
             _logger.Add(xs[i], ys[i]);
-        if (xs.Length > 0) _lastX = xs[^1];
+        }
+
+        if (xs.Length > 0)
+        {
+            _lastX = xs[^1];
+        }
 
         Plot.Plot.Axes.SetLimitsX(_vm.WindowMin, _vm.WindowMax);
         Plot.Plot.Axes.AutoScaleY();

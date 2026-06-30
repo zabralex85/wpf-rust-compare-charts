@@ -3,56 +3,74 @@ namespace TelemetryPoc.Domain;
 public sealed class TelemetryStore
 {
     private readonly long _windowMs;
-    private IReadOnlyList<ChannelMeta> _channels = Array.Empty<ChannelMeta>();
-    private IReadOnlyDictionary<(long, long), EnumValue> _enumIndex =
-        new Dictionary<(long, long), EnumValue>();
-    private Dictionary<long, int> _idToIndex = new();
+    private Dictionary<long, int> _idToIndex = [];
     private double[] _latest = Array.Empty<double>();
-    private readonly Dictionary<long, ChannelSeries> _series = new();
+    private readonly Dictionary<long, ChannelSeries> _series = [];
     private int _latIdx = -1, _lonIdx = -1;
-    private readonly List<double> _lat = new();
-    private readonly List<double> _lon = new();
-    private long _lastEmit;
-    private Metrics? _metrics;
+    private readonly List<double> _lat = [];
+    private readonly List<double> _lon = [];
 
-    public TelemetryStore(long windowMs = 60_000) => _windowMs = windowMs;
+    public TelemetryStore(long windowMs = 60_000)
+    {
+        _windowMs = windowMs;
+    }
 
-    public IReadOnlyList<ChannelMeta> Channels => _channels;
-    public IReadOnlyDictionary<(long, long), EnumValue> EnumIndex => _enumIndex;
-    public long LastEmitUnixMs => _lastEmit;
-    public Metrics? Metrics => _metrics;
+    public IReadOnlyList<ChannelMeta> Channels { get; private set; } = Array.Empty<ChannelMeta>();
+    public IReadOnlyDictionary<(long, long), EnumValue> EnumIndex { get; private set; } = new Dictionary<(long, long), EnumValue>();
+    public long LastEmitUnixMs { get; private set; }
+    public Metrics? Metrics { get; private set; }
 
     public void ApplyMeta(IReadOnlyList<ChannelMeta> channels, IReadOnlyList<EnumValue> enums)
     {
         // channels arrive pre-sorted by display_order; Sample.Values[i] aligns to channels[i].
-        _channels = channels;
-        _enumIndex = ValueFormat.BuildEnumIndex(enums);
-        _idToIndex = new Dictionary<long, int>();
+        Channels = channels;
+        EnumIndex = ValueFormat.BuildEnumIndex(enums);
+        _idToIndex = [];
         _series.Clear();
         _lat.Clear();
         _lon.Clear();
         _latIdx = _lonIdx = -1;
         _latest = Array.Empty<double>();
-        _lastEmit = 0;
-        _metrics = null;
+        LastEmitUnixMs = 0;
+        Metrics = null;
         for (int i = 0; i < channels.Count; i++)
         {
             var ch = channels[i];
             _idToIndex[ch.Id] = i;
-            if (ch.Widget == "strip") _series[ch.Id] = new ChannelSeries(_windowMs);
-            if (ch.Widget == "map_lat") _latIdx = i;
-            if (ch.Widget == "map_lon") _lonIdx = i;
+            if (ch.Widget == "strip")
+            {
+                _series[ch.Id] = new ChannelSeries(_windowMs);
+            }
+
+            if (ch.Widget == "map_lat")
+            {
+                _latIdx = i;
+            }
+
+            if (ch.Widget == "map_lon")
+            {
+                _lonIdx = i;
+            }
         }
     }
 
     public void ApplyFrame(Sample s, long emitUnixMs)
     {
-        if (s.Values.Length != _channels.Count) return;
+        if (s.Values.Length != Channels.Count)
+        {
+            return;
+        }
+
         _latest = s.Values;
-        _lastEmit = emitUnixMs;
-        for (int i = 0; i < _channels.Count; i++)
-            if (_series.TryGetValue(_channels[i].Id, out var series))
+        LastEmitUnixMs = emitUnixMs;
+        for (int i = 0; i < Channels.Count; i++)
+        {
+            if (_series.TryGetValue(Channels[i].Id, out var series))
+            {
                 series.Push(s.TsMs, s.Values[i]);
+            }
+        }
+
         if (_latIdx >= 0 && _lonIdx >= 0)
         {
             _lat.Add(s.Values[_latIdx]);
@@ -60,7 +78,7 @@ public sealed class TelemetryStore
         }
     }
 
-    public void ApplyMetrics(Metrics m) => _metrics = m;
+    public void ApplyMetrics(Metrics m) => Metrics = m;
 
     public double? Latest(long channelId)
         => _idToIndex.TryGetValue(channelId, out var i) && i < _latest.Length ? _latest[i] : null;

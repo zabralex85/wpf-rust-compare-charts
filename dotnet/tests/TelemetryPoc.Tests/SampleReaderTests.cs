@@ -16,6 +16,8 @@ public class SampleReaderTests
         Assert.Equal(100, samples[1].TsMs);
         Assert.All(samples, s => Assert.Equal(chans.Count, s.Values.Length));
         for (int i = 1; i < samples.Count; i++)
+        {
             Assert.True(samples[i].TsMs > samples[i - 1].TsMs);
+        }
     }
 }

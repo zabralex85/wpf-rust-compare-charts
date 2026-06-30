@@ -10,7 +10,7 @@ namespace TelemetryPoc.Infrastructure;
 public sealed class MbTilesTileSource : ITileSource
 {
     private readonly SqliteConnection? _conn;
-    private readonly Dictionary<long, IReadOnlyList<MapFeature>?> _decodeCache = new();
+    private readonly Dictionary<long, IReadOnlyList<MapFeature>?> _decodeCache = [];
 
     public MbTilesTileSource(string? path)
     {
@@ -26,9 +26,17 @@ public sealed class MbTilesTileSource : ITileSource
     /// caching the decoded features makes pan reuse tiles and zoom decode each level once.</summary>
     public IReadOnlyList<MapFeature>? Decoded(int z, int x, int y)
     {
-        if (_conn is null) return null;
+        if (_conn is null)
+        {
+            return null;
+        }
+
         long key = ((long)z << 42) ^ ((long)x << 21) ^ (uint)y;
-        if (_decodeCache.TryGetValue(key, out var cached)) return cached;
+        if (_decodeCache.TryGetValue(key, out var cached))
+        {
+            return cached;
+        }
+
         IReadOnlyList<MapFeature>? feats = null;
         var bytes = Read(z, x, y);
         if (bytes is not null)
@@ -47,7 +55,11 @@ public sealed class MbTilesTileSource : ITileSource
         cmd.Parameters.AddWithValue("$z", z);
         cmd.Parameters.AddWithValue("$x", x);
         cmd.Parameters.AddWithValue("$row", row);
-        if (cmd.ExecuteScalar() is not byte[] blob) return null;
+        if (cmd.ExecuteScalar() is not byte[] blob)
+        {
+            return null;
+        }
+
         return Gunzip(blob);
     }
 
@@ -90,13 +102,20 @@ public sealed class MbTilesTileSource : ITileSource
                 {
                     var pts = new List<(long X, long Y)>(ring.Count);
                     // Point2d<T>.X/.Y are public fields (not properties)
-                    foreach (var p in ring) pts.Add((p.X, p.Y));
+                    foreach (var p in ring)
+                    {
+                        pts.Add((p.X, p.Y));
+                    }
+
                     rings.Add(pts);
                 }
                 var props = new Dictionary<string, string>();
                 // API deviation: GetProperties() returns Dictionary<string, object>; .ToString() converts values
                 foreach (var kv in feat.GetProperties())
+                {
                     props[kv.Key] = kv.Value?.ToString() ?? "";
+                }
+
                 result.Add(new MapFeature(layerName, type, rings, props, extent));
             }
         }

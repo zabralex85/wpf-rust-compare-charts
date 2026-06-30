@@ -16,10 +16,25 @@ public static class MapProject
         int n = Math.Min(lat.Count, lon.Count);
         for (int i = 0; i < n; i++)
         {
-            if (lat[i] < minLat) minLat = lat[i];
-            if (lat[i] > maxLat) maxLat = lat[i];
-            if (lon[i] < minLon) minLon = lon[i];
-            if (lon[i] > maxLon) maxLon = lon[i];
+            if (lat[i] < minLat)
+            {
+                minLat = lat[i];
+            }
+
+            if (lat[i] > maxLat)
+            {
+                maxLat = lat[i];
+            }
+
+            if (lon[i] < minLon)
+            {
+                minLon = lon[i];
+            }
+
+            if (lon[i] > maxLon)
+            {
+                maxLon = lon[i];
+            }
         }
         return (minLat, minLon, maxLat, maxLon);
     }

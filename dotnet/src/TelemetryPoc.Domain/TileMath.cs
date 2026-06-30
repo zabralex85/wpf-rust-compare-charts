@@ -29,10 +29,18 @@ public static class TileMath
         var tiles = new List<TileRef>();
         for (int ty = y0; ty <= y1; ty++)
         {
-            if (ty < 0 || ty > maxIndex) continue;
+            if (ty < 0 || ty > maxIndex)
+            {
+                continue;
+            }
+
             for (int tx = x0; tx <= x1; tx++)
             {
-                if (tx < 0 || tx > maxIndex) continue;
+                if (tx < 0 || tx > maxIndex)
+                {
+                    continue;
+                }
+
                 tiles.Add(new TileRef(tileZoom, tx, ty, tx * pix - left, ty * pix - top, pix));
             }
         }
@@ -50,7 +58,10 @@ public static class TileMath
             var (x1, y1) = WebMercator.LonLatToWorld(maxLon, minLat, z); // SE
             var dx = Math.Abs(x1 - x0);
             var dy = Math.Abs(y1 - y0);
-            if (dx <= width * 0.9 && dy <= height * 0.9) return (centerLat, centerLon, z);
+            if (dx <= width * 0.9 && dy <= height * 0.9)
+            {
+                return (centerLat, centerLon, z);
+            }
         }
         return (centerLat, centerLon, MinZoom);
     }

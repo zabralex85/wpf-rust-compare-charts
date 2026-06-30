@@ -9,7 +9,11 @@ public sealed class RideClock
 
     public void Advance(long scaledDeltaMs)
     {
-        if (!Playing || scaledDeltaMs <= 0) return;
+        if (!Playing || scaledDeltaMs <= 0)
+        {
+            return;
+        }
+
         RideMs += scaledDeltaMs;
     }
 

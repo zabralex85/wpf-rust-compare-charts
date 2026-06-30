@@ -8,7 +8,10 @@ public sealed class SqliteRideSource : IRideSource
 {
     private readonly IRidePathResolver _paths;
 
-    public SqliteRideSource(IRidePathResolver paths) => _paths = paths;
+    public SqliteRideSource(IRidePathResolver paths)
+    {
+        _paths = paths;
+    }
 
     public Task<RideData> LoadAsync(CancellationToken ct = default) =>
         Task.Run(() => Load(_paths.ResolveRideDb()), ct);
@@ -19,7 +22,11 @@ public sealed class SqliteRideSource : IRideSource
         using var conn = new SqliteConnection($"Data Source={dbPath};Mode=ReadOnly");
         conn.Open();
         var columns = new List<string>();
-        foreach (var c in LoadChannels(conn)) columns.Add(c.ColumnName);
+        foreach (var c in LoadChannels(conn))
+        {
+            columns.Add(c.ColumnName);
+        }
+
         return new SqliteSampleCursor(dbPath, columns);
     }
 
@@ -39,17 +46,31 @@ public sealed class SqliteRideSource : IRideSource
         string? latCol = null, lonCol = null;
         foreach (var c in channels)
         {
-            if (c.Widget == "map_lat") latCol = c.ColumnName;
-            if (c.Widget == "map_lon") lonCol = c.ColumnName;
+            if (c.Widget == "map_lat")
+            {
+                latCol = c.ColumnName;
+            }
+
+            if (c.Widget == "map_lon")
+            {
+                lonCol = c.ColumnName;
+            }
         }
 
-        if (latCol is null || lonCol is null) return null;
+        if (latCol is null || lonCol is null)
+        {
+            return null;
+        }
 
         using var cmd = conn.CreateCommand();
         cmd.CommandText =
             $"SELECT MIN(\"{latCol}\"), MIN(\"{lonCol}\"), MAX(\"{latCol}\"), MAX(\"{lonCol}\") FROM samples";
         using var r = cmd.ExecuteReader();
-        if (!r.Read() || r.IsDBNull(0)) return null; // empty samples table
+        if (!r.Read() || r.IsDBNull(0))
+        {
+            return null; // empty samples table
+        }
+
         return (r.GetDouble(0), r.GetDouble(1), r.GetDouble(2), r.GetDouble(3));
     }
 
@@ -77,7 +98,10 @@ public sealed class SqliteRideSource : IRideSource
         cmd.CommandText = "SELECT channel_id, code, label, severity FROM enum_values ORDER BY channel_id, code";
         using var r = cmd.ExecuteReader();
         while (r.Read())
+        {
             list.Add(new EnumValue(r.GetInt64(0), r.GetInt64(1), r.GetString(2), r.GetString(3)));
+        }
+
         return list;
     }
 

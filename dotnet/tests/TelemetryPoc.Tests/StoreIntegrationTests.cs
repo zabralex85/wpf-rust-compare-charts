@@ -22,7 +22,10 @@ public class StoreIntegrationTests
         Assert.Equal("table", inuMode2.Widget);
 
         const long emit = 1_700_000_000_000;
-        foreach (var s in samples) store.ApplyFrame(s, emit);
+        foreach (var s in samples)
+        {
+            store.ApplyFrame(s, emit);
+        }
 
         // latest reflects the last sample, aligned by channel index
         var rollIdx = channels.ToList().FindIndex(c => c.Id == roll.Id);

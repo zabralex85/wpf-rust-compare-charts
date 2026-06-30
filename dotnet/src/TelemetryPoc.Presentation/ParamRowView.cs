@@ -15,7 +15,9 @@ public static class ParamRowView
         IReadOnlyDictionary<(long, long), EnumValue> index)
     {
         if (latest is null)
+        {
             return new ParamRowDisplay("—", Dim, Dim, false);
+        }
 
         var text = ValueFormat.FormatValue(ch, latest.Value, index);
         string? severity = ch.Type == "enum"

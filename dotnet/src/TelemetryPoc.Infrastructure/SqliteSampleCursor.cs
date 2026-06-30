@@ -53,7 +53,11 @@ public sealed class SqliteSampleCursor : ISampleCursor
         if (_reader is not null && _reader.Read())
         {
             var values = new double[_channelCount];
-            for (int i = 0; i < _channelCount; i++) values[i] = _reader.GetDouble(i + 1);
+            for (int i = 0; i < _channelCount; i++)
+            {
+                values[i] = _reader.GetDouble(i + 1);
+            }
+
             _peek = new Sample(_reader.GetInt64(0), values);
         }
         else

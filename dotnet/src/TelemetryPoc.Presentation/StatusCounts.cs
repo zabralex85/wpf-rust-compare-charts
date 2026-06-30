@@ -12,10 +12,21 @@ public static class StatusCounts
         int alarms = 0;
         foreach (var ch in channels)
         {
-            if (ch.Type != "enum") continue;
+            if (ch.Type != "enum")
+            {
+                continue;
+            }
+
             var v = latest(ch.Id);
-            if (v is null) continue;
-            if (ValueFormat.DecodeEnum(ch.Id, v.Value, enumIndex)?.Severity == "critical") alarms++;
+            if (v is null)
+            {
+                continue;
+            }
+
+            if (ValueFormat.DecodeEnum(ch.Id, v.Value, enumIndex)?.Severity == "critical")
+            {
+                alarms++;
+            }
         }
         return (alarms, 0);
     }

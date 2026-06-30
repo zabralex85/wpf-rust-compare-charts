@@ -11,7 +11,10 @@ internal sealed class FakeSampleCursor : ISampleCursor
     private readonly IReadOnlyList<Sample> _samples;
     private int _next;
 
-    public FakeSampleCursor(IReadOnlyList<Sample> samples) => _samples = samples;
+    public FakeSampleCursor(IReadOnlyList<Sample> samples)
+    {
+        _samples = samples;
+    }
 
     public long? PeekTs => _next < _samples.Count ? _samples[_next].TsMs : null;
 
@@ -23,8 +26,14 @@ internal sealed class FakeSampleCursor : ISampleCursor
         while (lo < hi)
         {
             int mid = lo + (hi - lo) / 2;
-            if (_samples[mid].TsMs < rideMs) lo = mid + 1;
-            else hi = mid;
+            if (_samples[mid].TsMs < rideMs)
+            {
+                lo = mid + 1;
+            }
+            else
+            {
+                hi = mid;
+            }
         }
         _next = lo;
     }

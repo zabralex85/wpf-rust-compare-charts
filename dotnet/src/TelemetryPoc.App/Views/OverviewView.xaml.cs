@@ -4,5 +4,8 @@ namespace TelemetryPoc.App.Views;
 
 public partial class OverviewView : UserControl
 {
-    public OverviewView() => InitializeComponent();
+    public OverviewView()
+    {
+        InitializeComponent();
+    }
 }

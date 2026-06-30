@@ -32,8 +32,15 @@ public sealed class TransportViewModel : INotifyPropertyChanged
 
     public void TogglePlayPause()
     {
-        if (_session.IsPaused) _session.Resume();
-        else _session.Pause();
+        if (_session.IsPaused)
+        {
+            _session.Resume();
+        }
+        else
+        {
+            _session.Pause();
+        }
+
         Raise(nameof(IsPaused));
         Raise(nameof(PlayPauseGlyph));
     }
@@ -49,11 +56,17 @@ public sealed class TransportViewModel : INotifyPropertyChanged
         var store = _session.Store;
         var maxLen = 0;
         foreach (var ch in store.Channels)
+        {
             if (ch.Widget == "strip")
             {
                 var len = store.Series(ch.Id)?.Len ?? 0;
-                if (len > maxLen) maxLen = len;
+                if (len > maxLen)
+                {
+                    maxLen = len;
+                }
             }
+        }
+
         SamplesText = maxLen.ToString(CultureInfo.InvariantCulture);
 
         Raise(nameof(ClockText));
