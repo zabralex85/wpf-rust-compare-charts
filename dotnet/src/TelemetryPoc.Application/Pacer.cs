@@ -1,4 +1,4 @@
-namespace TelemetryPoc.Core;
+namespace TelemetryPoc.Application;
 
 public sealed class Pacer
 {

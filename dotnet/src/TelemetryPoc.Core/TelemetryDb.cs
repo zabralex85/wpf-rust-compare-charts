@@ -1,4 +1,5 @@
 using Microsoft.Data.Sqlite;
+using TelemetryPoc.Domain;
 
 namespace TelemetryPoc.Core;
 

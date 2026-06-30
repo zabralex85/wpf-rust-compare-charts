@@ -1,4 +1,6 @@
-namespace TelemetryPoc.Core;
+using TelemetryPoc.Domain;
+
+namespace TelemetryPoc.Application;
 
 public sealed class ReplayPlayer
 {

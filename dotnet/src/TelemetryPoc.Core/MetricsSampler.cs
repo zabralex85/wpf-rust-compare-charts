@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using TelemetryPoc.Domain;
 
 namespace TelemetryPoc.Core;
 

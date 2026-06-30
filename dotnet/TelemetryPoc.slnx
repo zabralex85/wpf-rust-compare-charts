@@ -2,6 +2,7 @@
   <Folder Name="/src/">
     <Project Path="src/TelemetryPoc.App/TelemetryPoc.App.csproj" />
     <Project Path="src/TelemetryPoc.App.Viz/TelemetryPoc.App.Viz.csproj" />
+    <Project Path="src/TelemetryPoc.Application/TelemetryPoc.Application.csproj" />
     <Project Path="src/TelemetryPoc.Core/TelemetryPoc.Core.csproj" />
     <Project Path="src/TelemetryPoc.Domain/TelemetryPoc.Domain.csproj" />
     <Project Path="src/TelemetryPoc.Map/TelemetryPoc.Map.csproj" />

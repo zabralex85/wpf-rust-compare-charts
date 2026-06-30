@@ -1,7 +1,8 @@
 using System;
 using TelemetryPoc.Core;
+using TelemetryPoc.Domain;
 
-namespace TelemetryPoc.App.Viz;
+namespace TelemetryPoc.Application;
 
 /// <summary>UI-free replay orchestration: owns the store, replay player, ride clock and
 /// the once-per-second metrics gate. Time is injected (wall-time delta + the current

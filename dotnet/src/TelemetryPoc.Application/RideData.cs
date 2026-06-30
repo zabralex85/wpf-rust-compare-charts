@@ -1,7 +1,7 @@
 using System.Collections.Generic;
-using TelemetryPoc.Core;
+using TelemetryPoc.Domain;
 
-namespace TelemetryPoc.App.Viz;
+namespace TelemetryPoc.Application;
 
 /// <summary>An entire loaded ride, ready to replay. Loading (sqlite, GPS-bounds
 /// computation) is the host's job; the engine only orchestrates this prepared data,
