@@ -31,4 +31,4 @@ public class MapProjectTests
 		Assert.Equal(32.2, maxLat, 6);
 		Assert.Equal(34.9, maxLon, 6);
 	}
-}
+}

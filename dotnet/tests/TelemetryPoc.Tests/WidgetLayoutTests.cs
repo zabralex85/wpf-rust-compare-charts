@@ -60,4 +60,4 @@ public class WidgetLayoutTests
 	[InlineData(3, 0.5, 2)]   // round(1.5)=2 away-from-zero
 	public void ZoomBy_clamps_1_to_8(int z, double f, int expected)
 		=> Assert.Equal(expected, WidgetLayout.ZoomBy(z, f));
-}
+}

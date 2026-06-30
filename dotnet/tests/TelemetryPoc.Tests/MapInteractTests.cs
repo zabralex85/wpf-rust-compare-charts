@@ -49,4 +49,4 @@ public class MapInteractTests
 		Assert.Equal(cx, sx, 1); // same screen pixel after zoom
 		Assert.Equal(cy, sy, 1);
 	}
-}
+}

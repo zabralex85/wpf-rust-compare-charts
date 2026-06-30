@@ -11,7 +11,11 @@ public partial class ParamPanel : UserControl
 
     private void OnRowDrag(object sender, MouseEventArgs e)
     {
-        if (e.LeftButton != MouseButtonState.Pressed) return;
+        if (e.LeftButton != MouseButtonState.Pressed)
+        {
+            return;
+        }
+
         if (sender is FrameworkElement fe && fe.DataContext is ParamRowViewModel row)
         {
             var data = new DataObject("inu-channel", row.ChannelId);

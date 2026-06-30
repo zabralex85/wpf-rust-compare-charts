@@ -78,4 +78,4 @@ public class MbTilesReaderTests : IDisposable
 			File.Delete(_path);
 		}
 	}
-}
+}

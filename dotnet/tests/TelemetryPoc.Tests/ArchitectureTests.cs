@@ -1,15 +1,14 @@
 using System.Reflection;
 using NetArchTest.Rules;
-using Xunit;
 
 namespace TelemetryPoc.Tests;
 
 public class ArchitectureTests
 {
-    private static readonly Assembly Domain = typeof(TelemetryPoc.Domain.TelemetryStore).Assembly;
-    private static readonly Assembly Application = typeof(TelemetryPoc.Application.RideEngine).Assembly;
-    private static readonly Assembly Infrastructure = typeof(TelemetryPoc.Infrastructure.SqliteRideSource).Assembly;
-    private static readonly Assembly Presentation = typeof(TelemetryPoc.Presentation.GaugeViz).Assembly;
+    private static readonly Assembly Domain = typeof(Domain.TelemetryStore).Assembly;
+    private static readonly Assembly Application = typeof(Application.RideEngine).Assembly;
+    private static readonly Assembly Infrastructure = typeof(Infrastructure.SqliteRideSource).Assembly;
+    private static readonly Assembly Presentation = typeof(Presentation.GaugeViz).Assembly;
 
     [Fact]
     public void Domain_depends_on_nothing_outward()
@@ -20,7 +19,7 @@ public class ArchitectureTests
                 "TelemetryPoc.Presentation", "TelemetryPoc.App",
                 "Microsoft.Data.Sqlite", "SkiaSharp", "PresentationFramework")
             .GetResult();
-        Assert.True(result.IsSuccessful, string.Join(", ", result.FailingTypeNames ?? new System.Collections.Generic.List<string>()));
+        Assert.True(result.IsSuccessful, string.Join(", ", result.FailingTypeNames ?? []));
     }
 
     [Fact]
@@ -30,7 +29,7 @@ public class ArchitectureTests
             .Should().NotHaveDependencyOnAny(
                 "TelemetryPoc.Infrastructure", "TelemetryPoc.Presentation", "TelemetryPoc.App")
             .GetResult();
-        Assert.True(result.IsSuccessful, string.Join(", ", result.FailingTypeNames ?? new System.Collections.Generic.List<string>()));
+        Assert.True(result.IsSuccessful, string.Join(", ", result.FailingTypeNames ?? []));
     }
 
     [Fact]
@@ -39,7 +38,7 @@ public class ArchitectureTests
         var result = Types.InAssembly(Infrastructure)
             .Should().NotHaveDependencyOnAny("TelemetryPoc.Presentation", "TelemetryPoc.App", "PresentationFramework")
             .GetResult();
-        Assert.True(result.IsSuccessful, string.Join(", ", result.FailingTypeNames ?? new System.Collections.Generic.List<string>()));
+        Assert.True(result.IsSuccessful, string.Join(", ", result.FailingTypeNames ?? []));
     }
 
     [Fact]
@@ -48,6 +47,6 @@ public class ArchitectureTests
         var result = Types.InAssembly(Presentation)
             .Should().NotHaveDependencyOnAny("TelemetryPoc.Infrastructure", "TelemetryPoc.App", "PresentationFramework")
             .GetResult();
-        Assert.True(result.IsSuccessful, string.Join(", ", result.FailingTypeNames ?? new System.Collections.Generic.List<string>()));
+        Assert.True(result.IsSuccessful, string.Join(", ", result.FailingTypeNames ?? []));
     }
 }

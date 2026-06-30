@@ -1,4 +1,3 @@
-using System;
 using TelemetryPoc.Domain;
 
 namespace TelemetryPoc.Application;

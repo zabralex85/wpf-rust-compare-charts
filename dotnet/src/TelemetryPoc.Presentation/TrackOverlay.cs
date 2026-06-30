@@ -8,7 +8,10 @@ public static class TrackOverlay
     public static void Draw(SKCanvas canvas, Region region, IReadOnlyList<double> lat, IReadOnlyList<double> lon)
     {
         int n = Math.Min(lat.Count, lon.Count);
-        if (n == 0) return;
+        if (n == 0)
+		{
+			return;
+		}
 
         using var line = new SKPaint
         {
@@ -21,12 +24,20 @@ public static class TrackOverlay
         };
 
         using var path = new SKPath();
+
         for (int i = 0; i < n; i++)
         {
             var (x, y) = MapProject.GpsToScreen(region, lat[i], lon[i]);
-            if (i == 0) path.MoveTo((float)x, (float)y);
-            else path.LineTo((float)x, (float)y);
-        }
+            if (i == 0)
+			{
+				path.MoveTo((float)x, (float)y);
+			}
+			else
+			{
+				path.LineTo((float)x, (float)y);
+			}
+		}
+
         canvas.DrawPath(path, line);
 
         using var marker = new SKPaint

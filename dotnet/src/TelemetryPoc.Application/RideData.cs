@@ -1,4 +1,3 @@
-using System.Collections.Generic;
 using TelemetryPoc.Domain;
 
 namespace TelemetryPoc.Application;

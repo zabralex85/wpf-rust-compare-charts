@@ -35,4 +35,4 @@ public class StatusCountsTests
 		var (alarms, _) = StatusCounts.Compute(channels, _ => 0.0, idx);
 		Assert.Equal(0, alarms);
 	}
-}
+}

@@ -1,5 +1,5 @@
 // dotnet/src/TelemetryPoc.App/RideSession.cs
-using System;
+
 using System.Diagnostics;
 using System.Windows.Threading;
 using Microsoft.Extensions.Logging;
@@ -77,7 +77,11 @@ public sealed class RideSession : IDisposable
         var elapsed = _sw.ElapsedMilliseconds;
         var delta = elapsed - _lastElapsed;
         _lastElapsed = elapsed;
-        if (_engine!.Advance(delta, _clock.UtcNowUnixMs, _speed)) Ticked?.Invoke();
+
+        if (_engine!.Advance(delta, _clock.UtcNowUnixMs, _speed))
+        {
+            Ticked?.Invoke();
+        }
     }
 
     public void Pause() => _engine?.Pause();
