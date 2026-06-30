@@ -13,7 +13,7 @@ public class MapStyleTests
 	{
 		var ids = MapStyle.Layers.Select(l => l.Id).ToArray();
 		Assert.Equal(
-			new[] { "water", "landcover", "landuse", "transportation-casing", "transportation", "building" },
+			["water", "landcover", "landuse", "transportation-casing", "transportation", "building"],
 			ids);
 	}
 

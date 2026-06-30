@@ -9,11 +9,11 @@ public class ParamRowViewTests
 	private static ChannelMeta Enum(long id, string col)
 		=> new(id, col.ToUpperInvariant(), col, "", "enum", 0, 1, "table", 1, "I_01");
 
-	private static readonly IReadOnlyDictionary<(long, long), EnumValue> Idx = ValueFormat.BuildEnumIndex(new[]
-	{
+	private static readonly IReadOnlyDictionary<(long, long), EnumValue> Idx = ValueFormat.BuildEnumIndex(
+	[
 		new EnumValue(7, 0, "Normal", "ok"),
 		new EnumValue(7, 1, "Critical", "critical"),
-	});
+	]);
 
 	[Fact]
 	public void Null_latest_is_dash_dim()

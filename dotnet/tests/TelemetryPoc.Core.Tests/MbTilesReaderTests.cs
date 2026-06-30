@@ -73,6 +73,9 @@ public class MbTilesReaderTests : IDisposable
 	public void Dispose()
 	{
 		SqliteConnection.ClearAllPools(); // release the file handle before delete
-		if (File.Exists(_path)) File.Delete(_path);
+		if (File.Exists(_path))
+		{
+			File.Delete(_path);
+		}
 	}
 }

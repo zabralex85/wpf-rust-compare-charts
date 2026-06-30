@@ -6,7 +6,7 @@ public class NearestSampleTests
 {
 	[Fact]
 	public void Empty_returns_minus_one()
-		=> Assert.Equal(-1, NearestSample.IndexOf(Array.Empty<double>(), 5));
+		=> Assert.Equal(-1, NearestSample.IndexOf([], 5));
 
 	[Theory]
 	[InlineData(2.4, 2)]   // closest to xs[2]=2

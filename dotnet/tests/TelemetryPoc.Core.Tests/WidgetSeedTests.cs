@@ -5,7 +5,7 @@ namespace TelemetryPoc.Core.Tests;
 public class WidgetSeedTests
 {
 	private static ChannelMeta Ch(int id, string widget, string name = "n", string unit = "u")
-		=> new ChannelMeta(id, name, $"col{id}", unit, "f64", 0, 100, widget, id, "0x0");
+		=> new(id, name, $"col{id}", unit, "f64", 0, 100, widget, id, "0x0");
 
 	[Fact]
 	public void Seeds_map_gauges_and_lines_with_expected_sizes()

@@ -26,9 +26,9 @@ public class ParamGroupingTests
 		};
 		var groups = ParamGrouping.Group(channels);
 		// ORDER: INU Mode before Attitude before Acceleration; empty groups dropped
-		Assert.Equal(new[] { "INU Mode", "Attitude", "Acceleration" }, groups.Select(g => g.Name).ToArray());
+		Assert.Equal(["INU Mode", "Attitude", "Acceleration"], groups.Select(g => g.Name).ToArray());
 		// Attitude sorted by DisplayOrder: pitch(2) before roll(3)
-		Assert.Equal(new[] { "pitch", "roll" }, groups[1].Channels.Select(c => c.ColumnName).ToArray());
+		Assert.Equal(["pitch", "roll"], groups[1].Channels.Select(c => c.ColumnName).ToArray());
 	}
 
 	[Fact]

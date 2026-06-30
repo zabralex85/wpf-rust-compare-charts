@@ -23,7 +23,11 @@ public class RidePathsTests
 	[Fact]
 	public void Prefers_ride_db_over_ride_small_db_in_same_dir()
 	{
-		bool Exists(string p) => p == @"C:\repo\data\ride.db" || p == @"C:\repo\data\ride_small.db";
+		static bool Exists(string p)
+		{
+			return p == @"C:\repo\data\ride.db" || p == @"C:\repo\data\ride_small.db";
+		}
+
 		var r = RidePaths.Resolve(null, @"C:\repo\dotnet", Exists);
 		Assert.Equal(@"C:\repo\data\ride.db", r);
 	}

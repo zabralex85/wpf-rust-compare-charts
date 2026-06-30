@@ -4,7 +4,7 @@ namespace TelemetryPoc.Core.Tests;
 
 public class MapInteractTests
 {
-	private static Region R() => new Region(32.08, 34.78, 12, 400, 300);
+	private static Region R() => new(32.08, 34.78, 12, 400, 300);
 
 	[Fact]
 	public void Pan_right_moves_center_west()
