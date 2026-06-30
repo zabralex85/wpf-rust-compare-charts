@@ -14,10 +14,10 @@ public sealed class MbTilesTileSource : ITileSource
 
     public MbTilesTileSource(string? path)
     {
-        if (path is not null && File.Exists(path))
+        if (!string.IsNullOrWhiteSpace(path) && File.Exists(path))
         {
-            _conn = new SqliteConnection($"Data Source={path};Mode=ReadOnly");
-            _conn.Open();
+            try { _conn = new SqliteConnection($"Data Source={path};Mode=ReadOnly"); _conn.Open(); }
+            catch { _conn?.Dispose(); _conn = null; }
         }
     }
 

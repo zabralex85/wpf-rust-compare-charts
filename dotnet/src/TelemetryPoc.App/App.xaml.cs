@@ -24,11 +24,14 @@ public partial class App
         var builder = Host.CreateApplicationBuilder();
 
         // Config: appsettings + env (RIDE_DB / RIDE_SPEED / RIDE_MBTILES → RideOptions)
+        var speedEnv = Environment.GetEnvironmentVariable("RIDE_SPEED");
+        var speed = double.TryParse(speedEnv, System.Globalization.NumberStyles.Float,
+            System.Globalization.CultureInfo.InvariantCulture, out var sp) ? sp.ToString(System.Globalization.CultureInfo.InvariantCulture) : null;
         builder.Configuration.AddInMemoryCollection(new System.Collections.Generic.Dictionary<string, string?>
         {
             ["Ride:DbPath"] = Environment.GetEnvironmentVariable("RIDE_DB"),
             ["Ride:MbTilesPath"] = Environment.GetEnvironmentVariable("RIDE_MBTILES"),
-            ["Ride:Speed"] = Environment.GetEnvironmentVariable("RIDE_SPEED"),
+            ["Ride:Speed"] = speed,
         });
         builder.Services.Configure<RideOptions>(builder.Configuration.GetSection("Ride"));
         builder.Services.AddSingleton(sp => sp.GetRequiredService<IOptions<RideOptions>>().Value);
@@ -36,8 +39,8 @@ public partial class App
         builder.Logging.AddDebug();
 
         // Ports → adapters
-        builder.Services.AddSingleton<IRidePathResolver>(_ =>
-            new RidePathResolver(AppContext.BaseDirectory, File.Exists));
+        builder.Services.AddSingleton<IRidePathResolver>(sp =>
+            new RidePathResolver(sp.GetRequiredService<RideOptions>(), AppContext.BaseDirectory, File.Exists));
         builder.Services.AddSingleton<IRideSource, SqliteRideSource>();
         builder.Services.AddSingleton<IMetricsSampler, SysInfoMetricsSampler>();
         builder.Services.AddSingleton<ISystemClock, SystemClock>();

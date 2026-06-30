@@ -6,37 +6,40 @@ namespace TelemetryPoc.Infrastructure;
 
 public sealed class RidePathResolver : IRidePathResolver
 {
-    private readonly Func<string, bool> _exists;
+    private readonly RideOptions _options;
     private readonly string _baseDir;
+    private readonly Func<string, bool> _exists;
 
-    public RidePathResolver(string baseDir, Func<string, bool> exists)
+    public RidePathResolver(RideOptions options, string baseDir, Func<string, bool> exists)
     {
+        _options = options;
         _baseDir = baseDir;
         _exists = exists;
     }
 
     public string ResolveRideDb()
     {
-        var env = Environment.GetEnvironmentVariable("RIDE_DB");
-        if (!string.IsNullOrWhiteSpace(env)) return env;
-        return WalkUp("data", "ride.db") ?? WalkUp("data", "ride_small.db")
-            ?? Path.Combine(_baseDir, "data", "ride.db");
+        if (!string.IsNullOrWhiteSpace(_options.DbPath) && _exists(_options.DbPath!)) return _options.DbPath!;
+        return WalkUp("data", "ride.db", "ride_small.db") ?? Path.Combine(_baseDir, "data", "ride.db");
     }
 
     public string? ResolveMbTiles()
     {
-        var env = Environment.GetEnvironmentVariable("RIDE_MBTILES");
-        if (!string.IsNullOrWhiteSpace(env) && _exists(env)) return env;
+        if (!string.IsNullOrWhiteSpace(_options.MbTilesPath) && _exists(_options.MbTilesPath!)) return _options.MbTilesPath;
         return WalkUp("tiles", "israel.mbtiles");
     }
 
-    private string? WalkUp(string dir, string file)
+    // Checks each candidate file within a directory before ascending (interleaved, matching the original).
+    private string? WalkUp(string dir, params string[] files)
     {
         var d = new DirectoryInfo(_baseDir);
         while (d is not null)
         {
-            var p = Path.Combine(d.FullName, dir, file);
-            if (_exists(p)) return p;
+            foreach (var file in files)
+            {
+                var p = Path.Combine(d.FullName, dir, file);
+                if (_exists(p)) return p;
+            }
             d = d.Parent;
         }
         return null;
