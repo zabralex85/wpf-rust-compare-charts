@@ -54,4 +54,4 @@ public class ParamRowViewTests
 		Assert.Equal("#FFFF4D52", d.DotColor);
 		Assert.True(d.Critical);
 	}
-}
+}

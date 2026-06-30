@@ -60,4 +60,4 @@ public class FpsMeterTests
 	{
 		Assert.Equal(75, HudMetrics.LatencyMs(1000, 1075));
 	}
-}
+}

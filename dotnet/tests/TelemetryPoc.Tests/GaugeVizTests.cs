@@ -38,4 +38,4 @@ public class GaugeVizTests
 		var g = GaugeViz.Compute(-100);
 		Assert.Equal(-67.5, g.AngleDeg, 6);
 	}
-}
+}

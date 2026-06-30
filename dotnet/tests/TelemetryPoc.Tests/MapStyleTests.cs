@@ -38,4 +38,4 @@ public class MapStyleTests
 		Assert.Equal("#5b6470", road.ColorHex);
 		Assert.True(casing.Width > road.Width); // casing is wider
 	}
-}
+}

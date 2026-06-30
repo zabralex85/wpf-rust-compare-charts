@@ -40,4 +40,4 @@ public class ParamGroupingTests
 		Assert.Equal("#FF566273", Severity.Hex(null));
 		Assert.Equal("#FF566273", Severity.Hex("whatever"));
 	}
-}
+}

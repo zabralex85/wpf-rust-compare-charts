@@ -28,4 +28,4 @@ public class TileProjectTests
 		Assert.Equal(70.0, x, 6);
 		Assert.Equal(80.0, y, 6);
 	}
-}
+}

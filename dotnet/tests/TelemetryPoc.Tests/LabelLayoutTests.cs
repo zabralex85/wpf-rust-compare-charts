@@ -16,4 +16,4 @@ public class LabelLayoutTests
 		var placed = LabelLayout.Place(cands);
 		Assert.Equal(["A", "C"], placed.Select(p => p.Text).ToArray());
 	}
-}
+}

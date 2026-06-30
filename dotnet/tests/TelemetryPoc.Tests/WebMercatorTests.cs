@@ -59,4 +59,4 @@ public class WebMercatorTests
 		Assert.Equal(lon, lon2, 4);
 		Assert.Equal(lat, lat2, 4);
 	}
-}
+}

@@ -12,4 +12,4 @@ public class LineAxisTests
 	[InlineData(12.9, "0:12")]
 	[InlineData(-3.0, "0:00")]
 	public void FormatElapsed_is_m_ss(double sec, string s) => Assert.Equal(s, LineAxis.FormatElapsed(sec));
-}
+}

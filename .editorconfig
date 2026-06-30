@@ -1,0 +1,25 @@
+root = true
+
+# Baseline for all text files: spaces, UTF-8, tidy endings.
+[*]
+charset = utf-8
+indent_style = space
+trim_trailing_whitespace = true
+insert_final_newline = true
+
+# .NET / WPF sources use CRLF line endings + 4-space indent.
+[*.cs]
+indent_size = 4
+end_of_line = crlf
+
+[*.{xaml,csproj,slnx,props,targets,ruleset}]
+indent_size = 2
+end_of_line = crlf
+
+[dotnet/**.json]
+indent_size = 2
+end_of_line = crlf
+
+# Cross-platform scripts must stay LF (CRLF breaks bash).
+[*.sh]
+end_of_line = lf

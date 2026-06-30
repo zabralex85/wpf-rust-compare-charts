@@ -25,4 +25,4 @@ public class MissionClockShortTests
 	[InlineData(5000, "0:00:05")]
 	[InlineData(3_661_000, "1:01:01")]
 	public void FormatShort_is_h_mm_ss(long ms, string s) => Assert.Equal(s, MissionClock.FormatShort(ms));
-}
+}
