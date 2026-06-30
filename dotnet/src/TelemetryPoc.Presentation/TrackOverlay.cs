@@ -1,6 +1,7 @@
 using SkiaSharp;
+using TelemetryPoc.Domain;
 
-namespace TelemetryPoc.Map;
+namespace TelemetryPoc.Presentation;
 
 public static class TrackOverlay
 {

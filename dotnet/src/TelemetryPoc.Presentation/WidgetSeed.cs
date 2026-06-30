@@ -1,6 +1,6 @@
-using TelemetryPoc.Core;
+using TelemetryPoc.Domain;
 
-namespace TelemetryPoc.App.Viz;
+namespace TelemetryPoc.Presentation;
 
 /// <summary>Builds the initial widget layout from channel metadata, mirroring the
 /// Rust app's layout.ts: a 4×4 map (if lat+lon exist), a 1×1 gauge per gauge

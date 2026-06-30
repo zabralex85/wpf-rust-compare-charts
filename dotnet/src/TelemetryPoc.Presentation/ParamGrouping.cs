@@ -1,6 +1,6 @@
-using TelemetryPoc.Core;
+using TelemetryPoc.Domain;
 
-namespace TelemetryPoc.App.Viz;
+namespace TelemetryPoc.Presentation;
 
 public sealed record ParamGroup(string Name, IReadOnlyList<ChannelMeta> Channels);
 

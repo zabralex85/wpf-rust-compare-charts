@@ -1,4 +1,4 @@
-namespace TelemetryPoc.App.Viz;
+namespace TelemetryPoc.Presentation;
 
 public sealed record GaugeVizResult(double AngleDeg, string Min, string Q1, string Q3, string Max, string ValueText);
 

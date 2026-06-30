@@ -1,4 +1,4 @@
-namespace TelemetryPoc.App.Viz;
+namespace TelemetryPoc.Presentation;
 
 /// <summary>Finds the sample index whose X is closest to a target (hover lookup).
 /// Assumes xs is non-decreasing (time series).</summary>

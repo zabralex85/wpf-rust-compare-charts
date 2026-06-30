@@ -1,6 +1,6 @@
 using System.Globalization;
 
-namespace TelemetryPoc.App.Viz;
+namespace TelemetryPoc.Presentation;
 
 public static class GaugeFormat
 {

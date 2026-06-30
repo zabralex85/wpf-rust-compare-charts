@@ -1,4 +1,4 @@
-namespace TelemetryPoc.App.Viz;
+namespace TelemetryPoc.Presentation;
 
 public enum WidgetKind { Gauge, Line, Map }
 

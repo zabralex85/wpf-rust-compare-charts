@@ -1,6 +1,6 @@
-using TelemetryPoc.Core;
+using TelemetryPoc.Domain;
 
-namespace TelemetryPoc.App.Viz;
+namespace TelemetryPoc.Presentation;
 
 public static class StatusCounts
 {

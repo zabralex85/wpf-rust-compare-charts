@@ -7,6 +7,6 @@
     <Project Path="src/TelemetryPoc.Presentation/TelemetryPoc.Presentation.csproj" />
   </Folder>
   <Folder Name="/tests/">
-    <Project Path="tests/TelemetryPoc.Core.Tests/TelemetryPoc.Core.Tests.csproj" />
+    <Project Path="tests/TelemetryPoc.Tests/TelemetryPoc.Tests.csproj" />
   </Folder>
 </Solution>

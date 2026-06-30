@@ -1,6 +1,6 @@
-using TelemetryPoc.Core;
+using TelemetryPoc.Domain;
 
-namespace TelemetryPoc.App.Viz;
+namespace TelemetryPoc.Presentation;
 
 public sealed record ParamRowDisplay(string Text, string ValueColor, string DotColor, bool Critical);
 

@@ -1,17 +1,19 @@
 using SkiaSharp;
+using TelemetryPoc.Application;
+using TelemetryPoc.Domain;
 
-namespace TelemetryPoc.Map;
+namespace TelemetryPoc.Presentation;
 
 public static class BasemapRenderer
 {
-    public static void Render(SKCanvas canvas, Region region, MbTilesReader reader)
+    public static void Render(SKCanvas canvas, Region region, ITileSource tiles)
     {
         canvas.Clear(SKColor.Parse(MapStyle.BackgroundHex));
 
         var decoded = new List<(TileRef Tile, IReadOnlyList<MapFeature> Feats)>();
         foreach (var t in TileMath.VisibleTiles(region))
         {
-            var feats = reader.Decoded(t.Z, t.X, t.Y); // memoised read+gunzip+decode
+            var feats = tiles.Decoded(t.Z, t.X, t.Y); // memoised read+gunzip+decode
             if (feats is not null) decoded.Add((t, feats));
         }
 
