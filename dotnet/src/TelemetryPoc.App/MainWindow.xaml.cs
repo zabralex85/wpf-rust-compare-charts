@@ -7,20 +7,20 @@ namespace TelemetryPoc.App;
 
 public partial class MainWindow : Window
 {
-    private readonly RideSession _session = new();
+    private readonly RideSession _session;
 
-    public MainWindow()
+    public MainWindow(RideSession session, TopBarViewModel topBar, OverviewViewModel overview,
+        TransportViewModel transport, HudViewModel hud)
     {
         InitializeComponent();
-        TopBar.DataContext = new TopBarViewModel(_session);
-        Overview.DataContext = new OverviewViewModel(_session);
-        Transport.DataContext = new TransportViewModel(_session);
-        Hud.DataContext = new HudViewModel(_session);
-        Loaded += (_, _) => _session.Start();
-        // A WindowStyle=None window maximizes over the whole screen, hiding the taskbar
-        // AND clipping our own footer off the bottom. Clamp the maximized size to the
-        // monitor work area via WM_GETMINMAXINFO so the footer stays visible.
-        SourceInitialized += OnSourceInitialized;
+        _session = session;
+        TopBar.DataContext = topBar;
+        Overview.DataContext = overview;
+        Transport.DataContext = transport;
+        Hud.DataContext = hud;
+        Loaded += (_, _) => _session.StartAsync();
+        Closed += (_, _) => _session.Dispose();
+        SourceInitialized += OnSourceInitialized; // keep the WM_GETMINMAXINFO hook
     }
 
     private void OnSourceInitialized(object? sender, EventArgs e)
