@@ -47,11 +47,12 @@ Domain (net8.0)                  → (nothing)
 - Telemetry: `Models` (`ChannelMeta`, `EnumValue`, `Sample`, `RideMeta`, `Metrics`),
   `TelemetryStore` (aggregate root), `ChannelSeries` (windowed buffer), `RideClock`
   (replay clock), `Severity` (value/band → severity classification rule).
-- Map (pure math/decode): `Region`, `MapFeature`, `WebMercator`, `MapProject`,
-  `TileMath`, `TileProject`, `MvtBasemap` (protobuf decode → features), `MapStyle`,
-  `MapInteract`, `LabelLayout`.
+- Map (pure math/geometry): `Region`, `MapFeature`, `WebMercator`, `MapProject`,
+  `TileMath`, `TileProject`, `MapStyle`, `MapInteract`, `LabelLayout`.
 
-No reference to SkiaSharp, sqlite, WPF, or any outer ring.
+No reference to SkiaSharp, sqlite, `Mapbox.VectorTile`, WPF, or any outer ring.
+(`MvtBasemap` — the protobuf MVT decode — needs `Mapbox.VectorTile`, so it lives in
+Infrastructure inside `MbTilesTileSource`, not in Domain.)
 
 ### TelemetryPoc.Application (use cases + ports)
 
@@ -71,7 +72,8 @@ References Domain only.
 - `SqliteRideSource : IRideSource` — the current `TelemetryDb` load logic (channels /
   enums / samples / meta) plus GPS-bounds computation via `Domain.MapProject`.
 - `SysInfoMetricsSampler : IMetricsSampler` — the current `MetricsSampler`.
-- `MbTilesTileSource : ITileSource` — the current `MbTilesReader` (cached decode).
+- `MbTilesTileSource : ITileSource` — the current `MbTilesReader` + `MvtBasemap` decode
+  (cached read + gunzip + MVT-decode → Domain `MapFeature`s); uses `Mapbox.VectorTile`.
 - `SystemClock : ISystemClock` — wraps `DateTimeOffset.UtcNow`.
 - `RidePathResolver : IRidePathResolver` — the current `RidePaths` logic, reading
   `RideOptions`.
