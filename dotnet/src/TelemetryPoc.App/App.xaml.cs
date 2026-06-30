@@ -22,16 +22,21 @@ public partial class App
         base.OnStartup(e);
         var builder = Host.CreateApplicationBuilder();
 
-        // Config: appsettings + env (RIDE_DB / RIDE_SPEED / RIDE_MBTILES → RideOptions)
+        // Config source is appsettings.json (the "Ride" section). Env vars (RIDE_DB /
+        // RIDE_MBTILES / RIDE_SPEED) are optional OVERRIDES — only applied when actually
+        // set, so an unset env never clobbers the appsettings value with null.
+        var overrides = new Dictionary<string, string?>();
+        var dbEnv = Environment.GetEnvironmentVariable("RIDE_DB");
+        if (!string.IsNullOrWhiteSpace(dbEnv)) overrides["Ride:DbPath"] = dbEnv;
+        var mbEnv = Environment.GetEnvironmentVariable("RIDE_MBTILES");
+        if (!string.IsNullOrWhiteSpace(mbEnv)) overrides["Ride:MbTilesPath"] = mbEnv;
         var speedEnv = Environment.GetEnvironmentVariable("RIDE_SPEED");
-        var speed = double.TryParse(speedEnv, System.Globalization.NumberStyles.Float,
-            System.Globalization.CultureInfo.InvariantCulture, out var sp) ? sp.ToString(System.Globalization.CultureInfo.InvariantCulture) : null;
-        builder.Configuration.AddInMemoryCollection(new Dictionary<string, string?>
+        if (double.TryParse(speedEnv, System.Globalization.NumberStyles.Float,
+            System.Globalization.CultureInfo.InvariantCulture, out var sp))
         {
-            ["Ride:DbPath"] = Environment.GetEnvironmentVariable("RIDE_DB"),
-            ["Ride:MbTilesPath"] = Environment.GetEnvironmentVariable("RIDE_MBTILES"),
-            ["Ride:Speed"] = speed,
-        });
+            overrides["Ride:Speed"] = sp.ToString(System.Globalization.CultureInfo.InvariantCulture);
+        }
+        if (overrides.Count > 0) builder.Configuration.AddInMemoryCollection(overrides);
         builder.Services.Configure<RideOptions>(builder.Configuration.GetSection("Ride"));
         builder.Services.AddSingleton(sp => sp.GetRequiredService<IOptions<RideOptions>>().Value);
 

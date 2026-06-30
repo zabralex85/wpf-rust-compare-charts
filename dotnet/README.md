@@ -38,11 +38,27 @@ From the project root:
 dotnet run --project dotnet/src/TelemetryPoc.App
 ```
 
-### Environment variables
+### Settings (`appsettings.json`)
 
-- `RIDE_DB` — path to the ride database. If unset/missing, the app walks up from the executable dir for `data/ride.db`, then `data/ride_small.db`. (Use an absolute path to be safe.)
-- `RIDE_SPEED` — replay speed multiplier (default `1.0`).
-- `RIDE_MBTILES` — path to the offline map tileset. If unset, the app walks up from the executable dir for `tiles/israel.mbtiles`.
+The app is configured from the `Ride` section of `appsettings.json` — so a plain
+`dotnet run` / F5 just works (no environment variables needed):
+
+```json
+"Ride": {
+  "Speed": 5.0,        // replay speed multiplier
+  "DbPath": "",        // ride DB; empty → walk up for data/ride.db, then data/ride_small.db
+  "MbTilesPath": ""    // offline tileset; empty → walk up for tiles/israel.mbtiles
+}
+```
+
+### Environment variables (optional overrides)
+
+Each setting can be overridden at launch; an unset variable leaves the
+`appsettings.json` value untouched:
+
+- `RIDE_DB` → `Ride:DbPath`
+- `RIDE_SPEED` → `Ride:Speed`
+- `RIDE_MBTILES` → `Ride:MbTilesPath`
 
 ```bash
 RIDE_SPEED=5 dotnet run --project dotnet/src/TelemetryPoc.App
