@@ -50,6 +50,12 @@ public partial class App : global::Avalonia.Application
             {
                 overrides["Ride:Speed"] = sp.ToString(CultureInfo.InvariantCulture);
             }
+
+            var capEnv = Environment.GetEnvironmentVariable("RIDE_FPS_CAP");
+            if (int.TryParse(capEnv, NumberStyles.Integer, CultureInfo.InvariantCulture, out var cap))
+            {
+                overrides["Ride:FpsCap"] = cap.ToString(CultureInfo.InvariantCulture);
+            }
             if (overrides.Count > 0)
             {
                 builder.Configuration.AddInMemoryCollection(overrides);
@@ -82,6 +88,10 @@ public partial class App : global::Avalonia.Application
 
             _host = builder.Build();
             _host.Start();
+
+            // Push the resolved frame cap to the FrameClock (XAML-constructed, no DI) before the
+            // window's visual tree is built. 0 = uncapped (default).
+            Controls.FrameClock.CapHz = _host.Services.GetRequiredService<RideOptions>().FpsCap;
 
             desktop.MainWindow = _host.Services.GetRequiredService<MainWindow>();
             desktop.ShutdownRequested += (_, _) => _host?.Dispose();

@@ -11,6 +11,14 @@ public sealed class TransportViewModel : INotifyPropertyChanged
     {
         _session = session;
         _session.Ticked += Refresh;
+        // The engine loads async and starts playing, but IsPaused isn't re-read after that —
+        // so the button stayed on the ▶ (paused) icon while replay was actually running.
+        // Re-raise it once meta lands so the glyph reflects the real playing state.
+        _session.MetaLoaded += () =>
+        {
+            Raise(nameof(IsPaused));
+            Raise(nameof(PlayPauseGlyph));
+        };
     }
 
     public string ClockText => MissionClock.Format(_session.RideMs);
