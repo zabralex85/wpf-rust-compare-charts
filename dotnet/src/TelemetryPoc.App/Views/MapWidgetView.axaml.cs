@@ -95,6 +95,11 @@ public partial class MapWidgetView : UserControl
 
     private void OnDown(object? sender, PointerPressedEventArgs e)
     {
+        if (!e.GetCurrentPoint(Skia).Properties.IsLeftButtonPressed)
+        {
+            return;
+        }
+
         // ---- original OnDown body ----
         if (_vm?.Region is not null)
         {

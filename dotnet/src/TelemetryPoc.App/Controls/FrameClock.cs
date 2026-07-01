@@ -40,9 +40,10 @@ public sealed class FrameClock : Control
     {
         base.Render(context);
         Rendering?.Invoke(this, _sw.Elapsed);
-        // Schedule the next frame. Background priority yields to input/layout so this
-        // ticks at the compositor's pace instead of spinning the CPU.
+        // Schedule the next frame. Render priority ticks at the compositor's pace
+        // (true frame rate) instead of Background, which can be starved by
+        // input/layout work and undercount FPS.
         if (_attached)
-            Dispatcher.UIThread.Post(InvalidateVisual, DispatcherPriority.Background);
+            Dispatcher.UIThread.Post(InvalidateVisual, DispatcherPriority.Render);
     }
 }

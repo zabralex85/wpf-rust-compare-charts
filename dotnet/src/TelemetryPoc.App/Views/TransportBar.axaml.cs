@@ -23,6 +23,11 @@ public partial class TransportBar : UserControl
             return;
         }
 
+        if (!e.GetCurrentPoint(track).Properties.IsLeftButtonPressed)
+        {
+            return;
+        }
+
         if (DataContext is not TransportViewModel vm)
         {
             return;
