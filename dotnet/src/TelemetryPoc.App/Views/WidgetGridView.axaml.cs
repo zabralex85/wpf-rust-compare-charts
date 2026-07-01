@@ -204,31 +204,39 @@ public partial class WidgetGridView : UserControl
     private static WidgetViewModel? Widget(object? sender)
         => (sender as Control)?.DataContext as WidgetViewModel;
 
-    private void OnZoomIn(object? sender, RoutedEventArgs e) => Zoom(sender, 2.0);
-    private void OnZoomOut(object? sender, RoutedEventArgs e) => Zoom(sender, 0.5);
-    private void OnZoomReset(object? sender, RoutedEventArgs e)
+    // Zoom menu built + opened in code-behind rather than as a XAML ContentControl.ContextMenu:
+    // an Avalonia ContextMenu popup does not reliably inherit the owner's DataContext, so a
+    // {Binding IsLine}/{Binding} inside it evaluated to null and the menu never showed. Here the
+    // widget comes straight from the ContentControl's DataContext (normal tree inheritance), and
+    // each item captures that widget directly — no popup-DataContext dependency. Only line charts
+    // get the menu; gauges/map get nothing.
+    private void OnWidgetContextRequested(object? sender, ContextRequestedEventArgs e)
     {
-        if (MenuWidget(sender) is { Content: LineChartViewModel l }) { l.ResetZoom(); }
+        if ((sender as Control)?.DataContext is not WidgetViewModel w || !w.IsLine)
+        {
+            return;
+        }
+
+        var menu = new ContextMenu();
+        var zoomIn = new MenuItem { Header = "Zoom in" };
+        zoomIn.Click += (_, _) => ZoomWidget(w, 2.0);
+        var zoomOut = new MenuItem { Header = "Zoom out" };
+        zoomOut.Click += (_, _) => ZoomWidget(w, 0.5);
+        var reset = new MenuItem { Header = "Reset" };
+        reset.Click += (_, _) => { if (w.Content is LineChartViewModel l) { l.ResetZoom(); } };
+        menu.Items.Add(zoomIn);
+        menu.Items.Add(zoomOut);
+        menu.Items.Add(reset);
+        menu.Open(sender as Control);
+        e.Handled = true;
     }
 
-    private void Zoom(object? sender, double factor)
+    private void ZoomWidget(WidgetViewModel w, double factor)
     {
-        if (DataContext is DashboardViewModel dvm && MenuWidget(sender) is { } w)
+        if (DataContext is DashboardViewModel dvm)
         {
             dvm.ZoomBy(w.Id, factor);
         }
-    }
-
-    private static WidgetViewModel? MenuWidget(object? sender)
-    {
-        // MenuItem.DataContext is the WidgetViewModel (inherited through the ContextMenu's owner).
-        var mi = sender as Control;
-        if (mi?.DataContext is WidgetViewModel w)
-        {
-            return w;
-        }
-
-        return null;
     }
 
     private Canvas? FindCanvas()
