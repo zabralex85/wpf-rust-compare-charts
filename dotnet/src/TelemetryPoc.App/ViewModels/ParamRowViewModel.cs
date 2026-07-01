@@ -1,5 +1,5 @@
 using System.ComponentModel;
-using System.Windows.Media;
+using Avalonia.Media;
 using TelemetryPoc.Domain;
 using TelemetryPoc.Presentation;
 
@@ -18,16 +18,16 @@ public sealed class ParamRowViewModel : INotifyPropertyChanged
     private string _value = "—";
     public string Value { get => _value; private set { _value = value; Raise(nameof(Value)); } }
 
-    private Brush _valueBrush = Brushes.Gray;
-    public Brush ValueBrush { get => _valueBrush; private set { _valueBrush = value; Raise(nameof(ValueBrush)); } }
+    private IBrush _valueBrush = Brushes.Gray;
+    public IBrush ValueBrush { get => _valueBrush; private set { _valueBrush = value; Raise(nameof(ValueBrush)); } }
 
-    private Brush _dotBrush = Brushes.Gray;
-    public Brush DotBrush { get => _dotBrush; private set { _dotBrush = value; Raise(nameof(DotBrush)); } }
+    private IBrush _dotBrush = Brushes.Gray;
+    public IBrush DotBrush { get => _dotBrush; private set { _dotBrush = value; Raise(nameof(DotBrush)); } }
 
-    private Brush _rowBg = Brushes.Transparent;
-    public Brush RowBackground { get => _rowBg; private set { _rowBg = value; Raise(nameof(RowBackground)); } }
+    private IBrush _rowBg = Brushes.Transparent;
+    public IBrush RowBackground { get => _rowBg; private set { _rowBg = value; Raise(nameof(RowBackground)); } }
 
-    private static readonly Brush CriticalBg = Hex("#FF1A0E11");
+    private static readonly IBrush CriticalBg = Hex("#FF1A0E11");
 
     public void Refresh(TelemetryStore store)
     {
@@ -38,12 +38,7 @@ public sealed class ParamRowViewModel : INotifyPropertyChanged
         RowBackground = d.Critical ? CriticalBg : Brushes.Transparent;
     }
 
-    private static Brush Hex(string hex)
-    {
-        var b = new SolidColorBrush((Color)ColorConverter.ConvertFromString(hex)!);
-        b.Freeze();
-        return b;
-    }
+    private static IBrush Hex(string hex) => new SolidColorBrush(Color.Parse(hex));
 
     public event PropertyChangedEventHandler? PropertyChanged;
     private void Raise(string n) => PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(n));
