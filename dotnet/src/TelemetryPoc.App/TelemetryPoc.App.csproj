@@ -52,6 +52,7 @@
     <Compile Include="Views\GaugeView.axaml.cs" />
     <Compile Include="Views\TransportBar.axaml.cs" />
     <Compile Include="Views\Hud.axaml.cs" />
+    <Compile Include="Views\LineChartView.axaml.cs" />
   </ItemGroup>
 
 </Project>
