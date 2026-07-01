@@ -1,0 +1,91 @@
+<ResourceDictionary xmlns="https://github.com/avaloniaui"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+  <Color x:Key="BgColor">#FF0A0E14</Color>
+  <SolidColorBrush x:Key="Bg" Color="{StaticResource BgColor}" />
+  <SolidColorBrush x:Key="Panel" Color="#FF10151D" />
+  <SolidColorBrush x:Key="Panel2" Color="#FF0C121A" />
+  <SolidColorBrush x:Key="PanelHeader" Color="#FF131A24" />
+  <SolidColorBrush x:Key="Border1" Color="#FF1D2632" />
+  <SolidColorBrush x:Key="ColHeaderBg" Color="#FF0C1119" />
+  <SolidColorBrush x:Key="TextData" Color="#FFC3CCD8" />
+  <SolidColorBrush x:Key="TextDim" Color="#FF566273" />
+  <SolidColorBrush x:Key="PanelTitle" Color="#FF8B98A9" />
+  <SolidColorBrush x:Key="AccentCyan" Color="#FF38C5E0" />
+  <SolidColorBrush x:Key="Green" Color="#FF2FD17A" />
+  <SolidColorBrush x:Key="Amber" Color="#FFF5B440" />
+  <SolidColorBrush x:Key="Red" Color="#FFFF4D52" />
+  <SolidColorBrush x:Key="CriticalBg" Color="#FF1A0E11" />
+  <!-- alarm/caution pill fills: accent at ~20% over the dark bg (mirrors Rust color-mix) -->
+  <SolidColorBrush x:Key="AlarmPillBg" Color="#33FF4D52" />
+  <SolidColorBrush x:Key="CautionPillBg" Color="#33F5B440" />
+
+  <!-- IBM Plex fonts embedded as AvaloniaResource in Fonts\ (cross-platform, replaces WPF's pack:// URIs) -->
+  <FontFamily x:Key="SansFont">avares://TelemetryPoc.App/Fonts/#IBM Plex Sans</FontFamily>
+  <FontFamily x:Key="MonoFont">avares://TelemetryPoc.App/Fonts/#IBM Plex Mono</FontFamily>
+
+  <ControlTheme x:Key="CaptionButton" TargetType="Button">
+    <Setter Property="Width" Value="30" />
+    <Setter Property="Height" Value="24" />
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="Foreground" Value="{StaticResource TextDim}" />
+    <Setter Property="BorderThickness" Value="0" />
+    <Setter Property="FontFamily" Value="{StaticResource MonoFont}" />
+    <Setter Property="FontSize" Value="12" />
+    <Setter Property="Cursor" Value="Hand" />
+    <Setter Property="Template">
+      <ControlTemplate>
+        <Border x:Name="bd" Background="{TemplateBinding Background}">
+          <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"
+                            Content="{TemplateBinding Content}" />
+        </Border>
+      </ControlTemplate>
+    </Setter>
+    <Style Selector="^:pointerover /template/ Border#bd">
+      <Setter Property="Background" Value="#FF1A2230" />
+    </Style>
+  </ControlTheme>
+
+  <!-- WPF: CaptionButtonClose BasedOn CaptionButton, turns red + white on hover (window close button). -->
+  <ControlTheme x:Key="CaptionButtonClose" TargetType="Button" BasedOn="{StaticResource CaptionButton}">
+    <Style Selector="^:pointerover /template/ Border#bd">
+      <Setter Property="Background" Value="{StaticResource Red}" />
+    </Style>
+    <Style Selector="^:pointerover">
+      <Setter Property="Foreground" Value="White" />
+    </Style>
+  </ControlTheme>
+
+  <!-- Dark INU scrollbars: FluentTheme (the base theme kept in App.axaml for stock control templates)
+       themes ScrollBar/ScrollViewer chrome via named brush/color resources rather than WPF's fully
+       re-templated ScrollBar/ScrollViewer/Thumb styles. Avalonia's ScrollViewer binds scroll offsets
+       via Vector Offset/ScrollBarMaximum (not WPF's simple VerticalOffset/HorizontalOffset), so a literal
+       ControlTemplate port would need to reproduce FluentTheme's internal converters; overriding the
+       resource keys it already reads keeps the scroll behavior intact while matching the dark palette.
+       ScrollViewerScrollBarsSeparatorBackground is the fix for the light "corner" square where the
+       H/V scrollbars meet (WPF fix: commit 6d61869). -->
+  <SolidColorBrush x:Key="ScrollViewerScrollBarsSeparatorBackground" Color="{StaticResource BgColor}" />
+  <SolidColorBrush x:Key="ScrollBarBackground" Color="Transparent" />
+  <SolidColorBrush x:Key="ScrollBarBackgroundPointerOver" Color="Transparent" />
+  <SolidColorBrush x:Key="ScrollBarBorderBrush" Color="Transparent" />
+  <Color x:Key="ScrollBarThumbBackgroundColor">#FF2A3543</Color>
+  <SolidColorBrush x:Key="ScrollBarThumbFillPointerOver" Color="#FF3A4757" />
+  <SolidColorBrush x:Key="ScrollBarThumbFillPressed" Color="#FF3A4757" />
+  <SolidColorBrush x:Key="ScrollBarThumbFillDisabled" Color="#FF2A3543" />
+  <SolidColorBrush x:Key="ScrollBarTrackFill" Color="Transparent" />
+  <SolidColorBrush x:Key="ScrollBarTrackFillPointerOver" Color="Transparent" />
+  <SolidColorBrush x:Key="ScrollBarTrackStroke" Color="Transparent" />
+  <SolidColorBrush x:Key="ScrollBarTrackStrokePointerOver" Color="Transparent" />
+  <SolidColorBrush x:Key="ScrollBarButtonBackground" Color="Transparent" />
+  <SolidColorBrush x:Key="ScrollBarButtonBackgroundDisabled" Color="Transparent" />
+  <SolidColorBrush x:Key="ScrollBarButtonBackgroundPointerOver" Color="Transparent" />
+  <SolidColorBrush x:Key="ScrollBarButtonBackgroundPressed" Color="Transparent" />
+  <SolidColorBrush x:Key="ScrollBarButtonBorderBrush" Color="Transparent" />
+  <SolidColorBrush x:Key="ScrollBarButtonBorderBrushDisabled" Color="Transparent" />
+  <SolidColorBrush x:Key="ScrollBarButtonBorderBrushPointerOver" Color="Transparent" />
+  <SolidColorBrush x:Key="ScrollBarButtonBorderBrushPressed" Color="Transparent" />
+  <SolidColorBrush x:Key="ScrollBarButtonArrowForeground" Color="#FF566273" />
+  <SolidColorBrush x:Key="ScrollBarButtonArrowForegroundDisabled" Color="#FF566273" />
+  <SolidColorBrush x:Key="ScrollBarButtonArrowForegroundPointerOver" Color="#FF8B98A9" />
+  <SolidColorBrush x:Key="ScrollBarButtonArrowForegroundPressed" Color="#FF8B98A9" />
+  <SolidColorBrush x:Key="ScrollBarForeground" Color="#FF566273" />
+</ResourceDictionary>
