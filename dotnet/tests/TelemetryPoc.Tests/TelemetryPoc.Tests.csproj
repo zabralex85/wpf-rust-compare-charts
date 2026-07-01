@@ -21,6 +21,11 @@
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
     </PackageReference>
+    <!-- Skia native for Linux (CI runs on ubuntu): the BasemapRenderer/TrackOverlay tests
+         create an off-screen SKSurface, which needs a native libSkiaSharp matching the
+         managed SkiaSharp 4.148.0 pulled in via the Presentation ring. Without this the test
+         host gets no (or a stale 2.88.x) Linux native and those tests crash at load. -->
+    <PackageReference Include="SkiaSharp.NativeAssets.Linux" Version="4.148.0" />
   </ItemGroup>
 
   <ItemGroup>
