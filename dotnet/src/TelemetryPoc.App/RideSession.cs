@@ -8,7 +8,7 @@ using TelemetryPoc.Domain;
 
 namespace TelemetryPoc.App;
 
-/// <summary>WPF host for the replay: loads the ride via IRideSource (off the UI thread),
+/// <summary>Avalonia host for the replay: loads the ride via IRideSource (off the UI thread),
 /// drives a RideEngine from a 30 Hz dispatcher timer, and exposes the engine state to the
 /// view-models. Owns the timer + wall clock + lifecycle; all replay logic is in the engine.</summary>
 public sealed class RideSession : IDisposable

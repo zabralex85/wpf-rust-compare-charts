@@ -15,11 +15,25 @@ public sealed class FrameClock : Control
 {
     public event EventHandler<TimeSpan>? Rendering;
     private readonly System.Diagnostics.Stopwatch _sw = System.Diagnostics.Stopwatch.StartNew();
+    private bool _attached;
 
     public FrameClock()
     {
         IsHitTestVisible = false;
         Width = 0; Height = 0;
+    }
+
+    protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)
+    {
+        base.OnAttachedToVisualTree(e);
+        _attached = true;
+        InvalidateVisual();
+    }
+
+    protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
+    {
+        base.OnDetachedFromVisualTree(e);
+        _attached = false;
     }
 
     public override void Render(DrawingContext context)
@@ -28,6 +42,7 @@ public sealed class FrameClock : Control
         Rendering?.Invoke(this, _sw.Elapsed);
         // Schedule the next frame. Background priority yields to input/layout so this
         // ticks at the compositor's pace instead of spinning the CPU.
-        Dispatcher.UIThread.Post(InvalidateVisual, DispatcherPriority.Background);
+        if (_attached)
+            Dispatcher.UIThread.Post(InvalidateVisual, DispatcherPriority.Background);
     }
 }
