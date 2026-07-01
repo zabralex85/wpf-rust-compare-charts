@@ -1,0 +1,60 @@
+name: CI
+
+# Build + test the .NET solution and enforce a line-coverage gate on every push/PR.
+# Coverage is measured on the four inner rings (Domain/Application/Infrastructure/
+# Presentation); the Avalonia GUI (TelemetryPoc.App) is build-verified, not unit-tested.
+on:
+  push:
+    branches: [master]
+  pull_request:
+    branches: [master]
+  workflow_dispatch:
+
+jobs:
+  dotnet:
+    name: .NET build + test + coverage gate
+    runs-on: ubuntu-latest
+    env:
+      COVERAGE_MIN: "0.85" # 85% line-rate gate
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x # SDK 10 also parses the .slnx solution format (needs >= 9.0.200)
+
+      - name: Restore
+        working-directory: dotnet
+        run: dotnet restore
+
+      - name: Build (Release)
+        working-directory: dotnet
+        run: dotnet build --no-restore -c Release
+
+      - name: Test + collect coverage
+        working-directory: dotnet
+        run: >
+          dotnet test --no-build -c Release
+          --settings coverlet.runsettings
+          --results-directory TestResults
+
+      - name: Coverage gate
+        working-directory: dotnet
+        run: |
+          set -euo pipefail
+          cob=$(find TestResults -name coverage.cobertura.xml | head -1)
+          if [ -z "$cob" ]; then echo "::error::no cobertura coverage file produced"; exit 1; fi
+          rate=$(grep -oE '<coverage line-rate="[0-9.]+"' "$cob" | head -1 | grep -oE '[0-9.]+')
+          pct=$(awk "BEGIN{printf \"%.2f\", $rate*100}")
+          echo "Line coverage: ${pct}% (gate: $(awk "BEGIN{printf \"%.0f\", $COVERAGE_MIN*100}")%)"
+          awk "BEGIN{exit !($rate >= $COVERAGE_MIN)}" || {
+            echo "::error::Line coverage ${pct}% is below the ${COVERAGE_MIN} gate"; exit 1;
+          }
+
+      - name: Upload coverage report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-cobertura
+          path: dotnet/TestResults/**/coverage.cobertura.xml
+          if-no-files-found: warn

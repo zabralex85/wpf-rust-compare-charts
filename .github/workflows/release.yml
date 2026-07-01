@@ -46,18 +46,18 @@ jobs:
           releaseDraft: false
           prerelease: false
 
-  # ---- .NET / WPF app → framework-dependent win-x64 publish (zipped) ----
+  # ---- .NET / Avalonia app → self-contained win-x64 publish (zipped) ----
   release-dotnet:
-    name: Release .NET (WPF)
+    name: Release .NET (Avalonia)
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
 
       - uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: 8.0.x
+          dotnet-version: 10.0.x
 
-      - name: Publish WPF app (win-x64, self-contained — no runtime install needed)
+      - name: Publish Avalonia app (win-x64, self-contained — no runtime install needed)
         run: >
           dotnet publish dotnet/src/TelemetryPoc.App/TelemetryPoc.App.csproj
           -c Release -r win-x64 --self-contained true
