@@ -1,8 +1,16 @@
 <Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:views="using:TelemetryPoc.App.Views"
         x:Class="TelemetryPoc.App.MainWindow"
         Title="INU-MONITOR (.NET)" Width="1600" Height="900"
-        WindowState="Maximized" Background="#FF0A0E14">
-  <TextBlock Text="Avalonia shell — porting in progress"
-             HorizontalAlignment="Center" VerticalAlignment="Center" Foreground="#FFC3CCD8" />
+        WindowState="Maximized"
+        SystemDecorations="None" ExtendClientAreaToDecorationsHint="True"
+        ExtendClientAreaTitleBarHeightHint="0"
+        Background="{StaticResource Bg}">
+  <Grid x:Name="RootGrid" RowDefinitions="Auto,*,Auto">
+    <!-- views:TopBar / OverviewView / TransportBar / Hud land here as their tasks complete -->
+    <TextBlock x:Name="ErrorBanner" IsVisible="False" Foreground="{StaticResource Red}"
+               Background="{StaticResource Panel2}" Padding="12,8" FontFamily="{StaticResource MonoFont}"
+               HorizontalAlignment="Center" VerticalAlignment="Top" ZIndex="100" Grid.RowSpan="3" />
+  </Grid>
 </Window>

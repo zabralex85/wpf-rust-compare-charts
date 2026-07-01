@@ -8,6 +8,11 @@
     <BuiltInComInteropSupport>true</BuiltInComInteropSupport>
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <AvaloniaUseCompiledBindingsByDefault>false</AvaloniaUseCompiledBindingsByDefault>
+    <!-- MainWindow is DI-constructed only (Generic Host graph in App.axaml.cs) and
+         intentionally has no public parameterless constructor; AVLN3001 only flags that
+         the XAML previewer/hot-reload runtime loader can't instantiate it standalone.
+         This repo's GUI convention is build-verify + launch-confirm (no previewer use). -->
+    <NoWarn>$(NoWarn);AVLN3001</NoWarn>
   </PropertyGroup>
 
   <ItemGroup>
