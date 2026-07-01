@@ -50,6 +50,7 @@
     <Compile Include="Views\TopBar.axaml.cs" />
     <Compile Include="Views\ParamPanel.axaml.cs" />
     <Compile Include="Views\GaugeView.axaml.cs" />
+    <Compile Include="Views\TransportBar.axaml.cs" />
   </ItemGroup>
 
 </Project>
