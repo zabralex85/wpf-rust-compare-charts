@@ -126,7 +126,8 @@ public partial class LineChartView : UserControl
         void Add(string header, Action act)
         {
             var item = new MenuItem { Header = header };
-            item.Click += (_, _) => act();
+            // Close explicitly: a manually-Open()ed ContextMenu doesn't auto-dismiss on click.
+            item.Click += (_, _) => { act(); menu.Close(); };
             menu.Items.Add(item);
         }
 
