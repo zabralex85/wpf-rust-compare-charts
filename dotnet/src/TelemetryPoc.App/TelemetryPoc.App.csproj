@@ -2,10 +2,12 @@
 
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
-    <TargetFramework>net8.0-windows</TargetFramework>
+    <TargetFramework>net8.0</TargetFramework>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
-    <UseWPF>true</UseWPF>
+    <BuiltInComInteropSupport>true</BuiltInComInteropSupport>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <AvaloniaUseCompiledBindingsByDefault>false</AvaloniaUseCompiledBindingsByDefault>
   </PropertyGroup>
 
   <ItemGroup>
@@ -16,22 +18,32 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="ScottPlot.WPF" Version="5.1.59" />
-    <!-- 4.148.0 ships only a net462 managed assembly for the WPF views; it P/Invokes the same
-         native libSkiaSharp and runs fine on net8-windows, so the NU1701 fallback is expected. -->
-    <PackageReference Include="SkiaSharp.Views.WPF" Version="4.148.0" NoWarn="NU1701" />
+    <PackageReference Include="Avalonia" Version="11.3.4" />
+    <PackageReference Include="Avalonia.Desktop" Version="11.3.4" />
+    <PackageReference Include="Avalonia.Themes.Fluent" Version="11.3.4" />
+    <PackageReference Include="Avalonia.Fonts.Inter" Version="11.3.4" />
+    <PackageReference Include="Avalonia.Diagnostics" Version="11.3.4" Condition="'$(Configuration)'=='Debug'" />
+    <PackageReference Include="ScottPlot.Avalonia" Version="5.1.58" />
     <PackageReference Include="Microsoft.Extensions.Hosting" Version="10.0.9" />
   </ItemGroup>
 
   <ItemGroup>
-    <Resource Include="Fonts\IBMPlexMono-Regular.ttf" />
-    <Resource Include="Fonts\IBMPlexMono-SemiBold.ttf" />
-    <Resource Include="Fonts\IBMPlexSans-Regular.ttf" />
-    <Resource Include="Fonts\IBMPlexSans-SemiBold.ttf" />
+    <AvaloniaResource Include="Fonts\*.ttf" />
+    <AvaloniaResource Include="Resources\**\*.axaml" />
   </ItemGroup>
 
   <ItemGroup>
     <None Update="appsettings.json"><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory></None>
+  </ItemGroup>
+
+  <!-- TEMPORARY (Task 1): the pre-port WPF Views/ViewModels/RideSession still reference
+       System.Windows.* and would break the build. Later per-view tasks port them to
+       Avalonia one by one; Task 13's cleanup removes this exclusion block. -->
+  <ItemGroup>
+    <Compile Remove="Views\**\*.cs" />
+    <Compile Remove="ViewModels\**\*.cs" />
+    <Compile Remove="RideSession.cs" />
+    <AvaloniaXaml Remove="Views\**\*.xaml" />
   </ItemGroup>
 
 </Project>

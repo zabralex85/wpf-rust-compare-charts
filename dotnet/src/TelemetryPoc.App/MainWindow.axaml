@@ -1,0 +1,8 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="TelemetryPoc.App.MainWindow"
+        Title="INU-MONITOR (.NET)" Width="1600" Height="900"
+        WindowState="Maximized" Background="#FF0A0E14">
+  <TextBlock Text="Avalonia shell — porting in progress"
+             HorizontalAlignment="Center" VerticalAlignment="Center" Foreground="#FFC3CCD8" />
+</Window>
