@@ -14,10 +14,9 @@ public partial class MainWindow : Window
         InitializeComponent();
         _session = session;
         TopBar.DataContext = topBar;
+        Overview.DataContext = overview;
         Transport.DataContext = transport;
         Hud.DataContext = hud;
-        // Remaining region DataContexts are assigned as each view is added to
-        // MainWindow.axaml in its task. Keep the VM fields wired here.
         Opened += (_, _) => _session.StartAsync();
         Closed += (_, _) => _session.Dispose();
         _session.ErrorChanged += () => Dispatcher.UIThread.Post(() =>

@@ -65,7 +65,7 @@
                             </ContentControl>
                             <!-- resize grip, bottom-right -->
                             <Thumb x:Name="ResizeThumb" Grid.Row="1" Width="16" Height="16"
-                                   HorizontalAlignment="Right" VerticalAlignment="Bottom" Cursor="SizeNWSE"
+                                   HorizontalAlignment="Right" VerticalAlignment="Bottom" Cursor="BottomRightCorner"
                                    DragStarted="OnResizeStart" DragDelta="OnResizeDelta" DragCompleted="OnResizeCompleted">
                                 <Thumb.Template>
                                     <ControlTemplate TargetType="Thumb">

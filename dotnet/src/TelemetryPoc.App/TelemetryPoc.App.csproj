@@ -41,20 +41,4 @@
     <None Update="appsettings.json"><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory></None>
   </ItemGroup>
 
-  <!-- TEMPORARY (Task 1): the pre-port WPF Views still reference System.Windows.* and would
-       break the build. Later per-view tasks port them to Avalonia one by one; Task 13's
-       cleanup removes this exclusion block. -->
-  <ItemGroup>
-    <Compile Remove="Views\**\*.cs" />
-    <AvaloniaXaml Remove="Views\**\*.xaml" />
-    <Compile Include="Views\TopBar.axaml.cs" />
-    <Compile Include="Views\ParamPanel.axaml.cs" />
-    <Compile Include="Views\GaugeView.axaml.cs" />
-    <Compile Include="Views\TransportBar.axaml.cs" />
-    <Compile Include="Views\Hud.axaml.cs" />
-    <Compile Include="Views\LineChartView.axaml.cs" />
-    <Compile Include="Views\MapWidgetView.axaml.cs" />
-    <Compile Include="Views\WidgetGridView.axaml.cs" />
-  </ItemGroup>
-
 </Project>
