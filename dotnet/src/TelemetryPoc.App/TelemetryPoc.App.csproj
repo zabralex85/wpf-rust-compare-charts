@@ -2,7 +2,7 @@
 
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
-    <TargetFramework>net8.0</TargetFramework>
+    <TargetFramework>net10.0</TargetFramework>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <BuiltInComInteropSupport>true</BuiltInComInteropSupport>
@@ -30,6 +30,9 @@
     <PackageReference Include="Avalonia.Diagnostics" Version="11.3.4" Condition="'$(Configuration)'=='Debug'" />
     <PackageReference Include="ScottPlot.Avalonia" Version="5.1.58" />
     <PackageReference Include="Microsoft.Extensions.Hosting" Version="10.0.9" />
+    <!-- Override Avalonia X11's transitive Tmds.DBus.Protocol 0.21.2 (CVE-2026-39959,
+         GHSA-xrw6-gwf8-vvr9, High) with the patched 0.21.3. -->
+    <PackageReference Include="Tmds.DBus.Protocol" Version="0.21.3" />
   </ItemGroup>
 
   <ItemGroup>

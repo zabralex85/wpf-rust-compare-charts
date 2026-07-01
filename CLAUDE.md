@@ -68,13 +68,13 @@ python make_fixture.py                  # committed fixture.mbtiles for cargo te
 ```
 **Windows:** use **tilemaker v2.4.0** + its bundled resources (v3.0.0 crashes `STATUS_STACK_BUFFER_OVERRUN`; its `process.lua` needs a `Find` global v2.4 lacks). Labels use `name:latin` (Israel names are Hebrew; Noto Sans Regular has no Hebrew glyphs).
 
-**dotnet/** (.NET 8; solution is `TelemetryPoc.slnx`)
+**dotnet/** (.NET 10 LTS; solution is `TelemetryPoc.slnx` — the XML solution format needs SDK ≥ 9.0.200, so on an older SDK build the project files directly, e.g. `dotnet build src/TelemetryPoc.App/TelemetryPoc.App.csproj`)
 ```
 cd dotnet && dotnet test                # xUnit (170 tests across all four rings; NetArchTest enforces ring boundaries; XAML UI is build-verify only)
 dotnet build
 dotnet run --project dotnet/src/TelemetryPoc.App   # launch the Avalonia app, cross-platform (env: RIDE_DB, RIDE_SPEED)
 ```
-`RIDE_DB` defaults to an auto-resolved `data/ride.db` (or `ride_small.db`); generate a DB first. The Avalonia app runs offline (no CDN/network needed) on Linux/Windows/macOS. On Linux it needs the usual Avalonia/X11 deps (`libx11`, `libice`, `libsm`, `libfontconfig1`, GL) plus the .NET 8 runtime; fonts (IBM Plex) are embedded so text renders identically across OSes.
+`RIDE_DB` defaults to an auto-resolved `data/ride.db` (or `ride_small.db`); generate a DB first. The Avalonia app runs offline (no CDN/network needed) on Linux/Windows/macOS. On Linux it needs the usual Avalonia/X11 deps (`libx11`, `libice`, `libsm`, `libfontconfig1`, GL) plus the .NET 10 runtime; fonts (IBM Plex) are embedded so text renders identically across OSes.
 
 ## Conventions
 

@@ -16,6 +16,15 @@
     <CodeAnalysisTreatWarningsAsErrors>false</CodeAnalysisTreatWarningsAsErrors>
   </PropertyGroup>
   <ItemGroup>
+    <!-- CVE-2025-6965 (GHSA-2m69-gcr7-jv3q): SQLitePCLRaw.lib.e_sqlite3 <=2.1.11 (pulled
+         transitively by Microsoft.Data.Sqlite) bundles a SQLite with an aggregate-function
+         flaw. No patched SQLitePCLRaw release exists yet — the fix is upstream SQLite 3.50.2,
+         not re-bundled at time of writing. Not reachable in this app: it only opens a
+         locally-generated, trusted ride.db and runs no untrusted SQL. Remove this suppression
+         once a patched SQLitePCLRaw ships. -->
+    <NuGetAuditSuppress Include="https://github.com/advisories/GHSA-2m69-gcr7-jv3q" />
+  </ItemGroup>
+  <ItemGroup>
     <PackageReference Include="StyleCop.Analyzers" Version="1.1.118" PrivateAssets="all" />
     <!-- MSBuildThisFileDirectory is robust; $(SolutionDir) is empty on single-project builds. -->
     <AdditionalFiles Include="$(MSBuildThisFileDirectory)stylecop.json" Link="stylecop.json" />
