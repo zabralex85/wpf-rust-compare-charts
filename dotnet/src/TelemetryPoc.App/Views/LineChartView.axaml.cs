@@ -23,11 +23,12 @@ public partial class LineChartView : UserControl
         // Repaint synchronously on each resize step so the plot doesn't flash an
         // empty frame while its Skia surface regenerates at the new size.
         SizeChanged += (_, _) => Plot.Refresh();
-        // Right-click zoom menu. Tunnel + handledEventsToo so we catch the right-button
-        // release even though the AvaPlot child sits on top and may mark it handled — a
-        // plain ContextMenu / ContextRequested on the wrapper never fired because of that.
+        // Right-click zoom menu. Tunnel ONLY (not also Bubble, or the handler fires twice
+        // per release and opens two overlapping menus): the tunnel pass reaches this parent
+        // before the AvaPlot child, so we open the menu and mark it handled before the plot
+        // can swallow the right-click.
         AddHandler(PointerReleasedEvent, OnChartRightClick,
-            RoutingStrategies.Tunnel | RoutingStrategies.Bubble, handledEventsToo: true);
+            RoutingStrategies.Tunnel, handledEventsToo: true);
         DataContextChanged += OnDataContextChanged;
         // Re-subscribe when the view re-enters the visual tree with an already-set
         // DataContext (tab-switch / virtualization fires Loaded but not DataContextChanged).
