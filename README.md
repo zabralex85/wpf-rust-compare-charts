@@ -77,7 +77,7 @@ RIDE_SPEED=5 dotnet run --project dotnet/src/TelemetryPoc.App
 ```
 On Linux the app needs the usual Avalonia/X11 deps (`libx11`, `libice`, `libsm`, `libfontconfig1`, GL) plus the .NET 10 runtime; the IBM Plex fonts are embedded so text renders identically across OSes.
 
-Both connect to the same data and render the dashboard with the live HUD. See [`rust/README.md`](rust/README.md) and [`dotnet/README.md`](dotnet/README.md) for details and env vars (`RIDE_DB`, `RIDE_SPEED`, `RIDE_MBTILES`, `RIDE_WS_PORT`).
+Both connect to the same data and render the dashboard with the live HUD. See [`rust/README.md`](rust/README.md) and [`dotnet/README.md`](dotnet/README.md) for details and env vars (`RIDE_DB`, `RIDE_SPEED`, `RIDE_MBTILES`, `RIDE_WS_PORT`, and .NET's `RIDE_FPS_CAP` frame cap).
 
 **3. Offline map tiles (optional — for the basemap)**
 
