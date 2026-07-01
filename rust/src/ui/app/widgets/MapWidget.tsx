@@ -1,26 +1,15 @@
 import type React from "react";
-import { useId, useState, useEffect, useRef } from "react";
+import { useEffect, useRef } from "react";
 import maplibregl from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 import { mapStyle } from "./mapStyle";
 import { trackToGeoJSON } from "./trackGeo";
-import { projectTrack } from "./mapProj";
 import { fmtCoord } from "./geoFormat";
 
 interface MapWidgetProps {
   lat: number[];
   lon: number[];
 }
-
-// Default projection view matches mapProj defaults
-const VIEW = { x: 60, y: 150, w: 470, h: 340 } as const;
-
-// Centre of the projection view — anchor for range rings and axis lines
-const CX = VIEW.x + VIEW.w / 2; // 295
-const CY = VIEW.y + VIEW.h / 2; // 320
-
-// Axis tick length (px in SVG units)
-const TICK = 8;
 
 /** Local tile server base URL — matches the Rust default RIDE_TILES_PORT=9002 */
 const TILES_BASE = "http://127.0.0.1:9002";
@@ -78,19 +67,18 @@ function posPoint(lat: number[], lon: number[]): PointFeature | EmptyCollection 
   };
 }
 
+// The map renders the offline MVT basemap (MapLibre GL) directly — 1:1 with the .NET
+// Skia basemap. There is no decorative "grid view" and no OSM/GRID toggle: when a tileset
+// or WebGL is unavailable the container just shows its dark background (matching .NET's
+// no-tileset behaviour).
 export function MapWidget({ lat, lon }: MapWidgetProps): React.JSX.Element {
-  const gridId = useId();
-  const { path, last } = projectTrack(lat, lon);
-  const [osm, setOsm] = useState(false);
   const elRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<maplibregl.Map | null>(null);
 
-  // Mount/teardown MapLibre while OSM is on. Guard on WebGL availability (not
-  // container size): jsdom has no WebGL so unit tests never construct a map, but
-  // a real WebView mounts even if the overlay is momentarily 0-size (a ResizeObserver
-  // + resize() below paints it once layout settles).
+  // Mount/teardown MapLibre. Guard on WebGL availability (not container size): jsdom has no
+  // WebGL so unit tests never construct a map, but a real WebView mounts even if the overlay
+  // is momentarily 0-size (a ResizeObserver + resize() below paints it once layout settles).
   useEffect(() => {
-    if (!osm) return;
     const el = elRef.current;
     if (!el || !hasWebGL()) return;
     let cancelled = false;
@@ -149,7 +137,7 @@ export function MapWidget({ lat, lon }: MapWidgetProps): React.JSX.Element {
         },
       });
       // Zoom/centre to the flight track (it can span only a few hundred metres —
-      // the fixed initial zoom would render it sub-pixel). The SVG map auto-fits too.
+      // the fixed initial zoom would render it sub-pixel).
       fitTrack(map, lat, lon);
     });
     mapRef.current = map;
@@ -159,7 +147,7 @@ export function MapWidget({ lat, lon }: MapWidgetProps): React.JSX.Element {
       map.remove();
       mapRef.current = null;
     };
-  }, [osm]);
+  }, []);
 
   // Update the track + position sources as the track grows
   useEffect(() => {
@@ -171,128 +159,12 @@ export function MapWidget({ lat, lon }: MapWidgetProps): React.JSX.Element {
     if (ps) ps.setData(posPoint(lat, lon));
     // `lat.length` is the live trigger: the store mutates the SAME array in place,
     // so the array ref never changes — only the length grows as points arrive.
-  }, [lat, lon, lat.length, lon.length, osm]);
+  }, [lat, lon, lat.length, lon.length]);
 
   return (
     <div data-testid="mapwidget" className="mapwidget-container">
-      <button className="mapwidget-osm-toggle" onClick={() => setOsm((v) => !v)}>
-        {osm ? "GRID VIEW" : "OSM MAP"}
-      </button>
-      {osm && <div ref={elRef} className="mapwidget-osm" />}
-      {/*
-       * ViewBox: "55 145 480 350"
-       * Covers (55,145)→(535,495), giving a 5 px margin around the
-       * default projection view corners at (60,150) and (530,490).
-       */}
-      <svg
-        viewBox="55 145 480 350"
-        preserveAspectRatio="xMidYMid meet"
-        className="mapwidget-svg"
-      >
-        <defs>
-          {/* Grid pattern — unique id prevents conflicts when multiple MapWidgets coexist */}
-          <pattern
-            id={gridId}
-            width="40"
-            height="40"
-            patternUnits="userSpaceOnUse"
-          >
-            <path
-              d="M40 0V40M0 40H40"
-              fill="none"
-              className="mapwidget-grid-path"
-            />
-          </pattern>
-        </defs>
-
-        {/* Grid fill */}
-        <rect
-          x={VIEW.x}
-          y={VIEW.y}
-          width={VIEW.w}
-          height={VIEW.h}
-          fill={`url(#${gridId})`}
-          className="mapwidget-grid-rect"
-        />
-
-        {/* Faint cross-hair axis lines through the view centre */}
-        <line
-          x1={CX}
-          y1={VIEW.y}
-          x2={CX}
-          y2={VIEW.y + VIEW.h}
-          className="mapwidget-axis"
-        />
-        <line
-          x1={VIEW.x}
-          y1={CY}
-          x2={VIEW.x + VIEW.w}
-          y2={CY}
-          className="mapwidget-axis"
-        />
-
-        {/* Decorative range rings — concentric, centred on view centre */}
-        <circle cx={CX} cy={CY} r={50} className="mapwidget-ring" />
-        <circle cx={CX} cy={CY} r={100} className="mapwidget-ring" />
-        <circle
-          cx={CX}
-          cy={CY}
-          r={150}
-          className="mapwidget-ring mapwidget-ring-outer"
-        />
-
-        {/* Cardinal axis ticks — short strokes at N / S / E / W edges */}
-        {/* N */}
-        <line
-          x1={CX}
-          y1={VIEW.y}
-          x2={CX}
-          y2={VIEW.y + TICK}
-          className="mapwidget-tick"
-        />
-        {/* S */}
-        <line
-          x1={CX}
-          y1={VIEW.y + VIEW.h}
-          x2={CX}
-          y2={VIEW.y + VIEW.h - TICK}
-          className="mapwidget-tick"
-        />
-        {/* E */}
-        <line
-          x1={VIEW.x + VIEW.w}
-          y1={CY}
-          x2={VIEW.x + VIEW.w - TICK}
-          y2={CY}
-          className="mapwidget-tick"
-        />
-        {/* W */}
-        <line
-          x1={VIEW.x}
-          y1={CY}
-          x2={VIEW.x + TICK}
-          y2={CY}
-          className="mapwidget-tick"
-        />
-
-        {/* Flight track — path is "" when no data, which renders nothing */}
-        <path
-          d={path}
-          fill="none"
-          className="mapwidget-track"
-          vectorEffect="non-scaling-stroke"
-        />
-
-        {/* Live-position marker — circle at the last projected point */}
-        {last !== null && (
-          <circle
-            cx={last.x}
-            cy={last.y}
-            r={4}
-            className="mapwidget-marker"
-          />
-        )}
-      </svg>
+      {/* MapLibre basemap canvas — dark background shows through when no tiles/WebGL. */}
+      <div ref={elRef} className="mapwidget-osm" />
       {/* geographic chrome overlays */}
       <div className="mapwidget-compass">N↑</div>
       <div className="mapwidget-coords">{fmtCoord(lat, lon)}</div>
