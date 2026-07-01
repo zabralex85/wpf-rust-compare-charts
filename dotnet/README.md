@@ -13,16 +13,16 @@ The .NET solution is structured as a **4-ring onion architecture** with the WPF 
 - **`TelemetryPoc.Domain`** (net8.0, no external deps) — entities and pure logic: telemetry models, `TelemetryStore`, `ChannelSeries`, `RideClock`, `Severity`, `ValueFormat`, and all map math (projection, tile math, MVT geometry, styling, interaction).
 - **`TelemetryPoc.Application`** (→ Domain) — use cases (`RideEngine`, `RideData`, `ReplayPlayer`, `Pacer`) and ports (`IRideSource`, `IMetricsSampler`, `ISystemClock`, `ITileSource`, `IRidePathResolver`).
 - **`TelemetryPoc.Infrastructure`** (→ Application, Domain) — adapters: `SqliteRideSource` (ride DB), `MbTilesTileSource` (offline MVT tiles + protobuf decode), `SysInfoMetricsSampler`, `SystemClock`, `RidePathResolver`.
-- **`TelemetryPoc.Presentation`** (net8.0, → Application, Domain; SkiaSharp) — pure UI-shaping logic (gauge/line/param/widget/hud helpers, `MissionClock`, `StatusCounts`) and Skia draw helpers (`BasemapRenderer`, `TrackOverlay`).
-- **`TelemetryPoc.App`** (net8.0-windows, WPF) — the composition root: a `Microsoft.Extensions.Hosting` Generic Host wires Infrastructure adapters to Application ports via DI, with `IOptions<RideOptions>` config (appsettings.json + `RIDE_DB`/`RIDE_SPEED`/`RIDE_MBTILES` env), `ILogger` logging, async ride load, `IDisposable` lifecycle, and a load-error banner.
+- **`TelemetryPoc.Presentation`** (net10.0, → Application, Domain; SkiaSharp) — pure UI-shaping logic (gauge/line/param/widget/hud helpers, `MissionClock`, `StatusCounts`) and Skia draw helpers (`BasemapRenderer`, `TrackOverlay`).
+- **`TelemetryPoc.App`** (net10.0, Avalonia UI — cross-platform Linux/Windows/macOS) — the composition root: a `Microsoft.Extensions.Hosting` Generic Host wires Infrastructure adapters to Application ports via DI, with `IOptions<RideOptions>` config (appsettings.json + `RIDE_DB`/`RIDE_SPEED`/`RIDE_MBTILES`/`RIDE_FPS_CAP` env), `ILogger` logging, async ride load, `IDisposable` lifecycle, and a load-error banner.
 - **In-process replay**: a `DispatcherTimer` advances the store on the UI thread; rendering is gated to new frames (the 10 Hz data cadence) — no WebSocket (the .NET-idiomatic transport).
-- **Charts**: ScottPlot.WPF for realtime time-series strip charts (60s scrolling window, relative `m:ss` axis).
+- **Charts**: ScottPlot.Avalonia for realtime time-series strip charts (60s scrolling window, relative `m:ss` axis).
 - **Map**: a native MVT vector renderer (SkiaSharp) split across Presentation (`BasemapRenderer`, `TrackOverlay`) and Infrastructure (`MbTilesTileSource`) reads the same offline `israel.mbtiles` as the Rust app — no CDN/network, no Mapsui. The basemap is rasterised once per view into an `SKImage` and blitted each frame; pan/zoom/over-zoom (to street level, scaling z14 tiles) are interactive.
 - **Layout**: the INU OVERVIEW screen (parameters panel + widget grid + perf HUD) per `docs/reference/dashboard-target.md`.
 
 ## Prerequisites
 
-- **.NET 8.0+**, **Windows 10/11** (WPF is Windows-only), a display (no headless GUI).
+- **.NET 10.0+**, a display (no headless GUI). Cross-platform via Avalonia — Linux/Windows/macOS (on Linux: the usual Avalonia/X11 deps + GL).
 - A ride database. Generate one with the Python simulator:
   ```bash
   python data/simulate.py                                            # full 12h data/ride.db
@@ -45,11 +45,21 @@ The app is configured from the `Ride` section of `appsettings.json` — so a pla
 
 ```json
 "Ride": {
-  "Speed": 5.0,        // replay speed multiplier
+  "Speed": 1.0,        // replay speed multiplier (1 = real time; higher = more data churn = more CPU)
   "DbPath": "",        // ride DB; empty → walk up for data/ride.db, then data/ride_small.db
-  "MbTilesPath": ""    // offline tileset; empty → walk up for tiles/israel.mbtiles
+  "MbTilesPath": "",   // offline tileset; empty → walk up for tiles/israel.mbtiles
+  "FpsCap": 0          // perf-HUD frame cap; 0 = uncapped (see below)
 }
 ```
+
+**`FpsCap`** paces the perf-HUD render loop. `0` (default) free-runs the compositor —
+vsync-paced and cheap on a GPU, and the honest max-FPS number for the Rust-vs-.NET
+benchmark. On a software renderer (e.g. VirtualBox with no GPU) the free-running loop
+was 60–70% CPU; set `FpsCap: 30` there to throttle the CPU composites. On a GPU the cap
+makes ~no difference — the render loop isn't the hotspot, so leave it at `0`.
+
+> **Perf tip:** build **Release** (`dotnet run -c Release …`). Debug's unoptimised IL /
+> Skia paths dominate CPU — a Release run measured ~4% vs ~9% Debug on the same box.
 
 ### Environment variables (optional overrides)
 
@@ -59,6 +69,7 @@ Each setting can be overridden at launch; an unset variable leaves the
 - `RIDE_DB` → `Ride:DbPath`
 - `RIDE_SPEED` → `Ride:Speed`
 - `RIDE_MBTILES` → `Ride:MbTilesPath`
+- `RIDE_FPS_CAP` → `Ride:FpsCap`
 
 ```bash
 RIDE_SPEED=5 dotnet run --project dotnet/src/TelemetryPoc.App
