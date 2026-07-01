@@ -1,10 +1,13 @@
 // @vitest-environment jsdom
 import { describe, it, expect, afterEach } from "vitest";
-import { render, cleanup, fireEvent, screen } from "@testing-library/react";
+import { render, cleanup } from "@testing-library/react";
 import { MapWidget } from "./MapWidget";
 
 afterEach(cleanup);
 
+// The map renders the MapLibre basemap directly (1:1 with the .NET Skia basemap). There is no
+// decorative SVG "grid view" and no OSM/GRID toggle. MapLibre itself is never constructed under
+// jsdom (no WebGL), so these tests cover the container + chrome overlays, not the GL canvas.
 describe("MapWidget component", () => {
   const lat = [32.0, 32.1, 32.2, 32.15, 32.05];
   const lon = [34.7, 34.75, 34.8, 34.9, 34.85];
@@ -14,47 +17,22 @@ describe("MapWidget component", () => {
     expect(container.querySelector('[data-testid="mapwidget"]')).not.toBeNull();
   });
 
-  it("contains an svg element", () => {
+  it("renders the MapLibre basemap container", () => {
     const { container } = render(<MapWidget lat={lat} lon={lon} />);
-    expect(container.querySelector("svg")).not.toBeNull();
+    expect(container.querySelector(".mapwidget-osm")).not.toBeNull();
   });
 
-  it("contains at least one path element", () => {
+  it("has no decorative grid view (no svg, rings, or track path)", () => {
     const { container } = render(<MapWidget lat={lat} lon={lon} />);
-    expect(container.querySelectorAll("path").length).toBeGreaterThan(0);
+    expect(container.querySelector("svg")).toBeNull();
+    expect(container.querySelector(".mapwidget-ring")).toBeNull();
+    expect(container.querySelector(".mapwidget-track")).toBeNull();
   });
 
-  it("track path d attribute starts with M for non-empty data", () => {
-    const { container } = render(<MapWidget lat={lat} lon={lon} />);
-    const track = container.querySelector(".mapwidget-track");
-    expect(track?.getAttribute("d")?.[0]).toBe("M");
-  });
-
-  it("marker element renders when data is present", () => {
-    const { container } = render(<MapWidget lat={lat} lon={lon} />);
-    expect(container.querySelector(".mapwidget-marker")).not.toBeNull();
-  });
-
-  it("renders svg without crashing when arrays are empty", () => {
-    const { container } = render(<MapWidget lat={[]} lon={[]} />);
-    expect(container.querySelector("svg")).not.toBeNull();
-  });
-
-  it("no marker when arrays are empty", () => {
-    const { container } = render(<MapWidget lat={[]} lon={[]} />);
-    expect(container.querySelector(".mapwidget-marker")).toBeNull();
-  });
-
-  it("grid pattern is present in defs", () => {
-    const { container } = render(<MapWidget lat={lat} lon={lon} />);
-    expect(container.querySelector("defs pattern")).not.toBeNull();
-  });
-
-  it("range rings are rendered (at least one circle besides marker)", () => {
-    const { container } = render(<MapWidget lat={lat} lon={lon} />);
-    const circles = container.querySelectorAll("circle");
-    // at minimum the 3 range rings + 1 marker circle = 4
-    expect(circles.length).toBeGreaterThanOrEqual(3);
+  it("has no OSM/GRID toggle button", () => {
+    const { queryByText } = render(<MapWidget lat={lat} lon={lon} />);
+    expect(queryByText("OSM MAP")).toBeNull();
+    expect(queryByText("GRID VIEW")).toBeNull();
   });
 
   it("renders compass, coords readout, and scale bar", () => {
@@ -64,14 +42,8 @@ describe("MapWidget component", () => {
     expect(getByText("2 km")).toBeTruthy();
   });
 
-  it("toggles the OSM button label and shows the maplibre overlay container", () => {
-    render(<MapWidget lat={[32.08]} lon={[34.78]} />);
-    const btn = screen.getByText("OSM MAP");
-    fireEvent.click(btn);
-    expect(screen.getByText("GRID VIEW")).toBeTruthy();
-    expect(document.querySelector(".mapwidget-osm")).not.toBeNull(); // overlay div present (MapLibre never constructed in jsdom — zero-size guard)
-    fireEvent.click(screen.getByText("GRID VIEW"));
-    expect(screen.getByText("OSM MAP")).toBeTruthy();
-    expect(document.querySelector(".mapwidget-osm")).toBeNull();
+  it("renders without crashing when arrays are empty", () => {
+    const { container } = render(<MapWidget lat={[]} lon={[]} />);
+    expect(container.querySelector(".mapwidget-osm")).not.toBeNull();
   });
 });
