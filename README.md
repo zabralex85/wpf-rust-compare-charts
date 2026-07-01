@@ -36,7 +36,9 @@ Both apps replaying the same ride at `RIDE_SPEED=1.0` with the full dashboard + 
 | **.NET Avalonia** (native Skia) | 1 | ~279 MB | ~3.4% |
 | **Rust Tauri** (React in WebView2) | 7 (app + WebView2 tree) | ~637 MB | ~6.0% |
 
-The native .NET app is markedly lighter on both memory and CPU — the bundled Chromium **WebView2** runtime dominates the Tauri footprint (the Rust **backend** process is ~0% CPU / ~35 MB; all the cost is the WebView2 frontend renderer + compositor + Chromium's multiprocess RAM). Both stacks render gated to the 10 Hz data cadence, so the comparison is of equivalent work. (Numbers are machine‑specific and meant as a ballpark; re‑run locally for your hardware.)
+The native .NET app is markedly lighter on both memory and CPU — the bundled Chromium **WebView2** runtime dominates the Tauri footprint (the Rust **backend** process is ~0% CPU / ~35 MB; all the cost is the WebView2 frontend renderer + compositor + Chromium's multiprocess RAM). (Numbers are machine‑specific and meant as a ballpark; re‑run locally for your hardware.)
+
+**Equivalent-work check.** Both stacks update their data widgets (charts, gauges, params, map) gated to the **10 Hz** data cadence. One asymmetry: .NET's perf‑HUD `FrameClock` free‑runs the compositor (~60 Hz) while Rust composites only on the 10 Hz DOM changes — but this is **immaterial**: running .NET with `RIDE_FPS_CAP=10` (composite pinned to 10 Hz, matching Rust) measured ~4.1% vs ~3.5% uncapped, i.e. within noise. .NET's CPU is data/chart‑redraw bound, not composite bound (native Skia compositing is near‑free), so the comparison is fair regardless of composite cadence.
 
 > **Post-port note:** figures are the current **Avalonia-Skia vs Rust-WebView2** builds. The pre-port WPF-DirectX baseline was ~246 MB / ~4% (.NET) vs ~629 MB / ~11% (Rust) — the Rust number then included a free-running 60 Hz React render loop since fixed to the 10 Hz data cadence.
 
