@@ -1,6 +1,7 @@
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
+using Avalonia.Interactivity;
 using ScottPlot;
 using ScottPlot.Plottables;
 using ScottPlot.TickGenerators;
@@ -22,6 +23,11 @@ public partial class LineChartView : UserControl
         // Repaint synchronously on each resize step so the plot doesn't flash an
         // empty frame while its Skia surface regenerates at the new size.
         SizeChanged += (_, _) => Plot.Refresh();
+        // Right-click zoom menu. Tunnel + handledEventsToo so we catch the right-button
+        // release even though the AvaPlot child sits on top and may mark it handled — a
+        // plain ContextMenu / ContextRequested on the wrapper never fired because of that.
+        AddHandler(PointerReleasedEvent, OnChartRightClick,
+            RoutingStrategies.Tunnel | RoutingStrategies.Bubble, handledEventsToo: true);
         DataContextChanged += OnDataContextChanged;
         // Re-subscribe when the view re-enters the visual tree with an already-set
         // DataContext (tab-switch / virtualization fires Loaded but not DataContextChanged).
@@ -48,6 +54,7 @@ public partial class LineChartView : UserControl
 
         Plot.Refresh();
         Plot.UserInputProcessor.IsEnabled = false; // window-based zoom only (Rust parity)
+        Plot.Menu = null; // drop ScottPlot's built-in right-click menu so ours is the only one
     }
 
     private void OnDataContextChanged(object? sender, EventArgs e)
@@ -104,6 +111,30 @@ public partial class LineChartView : UserControl
 
     private void OnHoverLeave(object? sender, PointerEventArgs e)
         => Tip.IsVisible = false;
+
+    // Right-click → zoom menu. LineChartViewModel owns the zoom (Zoom/ZoomBy/ResetZoom),
+    // so the menu items act on it directly; the new window applies on the next data tick.
+    private void OnChartRightClick(object? sender, PointerReleasedEventArgs e)
+    {
+        if (e.InitialPressMouseButton != MouseButton.Right || _vm is null)
+        {
+            return;
+        }
+
+        var menu = new ContextMenu();
+        void Add(string header, Action act)
+        {
+            var item = new MenuItem { Header = header };
+            item.Click += (_, _) => act();
+            menu.Items.Add(item);
+        }
+
+        Add("Zoom in", () => _vm?.ZoomBy(2.0));
+        Add("Zoom out", () => _vm?.ZoomBy(0.5));
+        Add("Reset", () => _vm?.ResetZoom());
+        menu.Open(this);
+        e.Handled = true;
+    }
 
     private void Redraw()
     {
