@@ -16,7 +16,9 @@
 - Keep behavioral parity with the Rust app: same 33 ms UI cadence, same eviction/rounding/latency model (all already in the untouched rings — do not reimplement).
 - GUI code is **build-verified + launch-confirmed**, not unit-tested (repo convention in `CLAUDE.md`). The existing **170 xUnit tests must stay green** and are the regression gate; run `dotnet test` after tasks that touch shared/VM code.
 - Avalonia XAML files use the **`.axaml`** extension and Avalonia xmlns; brushes are `IBrush`; `Visibility.Collapsed/Visible` → `IsVisible` (bool); colors via `Color.Parse("#AARRGGBB")`.
-- ScottPlot version pin: **5.1.59** (match the current `ScottPlot.WPF` version exactly).
+- ScottPlot version pin: **5.1.58** (revised from 5.1.59 during T1 — 5.1.59 hard-requires Avalonia ≥12; 5.1.58 is the newest `ScottPlot.Avalonia` that supports Avalonia 11.x).
+- Avalonia package version: **11.3.4** (all Avalonia packages aligned), incl. an explicit `Avalonia.Themes.Fluent` ref (FluentTheme is not bundled in the base package on this line). Set during T1.
+- Namespace gotcha (repo-specific): `TelemetryPoc.Application` is a sibling namespace of `TelemetryPoc.App`, so an unqualified `Application` binds to the wrong type. Reference the Avalonia base class as `global::Avalonia.Application` in shell code.
 - Do all work on a feature branch (e.g. `feat/dotnet-avalonia-linux`). Commit after every task.
 
 ---
