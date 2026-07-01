@@ -1,14 +1,14 @@
 // dotnet/src/TelemetryPoc.App/RideSession.cs
 
 using System.Diagnostics;
-using System.Windows.Threading;
+using Avalonia.Threading;
 using Microsoft.Extensions.Logging;
 using TelemetryPoc.Application;
 using TelemetryPoc.Domain;
 
 namespace TelemetryPoc.App;
 
-/// <summary>WPF host for the replay: loads the ride via IRideSource (off the UI thread),
+/// <summary>Avalonia host for the replay: loads the ride via IRideSource (off the UI thread),
 /// drives a RideEngine from a 30 Hz dispatcher timer, and exposes the engine state to the
 /// view-models. Owns the timer + wall clock + lifecycle; all replay logic is in the engine.</summary>
 public sealed class RideSession : IDisposable
@@ -62,8 +62,7 @@ public sealed class RideSession : IDisposable
             MetaLoaded?.Invoke();
 
             _sw.Start();
-            _timer = new DispatcherTimer(DispatcherPriority.Render) { Interval = TimeSpan.FromMilliseconds(33) };
-            _timer.Tick += (_, _) => OnTick();
+            _timer = new DispatcherTimer(TimeSpan.FromMilliseconds(33), DispatcherPriority.Render, (_, _) => OnTick());
             _timer.Start();
         }
         catch (Exception ex)

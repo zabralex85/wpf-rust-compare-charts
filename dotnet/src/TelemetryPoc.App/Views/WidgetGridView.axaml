@@ -1,16 +1,16 @@
 <UserControl x:Class="TelemetryPoc.App.Views.WidgetGridView"
-             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-             xmlns:vm="clr-namespace:TelemetryPoc.App.ViewModels"
-             xmlns:views="clr-namespace:TelemetryPoc.App.Views"
+             xmlns:vm="using:TelemetryPoc.App.ViewModels"
+             xmlns:views="using:TelemetryPoc.App.Views"
              Background="{StaticResource Bg}">
-    <UserControl.Resources>
-        <DataTemplate DataType="{x:Type vm:GaugeViewModel}"><views:GaugeView /></DataTemplate>
-        <DataTemplate DataType="{x:Type vm:LineChartViewModel}"><views:LineChartView /></DataTemplate>
-        <DataTemplate DataType="{x:Type vm:MapWidgetViewModel}"><views:MapWidgetView /></DataTemplate>
-    </UserControl.Resources>
+    <UserControl.DataTemplates>
+        <DataTemplate DataType="vm:GaugeViewModel"><views:GaugeView /></DataTemplate>
+        <DataTemplate DataType="vm:LineChartViewModel"><views:LineChartView /></DataTemplate>
+        <DataTemplate DataType="vm:MapWidgetViewModel"><views:MapWidgetView /></DataTemplate>
+    </UserControl.DataTemplates>
     <ScrollViewer x:Name="Scroll" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto"
-                  AllowDrop="True" Drop="OnCanvasDrop" DragOver="OnCanvasDragOver">
+                  DragDrop.AllowDrop="True" DragDrop.Drop="OnCanvasDrop" DragDrop.DragOver="OnCanvasDragOver">
         <Grid Width="1600" Height="1600">
         <ItemsControl ItemsSource="{Binding Widgets}">
             <ItemsControl.ItemsPanel>
@@ -18,12 +18,12 @@
                     <Canvas x:Name="GridCanvas" Width="1600" Height="1600" Background="Transparent" />
                 </ItemsPanelTemplate>
             </ItemsControl.ItemsPanel>
-            <ItemsControl.ItemContainerStyle>
-                <Style TargetType="ContentPresenter">
+            <ItemsControl.Styles>
+                <Style Selector="ContentPresenter">
                     <Setter Property="Canvas.Left" Value="{Binding Left}" />
                     <Setter Property="Canvas.Top" Value="{Binding Top}" />
                 </Style>
-            </ItemsControl.ItemContainerStyle>
+            </ItemsControl.Styles>
             <ItemsControl.ItemTemplate>
                 <DataTemplate>
                     <Border Width="{Binding Width}" Height="{Binding Height}" Margin="0"
@@ -42,22 +42,21 @@
                                 </Grid.ColumnDefinitions>
                                 <TextBlock x:Name="Grip" Grid.Column="0" Text="{Binding Name, StringFormat=☰ {0}}" Cursor="SizeAll"
                                            Foreground="{StaticResource PanelTitle}" FontSize="11" Padding="6,2"
-                                           MouseLeftButtonDown="OnHeaderDown" />
+                                           PointerPressed="OnHeaderDown" />
                                 <Button Grid.Column="1" Content="{Binding ToggleLabel}" Click="OnToggle"
-                                        Visibility="{Binding IsToggleable, Converter={StaticResource BoolToVis}}"
+                                        IsVisible="{Binding IsToggleable}"
                                         Foreground="{StaticResource AccentCyan}" Background="{StaticResource Panel2}"
                                         BorderBrush="{StaticResource Border1}" BorderThickness="1"
                                         FontSize="9" Padding="6,2" Margin="2,2,4,2" Cursor="Hand" />
                                 <Button Grid.Column="2" Content="✕" Click="OnRemove"
-                                        Visibility="{Binding IsRemovable, Converter={StaticResource BoolToVis}}"
+                                        IsVisible="{Binding IsRemovable}"
                                         Foreground="{StaticResource Red}" Background="Transparent" BorderThickness="0"
                                         FontSize="9" Padding="6,2" Cursor="Hand" />
                             </Grid>
                             <!-- body: content VM → implicit template -->
                             <ContentControl Grid.Row="1" Content="{Binding Content}">
                                 <ContentControl.ContextMenu>
-                                    <ContextMenu Visibility="{Binding PlacementTarget.DataContext.IsLine,
-                                                 RelativeSource={RelativeSource Self}, Converter={StaticResource BoolToVis}}">
+                                    <ContextMenu IsVisible="{Binding IsLine}">
                                         <MenuItem Header="Zoom in"  Click="OnZoomIn" />
                                         <MenuItem Header="Zoom out" Click="OnZoomOut" />
                                         <MenuItem Header="Reset"    Click="OnZoomReset" />
@@ -66,7 +65,7 @@
                             </ContentControl>
                             <!-- resize grip, bottom-right -->
                             <Thumb x:Name="ResizeThumb" Grid.Row="1" Width="16" Height="16"
-                                   HorizontalAlignment="Right" VerticalAlignment="Bottom" Cursor="SizeNWSE"
+                                   HorizontalAlignment="Right" VerticalAlignment="Bottom" Cursor="BottomRightCorner"
                                    DragStarted="OnResizeStart" DragDelta="OnResizeDelta" DragCompleted="OnResizeCompleted">
                                 <Thumb.Template>
                                     <ControlTemplate TargetType="Thumb">
@@ -85,8 +84,8 @@
         </ItemsControl>
         <!-- drop/move placeholder: dashed ghost at the snapped target cell -->
         <Canvas IsHitTestVisible="False">
-            <Rectangle x:Name="DropGhost" Visibility="Collapsed"
-                       Stroke="{StaticResource AccentCyan}" StrokeThickness="1.5" StrokeDashArray="4 3"
+            <Rectangle x:Name="DropGhost" IsVisible="False"
+                       Stroke="{StaticResource AccentCyan}" StrokeThickness="1.5" StrokeDashArray="4,3"
                        Fill="#1538C5E0" RadiusX="3" RadiusY="3" />
         </Canvas>
         </Grid>

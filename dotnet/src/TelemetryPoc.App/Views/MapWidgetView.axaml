@@ -1,0 +1,5 @@
+<UserControl xmlns="https://github.com/avaloniaui" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:c="using:TelemetryPoc.App.Controls"
+             x:Class="TelemetryPoc.App.Views.MapWidgetView" Background="{StaticResource Panel}">
+  <c:SkiaCanvasControl x:Name="Skia" />
+</UserControl>

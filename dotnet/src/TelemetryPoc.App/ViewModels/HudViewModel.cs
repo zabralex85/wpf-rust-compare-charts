@@ -1,7 +1,5 @@
 using System.ComponentModel;
-using System.Diagnostics;
 using System.Globalization;
-using System.Windows.Media;
 using TelemetryPoc.Presentation;
 
 namespace TelemetryPoc.App.ViewModels;
@@ -10,13 +8,11 @@ public sealed class HudViewModel : INotifyPropertyChanged
 {
     private readonly RideSession _session;
     private readonly FpsMeter _fps = new();
-    private readonly Stopwatch _sw = Stopwatch.StartNew();
     private static readonly CultureInfo Inv = CultureInfo.InvariantCulture;
 
     public HudViewModel(RideSession session)
     {
         _session = session;
-        CompositionTarget.Rendering += OnRender;
         _session.Ticked += OnTick;
     }
 
@@ -29,15 +25,15 @@ public sealed class HudViewModel : INotifyPropertyChanged
 
     private bool _wasPaused;
 
-    private void OnRender(object? sender, EventArgs e)
+    public void Tick(TimeSpan elapsed)
     {
         // While paused the scene is static; updating the FPS text every frame would itself
         // keep the compositor (and CPU) busy. Skip it so the app idles when paused.
         if (_session.IsPaused) { _wasPaused = true; return; }
-        // On the first frame after resume, drop the pause-gap sample: _sw kept running while
-        // paused, so the next interval would otherwise be ~pauseDuration and skew FPS for ~60 frames.
+        // On the first frame after resume, drop the pause-gap sample: elapsed kept advancing
+        // while paused, so the next interval would otherwise be ~pauseDuration and skew FPS for ~60 frames.
         if (_wasPaused) { _fps.Reset(); _wasPaused = false; }
-        _fps.Tick(_sw.Elapsed.TotalMilliseconds);
+        _fps.Tick(elapsed.TotalMilliseconds);
         FpsText = _fps.Fps().ToString("F0", Inv);
         FrameText = _fps.FrameTimeMs().ToString("F1", Inv);
     }

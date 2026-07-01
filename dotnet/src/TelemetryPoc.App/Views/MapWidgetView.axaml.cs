@@ -1,9 +1,8 @@
-using System.Windows;
-using System.Windows.Controls;
-using System.Windows.Input;
-using System.Windows.Threading;
+using Avalonia;
+using Avalonia.Controls;
+using Avalonia.Input;
+using Avalonia.Threading;
 using SkiaSharp;
-using SkiaSharp.Views.Desktop;
 using TelemetryPoc.App.ViewModels;
 using TelemetryPoc.Domain;
 using TelemetryPoc.Presentation;
@@ -30,18 +29,18 @@ public partial class MapWidgetView : UserControl
     {
         InitializeComponent();
         DataContextChanged += OnDataContextChanged;
-        Loaded += (_, _) => { if (_vm is null) { OnDataContextChanged(this, default); } };
+        Loaded += (_, _) => { if (_vm is null) { OnDataContextChanged(this, EventArgs.Empty); } };
         Unloaded += (_, _) => Detach();
-        Skia.MouseWheel += OnWheel;
-        Skia.MouseLeftButtonDown += OnDown;
-        Skia.MouseMove += OnMove;
-        Skia.MouseLeftButtonUp += OnUp;
-        Skia.MouseLeftButtonDown += OnMaybeDoubleClick;
+        Skia.PointerWheelChanged += OnWheel;
+        Skia.PointerPressed += OnDown;
+        Skia.PointerMoved += OnMove;
+        Skia.PointerReleased += OnUp;
+        Skia.PaintSurface += OnPaint;
         _zoomDebounce = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(140) };
         _zoomDebounce.Tick += (_, _) => CommitZoom();
     }
 
-    private void OnDataContextChanged(object sender, DependencyPropertyChangedEventArgs e)
+    private void OnDataContextChanged(object? sender, EventArgs e)
     {
         Detach();
         _vm = DataContext as MapWidgetViewModel;
@@ -62,7 +61,7 @@ public partial class MapWidgetView : UserControl
     private void OnTick() => Skia.InvalidateVisual();
     private void OnReset() => Skia.InvalidateVisual();
 
-    private void OnWheel(object sender, MouseWheelEventArgs e)
+    private void OnWheel(object? sender, PointerWheelEventArgs e)
     {
         if (_vm?.Region is null)
         {
@@ -70,7 +69,7 @@ public partial class MapWidgetView : UserControl
         }
 
         var p = e.GetPosition(Skia);
-        int step = e.Delta > 0 ? +1 : -1;
+        int step = e.Delta.Y > 0 ? +1 : -1;
         int cur = _vm.Region.Zoom;
         // Accumulate against the zoom range so the preview can't scale past the rebuildable level.
         int target = Math.Clamp(cur + _pendingZoomSteps + step, TileMath.MinZoom, TileMath.MaxDisplayZoom);
@@ -94,49 +93,26 @@ public partial class MapWidgetView : UserControl
         Skia.InvalidateVisual();
     }
 
-    private void OnDown(object sender, MouseButtonEventArgs e)
+    private void OnDown(object? sender, PointerPressedEventArgs e)
     {
-        if (_vm?.Region is null)
+        if (!e.GetCurrentPoint(Skia).Properties.IsLeftButtonPressed)
         {
             return;
         }
 
-        if (_pendingZoomSteps != 0)
+        // ---- original OnDown body ----
+        if (_vm?.Region is not null)
         {
-            CommitZoom(); // settle any in-flight zoom before panning
+            if (_pendingZoomSteps != 0)
+            {
+                CommitZoom(); // settle any in-flight zoom before panning
+            }
+
+            _dragging = true; _lastDrag = e.GetPosition(Skia); _panX = 0; _panY = 0; e.Pointer.Capture(Skia);
         }
 
-        _dragging = true; _lastDrag = e.GetPosition(Skia); _panX = 0; _panY = 0; Skia.CaptureMouse();
-    }
-
-    private void OnMove(object sender, MouseEventArgs e)
-    {
-        if (!_dragging || _vm?.Region is null)
-        {
-            return;
-        }
-
-        var p = e.GetPosition(Skia);
-        _panX += p.X - _lastDrag.X; _panY += p.Y - _lastDrag.Y;
-        _lastDrag = p;
-        // Translate the cached basemap during drag (cheap); rebuild once on release.
-        Skia.InvalidateVisual();
-    }
-
-    private void OnUp(object sender, MouseButtonEventArgs e)
-    {
-        if (_dragging && _vm?.Region is not null && (_panX != 0 || _panY != 0))
-        {
-            _vm.SetRegion(MapInteract.Pan(_vm.Region, _panX, _panY));
-        }
-
-        _dragging = false; _panX = 0; _panY = 0;
-        Skia.ReleaseMouseCapture();
-        Skia.InvalidateVisual();
-    }
-
-    private void OnMaybeDoubleClick(object sender, MouseButtonEventArgs e)
-    {
+        // ---- original OnMaybeDoubleClick body (merged: fires after OnDown, same as WPF's
+        // second MouseLeftButtonDown subscriber) ----
         if (e.ClickCount < 2 || _vm is null)
         {
             return;
@@ -156,17 +132,40 @@ public partial class MapWidgetView : UserControl
         Skia.InvalidateVisual();
     }
 
-    private void OnPaintSurface(object? sender, SKPaintSurfaceEventArgs e)
+    private void OnMove(object? sender, PointerEventArgs e)
     {
-        var canvas = e.Surface.Canvas;
+        if (!_dragging || _vm?.Region is null)
+        {
+            return;
+        }
+
+        var p = e.GetPosition(Skia);
+        _panX += p.X - _lastDrag.X; _panY += p.Y - _lastDrag.Y;
+        _lastDrag = p;
+        // Translate the cached basemap during drag (cheap); rebuild once on release.
+        Skia.InvalidateVisual();
+    }
+
+    private void OnUp(object? sender, PointerReleasedEventArgs e)
+    {
+        if (_dragging && _vm?.Region is not null && (_panX != 0 || _panY != 0))
+        {
+            _vm.SetRegion(MapInteract.Pan(_vm.Region, _panX, _panY));
+        }
+
+        _dragging = false; _panX = 0; _panY = 0;
+        e.Pointer.Capture(null);
+        Skia.InvalidateVisual();
+    }
+
+    private void OnPaint(SKCanvas canvas, int w, int h)
+    {
         canvas.Clear(SKColor.Parse(MapStyle.BackgroundHex));
         if (_vm is null)
         {
             return;
         }
 
-        var w = e.Info.Width;
-        var h = e.Info.Height;
         _vm.EnsureRegion(w, h);
         if (_vm.Region is null)
         {

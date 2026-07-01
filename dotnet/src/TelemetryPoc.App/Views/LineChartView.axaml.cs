@@ -1,6 +1,6 @@
-using System.Windows;
-using System.Windows.Controls;
-using System.Windows.Input;
+using Avalonia;
+using Avalonia.Controls;
+using Avalonia.Input;
 using ScottPlot;
 using ScottPlot.Plottables;
 using ScottPlot.TickGenerators;
@@ -25,7 +25,7 @@ public partial class LineChartView : UserControl
         DataContextChanged += OnDataContextChanged;
         // Re-subscribe when the view re-enters the visual tree with an already-set
         // DataContext (tab-switch / virtualization fires Loaded but not DataContextChanged).
-        Loaded += (_, _) => { if (_vm is null) { OnDataContextChanged(this, default); } };
+        Loaded += (_, _) => { if (_vm is null) { OnDataContextChanged(this, EventArgs.Empty); } };
         Unloaded += (_, _) => Detach();
     }
 
@@ -50,7 +50,7 @@ public partial class LineChartView : UserControl
         Plot.UserInputProcessor.IsEnabled = false; // window-based zoom only (Rust parity)
     }
 
-    private void OnDataContextChanged(object sender, DependencyPropertyChangedEventArgs e)
+    private void OnDataContextChanged(object? sender, EventArgs e)
     {
         Detach();
         _vm = DataContext as LineChartViewModel;
@@ -85,25 +85,25 @@ public partial class LineChartView : UserControl
         _lastX = double.NegativeInfinity;
     }
 
-    private void OnHover(object sender, MouseEventArgs e)
+    private void OnHover(object? sender, PointerEventArgs e)
     {
-        if (_vm is null) { Tip.Visibility = Visibility.Collapsed; return; }
+        if (_vm is null) { Tip.IsVisible = false; return; }
         var xs = _vm.XsSeconds; var ys = _vm.Ys;
-        if (xs.Length == 0) { Tip.Visibility = Visibility.Collapsed; return; }
+        if (xs.Length == 0) { Tip.IsVisible = false; return; }
 
         var pos = e.GetPosition(Plot);
         var px = new Pixel((float)pos.X, (float)pos.Y);
         var coord = Plot.Plot.GetCoordinates(px, Plot.Plot.Axes.Bottom, Plot.Plot.Axes.Left);
         int i = NearestSample.IndexOf(xs, coord.X);
-        if (i < 0 || i >= ys.Length) { Tip.Visibility = Visibility.Collapsed; return; }
+        if (i < 0 || i >= ys.Length) { Tip.IsVisible = false; return; }
 
         TipText.Text = $"{LineAxis.FormatElapsed(xs[i])} · {ys[i]:0.##} {_vm.Unit}";
         Tip.Margin = new Thickness(pos.X + 12, pos.Y + 8, 0, 0);
-        Tip.Visibility = Visibility.Visible;
+        Tip.IsVisible = true;
     }
 
-    private void OnHoverLeave(object sender, MouseEventArgs e)
-        => Tip.Visibility = Visibility.Collapsed;
+    private void OnHoverLeave(object? sender, PointerEventArgs e)
+        => Tip.IsVisible = false;
 
     private void Redraw()
     {
