@@ -1,7 +1,8 @@
 <UserControl x:Class="TelemetryPoc.App.Views.TopBar"
-             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-             Height="46" Background="{StaticResource Panel2}">
+             Height="46" Background="{StaticResource Panel2}"
+             PointerPressed="OnPointerPressed">
     <Grid>
         <Grid.ColumnDefinitions>
             <ColumnDefinition Width="Auto" />
@@ -35,12 +36,10 @@
                        FontFamily="{StaticResource MonoFont}" FontSize="11" Margin="0,0,16,0" />
             <TextBlock x:Name="ClockText" Text="{Binding ClockText}" Foreground="{StaticResource TextData}"
                        FontFamily="{StaticResource MonoFont}" FontSize="13" />
-            <StackPanel Orientation="Horizontal" Margin="10,0,0,0"
-                        shell:WindowChrome.IsHitTestVisibleInChrome="True"
-                        xmlns:shell="clr-namespace:System.Windows.Shell;assembly=PresentationFramework">
-                <Button Content="&#9472;" Click="OnMinimize" Style="{StaticResource CaptionButton}" />
-                <Button Content="&#9633;" Click="OnMaximize" Style="{StaticResource CaptionButton}" />
-                <Button Content="&#10005;" Click="OnClose" Style="{StaticResource CaptionButtonClose}" />
+            <StackPanel Orientation="Horizontal" Margin="10,0,0,0">
+                <Button Content="&#9472;" Click="OnMinimize" Theme="{StaticResource CaptionButton}" />
+                <Button Content="&#9633;" Click="OnMaximize" Theme="{StaticResource CaptionButton}" />
+                <Button Content="&#10005;" Click="OnClose" Theme="{StaticResource CaptionButtonClose}" />
             </StackPanel>
         </StackPanel>
     </Grid>

@@ -47,6 +47,7 @@
   <ItemGroup>
     <Compile Remove="Views\**\*.cs" />
     <AvaloniaXaml Remove="Views\**\*.xaml" />
+    <Compile Include="Views\TopBar.axaml.cs" />
   </ItemGroup>
 
 </Project>

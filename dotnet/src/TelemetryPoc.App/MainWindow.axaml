@@ -8,7 +8,8 @@
         ExtendClientAreaTitleBarHeightHint="0"
         Background="{StaticResource Bg}">
   <Grid x:Name="RootGrid" RowDefinitions="Auto,*,Auto">
-    <!-- views:TopBar / OverviewView / TransportBar / Hud land here as their tasks complete -->
+    <!-- OverviewView / TransportBar / Hud land here as their tasks complete -->
+    <views:TopBar x:Name="TopBar" Grid.Row="0" />
     <TextBlock x:Name="ErrorBanner" IsVisible="False" Foreground="{StaticResource Red}"
                Background="{StaticResource Panel2}" Padding="12,8" FontFamily="{StaticResource MonoFont}"
                HorizontalAlignment="Center" VerticalAlignment="Top" ZIndex="100" Grid.RowSpan="3" />
