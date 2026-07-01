@@ -33,7 +33,10 @@ public sealed class SkiaCanvasControl : Control
         public SkiaDrawOp(Rect bounds, SkiaCanvasControl owner) { Bounds = bounds; _owner = owner; }
 
         public Rect Bounds { get; }
-        public bool HitTest(Point p) => false;
+        // Must report hits so the hosting control (the map) receives pointer input
+        // (wheel-zoom / drag-pan / click). Returning false makes the control transparent
+        // to input in Avalonia and the map's gestures never fire.
+        public bool HitTest(Point p) => Bounds.Contains(p);
         public bool Equals(ICustomDrawOperation? other) => false;
         public void Dispose() { }
 

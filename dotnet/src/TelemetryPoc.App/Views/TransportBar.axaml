@@ -16,16 +16,29 @@
                     <ColumnDefinition Width="Auto" />
                     <ColumnDefinition Width="*" />
                 </Grid.ColumnDefinitions>
-                <Button Grid.Column="0" Click="OnPlayPause" Content="{Binding PlayPauseGlyph}"
-                        Foreground="{StaticResource TextDim}" Background="Transparent" BorderThickness="0"
-                        FontSize="16" Width="28" Height="28" Cursor="Hand" VerticalAlignment="Center" Margin="0,0,16,0">
+                <Button Grid.Column="0" Click="OnPlayPause"
+                        Background="Transparent" BorderThickness="0"
+                        Width="28" Height="28" Cursor="Hand" VerticalAlignment="Center" Margin="0,0,16,0">
                     <Button.Template>
                         <ControlTemplate TargetType="Button">
                             <Border Background="{TemplateBinding Background}">
-                                <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                <ContentPresenter Content="{TemplateBinding Content}"
+                                                  HorizontalAlignment="Center" VerticalAlignment="Center" />
                             </Border>
                         </ControlTemplate>
                     </Button.Template>
+                    <!-- Vector play/pause: the media glyphs ▶/⏸ are absent from Linux default
+                         fonts, so draw the icons instead of binding a font glyph. -->
+                    <Panel Width="14" Height="14">
+                        <Path IsVisible="{Binding IsPaused}" Fill="{StaticResource TextDim}"
+                              Data="M1,0 L13,7 L1,14 Z"
+                              HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        <StackPanel Orientation="Horizontal" Spacing="3" IsVisible="{Binding !IsPaused}"
+                                    HorizontalAlignment="Center" VerticalAlignment="Center">
+                            <Rectangle Width="3.5" Height="14" Fill="{StaticResource TextDim}" />
+                            <Rectangle Width="3.5" Height="14" Fill="{StaticResource TextDim}" />
+                        </StackPanel>
+                    </Panel>
                 </Button>
                 <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="0,0,16,0">
                     <TextBlock Text="{Binding ClockText}" Foreground="{StaticResource TextData}"

@@ -20,7 +20,10 @@ public sealed class FrameClock : Control
     public FrameClock()
     {
         IsHitTestVisible = false;
-        Width = 0; Height = 0;
+        // 1x1, not 0x0: a zero-area control is culled from the render pass by the Linux
+        // (X11) renderer, so Render() never fires and the FPS/frame HUD stays blank. A
+        // single pixel (hidden behind the HUD panel) keeps it in the render pass on all OSes.
+        Width = 1; Height = 1;
     }
 
     protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)
