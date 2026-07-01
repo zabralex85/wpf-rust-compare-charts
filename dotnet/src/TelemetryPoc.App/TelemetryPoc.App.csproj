@@ -30,6 +30,12 @@
     <PackageReference Include="Avalonia.Diagnostics" Version="11.3.4" Condition="'$(Configuration)'=='Debug'" />
     <PackageReference Include="ScottPlot.Avalonia" Version="5.1.58" />
     <PackageReference Include="Microsoft.Extensions.Hosting" Version="10.0.9" />
+    <!-- Managed SkiaSharp is 4.148.0 (via the Presentation ring) and demands a native
+         libSkiaSharp in [148.0,149.0). Dependency resolution otherwise pulls the stale
+         transitive SkiaSharp.NativeAssets.Linux 2.88.9 (native 88.x), which crashes at
+         startup on Linux ("incompatible native libSkiaSharp"). Pin the Linux native to
+         match the managed version. (Windows/macOS natives already resolve to 4.148.0.) -->
+    <PackageReference Include="SkiaSharp.NativeAssets.Linux" Version="4.148.0" />
     <!-- Override Avalonia X11's transitive Tmds.DBus.Protocol 0.21.2 (CVE-2026-39959,
          GHSA-xrw6-gwf8-vvr9, High) with the patched 0.21.3. -->
     <PackageReference Include="Tmds.DBus.Protocol" Version="0.21.3" />
