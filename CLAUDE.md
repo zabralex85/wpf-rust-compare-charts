@@ -13,12 +13,12 @@ The reference dashboard layout is `docs/reference/dashboard-target.md`.
 ```
 data/    Python telemetry simulator → ride.db (the shared data; gitignored). Source of truth for the schema.
 rust/    Tauri 2 + React + TypeScript app. Rust backend streams the ride over a local WebSocket + serves offline map tiles; React renders it (uPlot charts, MapLibre map).
-dotnet/  .NET solution: 4-ring onion — TelemetryPoc.Domain (entities + pure logic) → TelemetryPoc.Application (use cases + ports) → TelemetryPoc.Infrastructure (DB/tile/metrics adapters) → TelemetryPoc.Presentation (UI-shaping logic + Skia draw) + TelemetryPoc.App (WPF shell, Generic Host DI).
+dotnet/  .NET solution: 4-ring onion — TelemetryPoc.Domain (entities + pure logic) → TelemetryPoc.Application (use cases + ports) → TelemetryPoc.Infrastructure (DB/tile/metrics adapters) → TelemetryPoc.Presentation (UI-shaping logic + Skia draw) + TelemetryPoc.App (Avalonia UI shell, Generic Host DI; cross-platform — runs on Linux/Windows/macOS).
 tiles/   Offline vector basemap pipeline: build israel.mbtiles + glyphs (gitignored); committed fixture.mbtiles for tests. See tiles/README.md.
 docs/    specs, plans (docs/superpowers/), and the dashboard reference target.
 ```
 
-> The .NET solution uses a **4-ring onion architecture** (Domain → Application → Infrastructure → Presentation) with `TelemetryPoc.App` as the WPF composition root. **NetArchTest** rules enforce ring dependency directions. 170 xUnit tests span all rings; XAML/charts/map are build-verified + launch-confirmed.
+> The .NET solution uses a **4-ring onion architecture** (Domain → Application → Infrastructure → Presentation) with `TelemetryPoc.App` as the Avalonia UI composition root. **NetArchTest** rules enforce ring dependency directions. 174 xUnit tests span all rings; AXAML/charts/map are build-verified + launch-confirmed.
 
 The two apps share **no code** — each is its stack's idiomatic implementation. They share only `ride.db` and the schema contract.
 
@@ -72,16 +72,20 @@ python make_fixture.py                  # committed fixture.mbtiles for cargo te
 ```
 cd dotnet && dotnet test                # xUnit (170 tests across all four rings; NetArchTest enforces ring boundaries; XAML UI is build-verify only)
 dotnet build
-dotnet run --project dotnet/src/TelemetryPoc.App   # launch native WPF app (env: RIDE_DB, RIDE_SPEED)
+dotnet run --project dotnet/src/TelemetryPoc.App   # launch the Avalonia app, cross-platform (env: RIDE_DB, RIDE_SPEED)
 ```
-`RIDE_DB` defaults to an auto-resolved `data/ride.db` (or `ride_small.db`); generate a DB first. The native WPF app runs offline (no CDN/network needed).
+`RIDE_DB` defaults to an auto-resolved `data/ride.db` (or `ride_small.db`); generate a DB first. The Avalonia app runs offline (no CDN/network needed) on Linux/Windows/macOS. On Linux it needs the usual Avalonia/X11 deps (`libx11`, `libice`, `libsm`, `libfontconfig1`, GL) plus the .NET 8 runtime; fonts (IBM Plex) are embedded so text renders identically across OSes.
 
 ## Conventions
 
 - This repo was built plan-by-plan with the superpowers workflow (`docs/superpowers/specs` + `plans`), one feature branch + PR per plan, subagent-driven TDD with a final whole-branch review before merge.
-- Chart/map/GUI code (uPlot, MapLibre, ScottPlot.WPF, WPF/XAML) is **build-verified, not unit-tested** — pure logic (TS modules; .NET Domain/Application/Infrastructure/Presentation) carries the test coverage; visual correctness is checked by launching the app against `docs/reference/dashboard-target.md`.
+- Chart/map/GUI code (uPlot, MapLibre, ScottPlot.Avalonia, Avalonia/AXAML) is **build-verified, not unit-tested** — pure logic (TS modules; .NET Domain/Application/Infrastructure/Presentation) carries the test coverage; visual correctness is checked by launching the app against `docs/reference/dashboard-target.md`.
 - Keep the two stacks behaviorally equivalent (same eviction boundary, rounding, latency model, metrics cadence) so the comparison stays fair.
 
 ## Status / not yet done
 
-Both apps build, test, and run. The **Rust app** is fully reskinned to the INU dashboard (parameters, gauges, uPlot charts, offline MapLibre map, transport controls, frameless window, perf HUD). The **.NET app** is complete: native WPF/XAML INU dashboard (parameters panel, gauges, ScottPlot.WPF charts, offline Skia MVT map, perf HUD, interactive widget grid, transport controls) backed by a 4-ring onion architecture with Generic Host DI. Final visual alignment against the reference needs a live GUI launch (it can't be verified headless).
+Both apps build, test, and run. The **Rust app** is fully reskinned to the INU dashboard (parameters, gauges, uPlot charts, offline MapLibre map, transport controls, frameless window, perf HUD). The **.NET app** is complete: **Avalonia UI** (AXAML) INU dashboard (parameters panel, gauges, ScottPlot.Avalonia charts, offline Skia MVT map via a Skia-canvas lease control, perf HUD, interactive widget grid, transport controls, frameless window) backed by a 4-ring onion architecture with Generic Host DI. It was **ported from WPF to Avalonia** (in place, `TelemetryPoc.App` only; the four inner rings are untouched) so the .NET app now runs cross-platform (Linux/Windows/macOS).
+
+> **Benchmark note:** the .NET app now renders through **Skia** (Avalonia's backend), so the perf comparison is **Avalonia-Skia vs Rust-Skia** — it was WPF-DirectX vs Rust before the port. Keep this in mind when reading the HUD numbers.
+
+Final visual alignment against the reference needs a live GUI launch (it can't be verified headless); on Linux this is verified on a Kali VM.
