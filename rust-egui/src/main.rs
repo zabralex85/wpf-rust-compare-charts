@@ -136,8 +136,17 @@ struct Dash {
     fps_ema: f64,
     drag: Option<(usize, egui::Vec2)>, // (widget idx, live pixel offset while dragging)
     tab: Tab,
-    map_bbox: Option<(f64, f64, f64, f64)>, // (min_lat, max_lat, min_lon, max_lon) fixed frame
-    basemap: Option<basemap::Region>,
+    mb: Option<MbTiles>,
+    view: Option<MapView>,
+    tiles: std::collections::HashMap<(u32, u32, u32), Option<basemap::Tile>>,
+}
+
+/// Slippy-map view: center lon/lat + fractional zoom.
+#[derive(Clone, Copy)]
+struct MapView {
+    clat: f64,
+    clon: f64,
+    zoom: f64,
 }
 
 impl Dash {
@@ -191,10 +200,9 @@ impl Dash {
         }
         let total_ms = samples.last().map(|s| s.ts_ms).unwrap_or(0);
 
-        // Full-ride GPS bbox = a fixed projection frame; load the offline basemap
-        // for it (skipped silently if the tileset is missing).
-        let mut map_bbox = None;
-        let mut basemap = None;
+        // Initial map view = centred on the full-ride GPS bbox; open the tileset.
+        let mut view = None;
+        let mut mb = None;
         if let (Some(la), Some(lo)) = (col_of(&|c| c.widget == "map_lat"), col_of(&|c| c.widget == "map_lon")) {
             let (mut mnla, mut mxla, mut mnlo, mut mxlo) = (f64::MAX, f64::MIN, f64::MAX, f64::MIN);
             let mut any = false;
@@ -208,20 +216,18 @@ impl Dash {
                 }
             }
             if any {
-                let dla = (mxla - mnla).max(1e-4) * 0.12;
-                let dlo = (mxlo - mnlo).max(1e-4) * 0.12;
-                let bb = (mnla - dla, mxla + dla, mnlo - dlo, mxlo + dlo);
-                map_bbox = Some(bb);
+                let span = (mxlo - mnlo).abs().max((mxla - mnla).abs()).max(1e-4);
+                let zoom = ((360.0 / span * 0.6).log2()).clamp(11.0, 15.0);
+                view = Some(MapView { clat: (mnla + mxla) / 2.0, clon: (mnlo + mxlo) / 2.0, zoom });
                 let path = std::env::var("RIDE_MBTILES").unwrap_or_else(|_| "../tiles/israel.mbtiles".into());
-                if let Ok(mb) = MbTiles::open(&path) {
-                    basemap = Some(basemap::load_region(&mb, bb.0, bb.1, bb.2, bb.3));
-                }
+                mb = MbTiles::open(&path).ok();
             }
         }
 
         Ok(Self {
-            map_bbox,
-            basemap,
+            mb,
+            view,
+            tiles: std::collections::HashMap::new(),
             lat_col: col_of(&|c| c.widget == "map_lat"),
             lon_col: col_of(&|c| c.widget == "map_lon"),
             channels,
@@ -382,6 +388,125 @@ impl Dash {
     fn cautions(&self) -> usize {
         self.sev_count("warning") + self.sev_count("caution")
     }
+
+    /// Interactive offline slippy map: pan (drag) + zoom (scroll), filled MVT
+    /// basemap tiles (cached), road lines, place labels, and the GPS track.
+    fn draw_map(&mut self, ui: &mut egui::Ui, rect: Rect) {
+        let p = ui.painter_at(rect);
+        p.rect_filled(rect, 3.0, Color32::from_rgb(0x0a, 0x12, 0x1c));
+        p.rect_stroke(rect, 3.0, Stroke::new(1.0, BORDER));
+        let mut v = match self.view {
+            Some(v) => v,
+            None => {
+                // no GPS -> fallback: track in its own bbox
+                draw_track_bbox(&p, rect, &self.track);
+                p.text(rect.left_top() + vec2(6.0, 4.0), Align2::LEFT_TOP, "FLIGHT TRACK", FontId::monospace(10.0), DIM);
+                return;
+            }
+        };
+        // ---- interaction ----
+        let resp = ui.interact(rect, ui.id().with("map"), egui::Sense::click_and_drag());
+        if resp.dragged() {
+            let (cx, cy) = basemap::world(v.clon, v.clat, v.zoom);
+            let d = resp.drag_delta();
+            let (lon, lat) = basemap::unworld(cx - d.x as f64, cy - d.y as f64, v.zoom);
+            v.clon = lon;
+            v.clat = lat;
+        }
+        if resp.hovered() {
+            let scroll = ui.input(|i| i.raw_scroll_delta.y);
+            if scroll != 0.0 {
+                v.zoom = (v.zoom + scroll as f64 * 0.004).clamp(10.0, 16.0);
+            }
+        }
+        self.view = Some(v);
+
+        let (cwx, cwy) = basemap::world(v.clon, v.clat, v.zoom);
+        let project = |lon: f64, lat: f64| {
+            let (wx, wy) = basemap::world(lon, lat, v.zoom);
+            pos2(rect.center().x + (wx - cwx) as f32, rect.center().y + (wy - cwy) as f32)
+        };
+        let unproject = |px: f32, py: f32| basemap::unworld(cwx + (px - rect.center().x) as f64, cwy + (py - rect.center().y) as f64, v.zoom);
+        let zi = v.zoom.floor() as u32;
+        let (lon_a, lat_a) = unproject(rect.left(), rect.top());
+        let (lon_b, lat_b) = unproject(rect.right(), rect.bottom());
+        let tx0 = basemap::lon_to_tx(lon_a.min(lon_b), zi).floor() as i64;
+        let tx1 = basemap::lon_to_tx(lon_a.max(lon_b), zi).floor() as i64;
+        let ty0 = basemap::lat_to_ty(lat_a.max(lat_b), zi).floor() as i64;
+        let ty1 = basemap::lat_to_ty(lat_a.min(lat_b), zi).floor() as i64;
+
+        let water = Color32::from_rgb(0x14, 0x2f, 0x47);
+        let green = Color32::from_rgb(0x13, 0x24, 0x1b);
+        let land = Color32::from_rgb(0x0e, 0x17, 0x22);
+        let road_col = [
+            Color32::from_rgb(0x52, 0x63, 0x74),
+            Color32::from_rgb(0x3e, 0x4e, 0x5e),
+            Color32::from_rgb(0x2e, 0x3c, 0x4a),
+            Color32::from_rgb(0x24, 0x30, 0x3c),
+        ];
+        let road_w = [1.8, 1.3, 0.9, 0.6];
+        let mut labels: Vec<(Pos2, String)> = Vec::new();
+
+        for tx in tx0..=tx1 {
+            for ty in ty0..=ty1 {
+                if tx < 0 || ty < 0 || (tx1 - tx0 + 1) * (ty1 - ty0 + 1) > 64 {
+                    continue;
+                }
+                let key = (zi, tx as u32, ty as u32);
+                if !self.tiles.contains_key(&key) {
+                    let decoded = self
+                        .mb
+                        .as_ref()
+                        .and_then(|mb| mb.tile_xyz(zi, tx as u32, ty as u32).ok().flatten())
+                        .and_then(|b| basemap::decode(&b));
+                    self.tiles.insert(key, decoded);
+                }
+                let t = match self.tiles.get(&key) {
+                    Some(Some(t)) => t,
+                    _ => continue,
+                };
+                let tp = |u: f32, vv: f32| {
+                    let (lon, lat) = basemap::tile_to_lonlat(tx as f64 + u as f64, ty as f64 + vv as f64, zi);
+                    project(lon, lat)
+                };
+                for (fill, s) in &t.polys {
+                    let pts: Vec<Pos2> = s.iter().map(|&(u, vv)| tp(u, vv)).collect();
+                    let col = match fill {
+                        basemap::Fill::Water => water,
+                        basemap::Fill::Green => green,
+                        basemap::Fill::Land => land,
+                    };
+                    p.add(egui::Shape::convex_polygon(pts, col, Stroke::NONE));
+                }
+                for (rank, s) in &t.roads {
+                    let pts: Vec<Pos2> = s.iter().map(|&(u, vv)| tp(u, vv)).collect();
+                    if pts.len() >= 2 {
+                        let r = *rank as usize;
+                        p.add(egui::Shape::line(pts, Stroke::new(road_w[r], road_col[r])));
+                    }
+                }
+                for (u, vv, txt) in &t.labels {
+                    labels.push((tp(*u, *vv), txt.clone()));
+                }
+            }
+        }
+
+        // GPS track on top
+        if self.track.len() >= 2 {
+            let pts: Vec<Pos2> = self.track.iter().map(|&(la, lo)| project(lo, la)).collect();
+            p.add(egui::Shape::line(pts.clone(), Stroke::new(2.0, CYAN)));
+            if let Some(l) = pts.last() {
+                p.circle_filled(*l, 4.0, GREEN);
+            }
+        }
+        for (pos, txt) in labels.into_iter().take(48) {
+            if rect.contains(pos) {
+                p.text(pos, Align2::CENTER_CENTER, &txt, FontId::proportional(10.0), Color32::from_rgb(0x9a, 0xb0, 0xc0));
+            }
+        }
+        p.text(rect.left_top() + vec2(6.0, 4.0), Align2::LEFT_TOP, "FLIGHT TRACK", FontId::monospace(10.0), DIM);
+        p.text(rect.right_bottom() + vec2(-6.0, -6.0), Align2::RIGHT_BOTTOM, format!("z{:.1}  drag/scroll", v.zoom), FontId::monospace(8.0), DIM);
+    }
 }
 
 fn pill(ui: &mut egui::Ui, color: Color32, text: &str) {
@@ -435,66 +560,33 @@ fn draw_gauge(p: &egui::Painter, rect: Rect, value: f64, min: f64, max: f64, nam
     );
 }
 
-/// Flight track over the offline basemap, projected to a fixed lat/lon frame
-/// (falls back to the track's own bbox when no frame/basemap is available).
-fn draw_map(
-    p: &egui::Painter,
-    rect: Rect,
-    bbox: Option<(f64, f64, f64, f64)>,
-    base: Option<&basemap::Region>,
-    track: &[(f64, f64)],
-) {
-    p.rect_filled(rect, 3.0, Color32::from_rgb(0x08, 0x10, 0x1a));
-    p.rect_stroke(rect, 3.0, Stroke::new(1.0, BORDER));
-    p.text(rect.left_top() + vec2(6.0, 4.0), Align2::LEFT_TOP, "FLIGHT TRACK", FontId::monospace(10.0), DIM);
-    let bb = bbox.or_else(|| {
-        if track.len() < 2 {
-            return None;
-        }
-        let (mut a, mut b, mut c, mut d) = (f64::MAX, f64::MIN, f64::MAX, f64::MIN);
-        for &(la, lo) in track {
-            a = a.min(la);
-            b = b.max(la);
-            c = c.min(lo);
-            d = d.max(lo);
-        }
-        Some((a, b, c, d))
-    });
-    let (mnla, mxla, mnlo, mxlo) = match bb {
-        Some(v) => v,
-        None => return,
-    };
+/// Fallback (no GPS/tileset): draw the track scaled to its own bbox.
+fn draw_track_bbox(p: &egui::Painter, rect: Rect, track: &[(f64, f64)]) {
+    if track.len() < 2 {
+        return;
+    }
+    let (mut mnla, mut mxla, mut mnlo, mut mxlo) = (f64::MAX, f64::MIN, f64::MAX, f64::MIN);
+    for &(la, lo) in track {
+        mnla = mnla.min(la);
+        mxla = mxla.max(la);
+        mnlo = mnlo.min(lo);
+        mxlo = mxlo.max(lo);
+    }
     let plot = Rect::from_min_max(rect.left_top() + vec2(10.0, 22.0), rect.right_bottom() - vec2(10.0, 10.0));
     let sx = (mxlo - mnlo).max(1e-9);
     let sy = (mxla - mnla).max(1e-9);
-    let map = |la: f64, lo: f64| {
-        pos2(
-            plot.left() + ((lo - mnlo) / sx) as f32 * plot.width(),
-            plot.bottom() - ((la - mnla) / sy) as f32 * plot.height(), // north up
-        )
-    };
-    if let Some(r) = base {
-        let water = Color32::from_rgb(0x1c, 0x44, 0x64);
-        let road = Color32::from_rgb(0x38, 0x4a, 0x5c);
-        for s in &r.water {
-            let pts: Vec<Pos2> = s.iter().map(|&(la, lo)| map(la, lo)).collect();
-            if pts.len() >= 2 {
-                p.add(egui::Shape::line(pts, Stroke::new(1.2, water)));
-            }
-        }
-        for s in &r.roads {
-            let pts: Vec<Pos2> = s.iter().map(|&(la, lo)| map(la, lo)).collect();
-            if pts.len() >= 2 {
-                p.add(egui::Shape::line(pts, Stroke::new(0.8, road)));
-            }
-        }
-    }
-    if track.len() >= 2 {
-        let pts: Vec<Pos2> = track.iter().map(|&(la, lo)| map(la, lo)).collect();
-        p.add(egui::Shape::line(pts.clone(), Stroke::new(1.5, CYAN)));
-        if let Some(last) = pts.last() {
-            p.circle_filled(*last, 4.0, GREEN);
-        }
+    let pts: Vec<Pos2> = track
+        .iter()
+        .map(|&(la, lo)| {
+            pos2(
+                plot.left() + ((lo - mnlo) / sx) as f32 * plot.width(),
+                plot.bottom() - ((la - mnla) / sy) as f32 * plot.height(),
+            )
+        })
+        .collect();
+    p.add(egui::Shape::line(pts.clone(), Stroke::new(1.5, CYAN)));
+    if let Some(last) = pts.last() {
+        p.circle_filled(*last, 4.0, GREEN);
     }
 }
 
@@ -727,7 +819,7 @@ impl eframe::App for Dash {
                 Tab::Overview => {
                 let full_w = ui.available_width();
                 let (trect, _) = ui.allocate_exact_size(vec2(full_w, 200.0), egui::Sense::hover());
-                draw_map(&ui.painter_at(trect), trect, self.map_bbox, self.basemap.as_ref(), &self.track);
+                self.draw_map(ui, trect);
                 ui.add_space(12.0);
                 let _ = full_w;
                 egui::ScrollArea::vertical().show(ui, |ui| {
@@ -870,7 +962,7 @@ impl eframe::App for Dash {
                 }
                 Tab::FlightTrack => {
                     let rect = ui.available_rect_before_wrap();
-                    draw_map(&ui.painter_at(rect), rect, self.map_bbox, self.basemap.as_ref(), &self.track);
+                    self.draw_map(ui, rect);
                 }
                 Tab::Events => {
                     ui.colored_label(CYAN, RichText::new("EVENTS — INU STATUS").strong());
