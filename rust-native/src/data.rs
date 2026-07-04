@@ -25,6 +25,7 @@ impl WindowBuffer {
         &self.points
     }
 
+    #[allow(dead_code)] // used by tests + kept as buffer API
     pub fn len(&self) -> usize {
         self.points.len()
     }

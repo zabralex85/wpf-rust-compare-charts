@@ -148,56 +148,163 @@ pub fn app() -> Element {
     let ram_str = format!("{:.0}", m.ram_mb);
     let fps_str = format!("{:.0}", *fps.read());
 
+    // Group params like the Tauri ParamPanel (groups.ts): fixed group order,
+    // channels already arrive in display order, unknown columns fall to "System".
+    let grouped = group_channels(&channels);
+    let total = channels.len();
+
     rsx! {
         div {
-            style: "display:flex;flex-direction:row;background:#0a0e14;color:#d7e2ea;\
-                     font-family:'Segoe UI',sans-serif;width:100vw;height:100vh;overflow:hidden;",
+            style: "display:flex;flex-direction:column;background:#0a0e14;color:#d7e2ea;\
+                     font-family:Consolas,'IBM Plex Mono',monospace;width:100vw;height:100vh;overflow:hidden;",
 
-            // --- Param table ---
+            // --- Top bar ---
             div {
-                style: "width:260px;flex-shrink:0;overflow-y:auto;padding:12px;\
-                         border-right:1px solid #1c2733;",
-                h2 {
-                    style: "color:#38c5e0;font-size:14px;margin:0 0 8px 0;font-weight:600;",
-                    "PARAMETERS"
-                }
-                for (i , ch) in channels.iter().enumerate() {
-                    div {
-                        key: "{ch.id}",
-                        style: "display:flex;justify-content:space-between;gap:8px;\
-                                 font-size:12px;padding:3px 0;border-bottom:1px solid #131b24;",
-                        span { style: "color:#8fa3b3;", "{ch.name}" }
-                        span { "{format_value(latest_snapshot.as_ref(), i)} {ch.unit}" }
-                    }
+                style: "display:flex;align-items:center;gap:14px;height:44px;flex-shrink:0;\
+                         padding:0 16px;background:#0b1119;border-bottom:1px solid #1c2733;",
+                span { style: "color:#38c5e0;font-weight:700;font-size:15px;letter-spacing:2px;", "INU·NATIVE" }
+                span { style: "color:#5f7385;font-size:10px;letter-spacing:1px;", "BLITZ · VELLO — NATIVE RENDER, NO WEBVIEW" }
+                div {
+                    style: "margin-left:auto;display:flex;gap:10px;",
+                    HudPill { label: "CPU", value: "{cpu_str}%" }
+                    HudPill { label: "RAM", value: "{ram_str} MB" }
+                    HudPill { label: "FPS", value: "{fps_str}" }
                 }
             }
 
-            // --- Chart grid + HUD ---
             div {
-                style: "flex:1;display:flex;flex-direction:column;padding:12px;overflow-y:auto;",
+                style: "display:flex;flex-direction:row;flex:1;overflow:hidden;",
+
+                // --- Param table (grouped) ---
                 div {
-                    style: "display:flex;gap:20px;margin-bottom:12px;font-size:12px;color:#8fa3b3;",
-                    span { "CPU {cpu_str}%" }
-                    span { "RAM {ram_str} MB" }
-                    span { "FPS {fps_str}" }
+                    style: "width:290px;flex-shrink:0;overflow-y:auto;\
+                             border-right:1px solid #1c2733;background:#0b111a;",
+                    div {
+                        style: "display:flex;justify-content:space-between;align-items:center;\
+                                 padding:9px 12px;border-bottom:1px solid #1c2733;",
+                        span { style: "color:#38c5e0;font-size:12px;font-weight:700;letter-spacing:1px;", "PARAMETERS" }
+                        span { style: "color:#5f7385;font-size:10px;", "ALL {total} CH" }
+                    }
+                    for grp in grouped.iter() {
+                        div {
+                            key: "{grp.name}",
+                            style: "display:flex;justify-content:space-between;\
+                                     padding:5px 12px;background:#0d1621;color:#6f8496;\
+                                     font-size:10px;letter-spacing:1px;text-transform:uppercase;",
+                            span { "{grp.name}" }
+                            span { style: "color:#455567;", "{grp.rows.len()}" }
+                        }
+                        for row in grp.rows.iter() {
+                            div {
+                                key: "{row.id}",
+                                style: "display:flex;align-items:center;gap:8px;\
+                                         padding:3px 12px;border-bottom:1px solid #101821;font-size:12px;",
+                                span { style: "width:6px;height:6px;border-radius:50%;background:#2fd17a;flex-shrink:0;", "" }
+                                span { style: "color:#8fa3b3;flex:1;", "{row.name}" }
+                                span { style: "color:#d7e2ea;text-align:right;", "{format_value(latest_snapshot.as_ref(), row.index)}" }
+                                span { style: "color:#5f7385;width:34px;text-align:right;", "{row.unit}" }
+                            }
+                        }
+                    }
                 }
+
+                // --- Chart grid ---
                 div {
-                    style: "display:flex;flex-wrap:wrap;gap:12px;",
-                    for s in strips.iter() {
-                        StripChart {
-                            key: "{s.id}",
-                            name: s.name.clone(),
-                            value: format_value(latest_snapshot.as_ref(), s.idx),
-                            unit: s.unit.clone(),
-                            min: s.min,
-                            max: s.max,
-                            channel_id: s.id,
+                    style: "flex:1;display:flex;flex-direction:column;padding:14px;overflow-y:auto;",
+                    div {
+                        style: "display:flex;flex-wrap:wrap;gap:14px;align-content:flex-start;",
+                        for s in strips.iter() {
+                            StripChart {
+                                key: "{s.id}",
+                                name: s.name.clone(),
+                                value: format_value(latest_snapshot.as_ref(), s.idx),
+                                unit: s.unit.clone(),
+                                min: s.min,
+                                max: s.max,
+                                channel_id: s.id,
+                            }
                         }
                     }
                 }
             }
         }
     }
+}
+
+/// Perf-HUD pill: a dim label + a cyan value, boxed.
+#[component]
+fn HudPill(label: String, value: String) -> Element {
+    rsx! {
+        div {
+            style: "display:flex;gap:6px;align-items:baseline;padding:3px 9px;\
+                     background:#0f1a26;border:1px solid #1c2733;border-radius:3px;",
+            span { style: "color:#5f7385;font-size:9px;letter-spacing:1px;", "{label}" }
+            span { style: "color:#38c5e0;font-size:12px;font-weight:600;", "{value}" }
+        }
+    }
+}
+
+/// A param row projected into a group (carries the original channel index so
+/// the latest sample can still be looked up by position).
+struct ParamRowV {
+    index: usize,
+    id: i64,
+    name: String,
+    unit: String,
+}
+
+struct ParamGroup {
+    name: &'static str,
+    rows: Vec<ParamRowV>,
+}
+
+/// Fixed group order + column membership, mirroring the Tauri `groups.ts`.
+const GROUPS: &[(&str, &[&str])] = &[
+    ("INU Mode", &["inu_mode1", "inu_mode2"]),
+    ("Velocity", &["vel_x", "vel_y", "vel_z", "plat_azim", "vclimb"]),
+    (
+        "Attitude",
+        &[
+            "roll", "pitch", "heading_t", "heading_m", "sky_pitch", "sky_roll", "sky_azim",
+            "sky_heading", "prsnt_head",
+        ],
+    ),
+    ("Acceleration", &["acc_x", "acc_y", "acc_z"]),
+    ("Body Rates", &["roll_r", "pitch_r", "yaw_r"]),
+    ("Position", &["lat", "lon"]),
+];
+
+fn group_of(column_name: &str) -> &'static str {
+    for (name, cols) in GROUPS {
+        if cols.contains(&column_name) {
+            return name;
+        }
+    }
+    "System"
+}
+
+/// Bucket channels into the fixed group order (channels already arrive in
+/// display order, so per-group order is preserved); unknowns go to "System".
+fn group_channels(channels: &[ChannelMeta]) -> Vec<ParamGroup> {
+    let order: Vec<&'static str> = GROUPS.iter().map(|(n, _)| *n).chain(["System"]).collect();
+    let mut out = Vec::new();
+    for name in order {
+        let rows: Vec<ParamRowV> = channels
+            .iter()
+            .enumerate()
+            .filter(|(_, ch)| group_of(&ch.column_name) == name)
+            .map(|(index, ch)| ParamRowV {
+                index,
+                id: ch.id,
+                name: ch.name.clone(),
+                unit: ch.unit.clone(),
+            })
+            .collect();
+        if !rows.is_empty() {
+            out.push(ParamGroup { name, rows });
+        }
+    }
+    out
 }
 
 fn format_value(sample: Option<&Sample>, idx: usize) -> String {
@@ -223,10 +330,17 @@ fn StripChart(
 
     rsx! {
         div {
-            style: "background:#0d1420;border:1px solid #1c2733;border-radius:4px;padding:6px;",
+            style: "background:#0d1420;border:1px solid #1c2733;border-radius:4px;\
+                     padding:8px;display:flex;flex-direction:column;",
             div {
-                style: "font-size:12px;color:#38c5e0;margin-bottom:4px;",
-                "{name}: {value} {unit}"
+                style: "display:flex;justify-content:space-between;align-items:baseline;\
+                         margin-bottom:6px;",
+                span { style: "font-size:11px;color:#8fa3b3;letter-spacing:1px;text-transform:uppercase;", "{name}" }
+                span {
+                    style: "font-size:13px;color:#38c5e0;font-weight:600;",
+                    "{value} "
+                    span { style: "font-size:10px;color:#5f7385;", "{unit}" }
+                }
             }
             canvas {
                 width: CANVAS_W,
