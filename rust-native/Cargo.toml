@@ -1,0 +1,14 @@
+[package]
+name = "rust-native"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+app_lib = { path = "../rust/src-tauri", package = "app" }
+# Resolved via `cargo add` on crates.io; Cargo.lock confirms these exact versions.
+dioxus = "=0.7.9"
+dioxus-native = "=0.7.9"
+
+[[bin]]
+name = "rust-native"
+path = "src/main.rs"
