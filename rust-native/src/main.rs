@@ -1,6 +1,7 @@
 use dioxus::prelude::*;
 
 mod data;
+mod feed;
 
 fn main() {
     // Launch via the NATIVE renderer (Blitz/Vello) — NOT dioxus-desktop.

@@ -8,6 +8,7 @@ app_lib = { path = "../rust/src-tauri", package = "app" }
 # Resolved via `cargo add` on crates.io; Cargo.lock confirms these exact versions.
 dioxus = "=0.7.9"
 dioxus-native = "=0.7.9"
+rusqlite = { version = "0.31", features = ["bundled"] }
 
 [[bin]]
 name = "rust-native"
