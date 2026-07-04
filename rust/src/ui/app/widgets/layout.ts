@@ -8,7 +8,7 @@ import type { ChannelMeta } from "../../../types";
  *   gauge widget  → "gauge-<channelId>"
  *   line widget   → "line-<channelId>"
  *
- * Ordering: map → gauges (display_order asc) → lines (roll first, acc_z second).
+ * Ordering: map → gauges (display_order asc) → lines (one per strip channel, display_order asc).
  */
 export type Widget = {
   id: string;
@@ -19,9 +19,6 @@ export type Widget = {
   rows: number;
 };
 
-/** Key strip channels included as line widgets, in this fixed order. */
-const LINE_CHANNEL_NAMES = ["roll", "acc_z"] as const;
-
 /**
  * Builds the default widget-layout descriptor for the overview dashboard.
  *
@@ -29,8 +26,8 @@ const LINE_CHANNEL_NAMES = ["roll", "acc_z"] as const;
  *  1. map  (cols 4, rows 4) — only when BOTH a map_lat AND a map_lon channel exist.
  *  2. gauge (cols 1, rows 1) — one per channel where `widget === "gauge"`,
  *     ordered by display_order ascending.
- *  3. line  (cols 2, rows 1) — one for "roll" then one for "acc_z", only if
- *     a strip channel with that column_name actually exists in `channels`.
+ *  3. line  (cols 2, rows 1) — one per channel where `widget === "strip"`,
+ *     ordered by display_order ascending (mirrors the .NET WidgetSeed).
  *
  * Returns an empty array when `channels` is empty.
  */
@@ -68,21 +65,21 @@ export function defaultWidgets(channels: ChannelMeta[]): Widget[] {
     });
   }
 
-  // ── 3. lines ──────────────────────────────────────────────────────────────
-  for (const colName of LINE_CHANNEL_NAMES) {
-    const ch = channels.find(
-      (c) => c.column_name === colName && c.widget === "strip",
-    );
-    if (ch) {
-      result.push({
-        id: `line-${ch.id}`,
-        kind: "line",
-        channelId: ch.id,
-        name: ch.name,
-        cols: 2,
-        rows: 1,
-      });
-    }
+  // ── 3. lines: one per strip channel, display_order ascending ────────────────
+  const stripChannels = channels
+    .filter((c) => c.widget === "strip")
+    .slice()
+    .sort((a, b) => a.display_order - b.display_order);
+
+  for (const ch of stripChannels) {
+    result.push({
+      id: `line-${ch.id}`,
+      kind: "line",
+      channelId: ch.id,
+      name: ch.name,
+      cols: 2,
+      rows: 1,
+    });
   }
 
   return result;

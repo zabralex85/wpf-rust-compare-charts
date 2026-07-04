@@ -32,9 +32,21 @@ describe("TelemetryStore", () => {
     const s = new TelemetryStore();
     s.applyMeta(meta());
     s.applyFrame({ type: "frame", ts_ms: 0, emit_unix_ms: 1, values: [0, 32.0, 34.5] });
-    s.applyFrame({ type: "frame", ts_ms: 100, emit_unix_ms: 2, values: [0, 32.1, 34.6] });
+    s.applyFrame({ type: "frame", ts_ms: 1000, emit_unix_ms: 2, values: [0, 32.1, 34.6] });
     expect(s.gpsTrack().lat).toEqual([32.0, 32.1]);
     expect(s.gpsTrack().lon).toEqual([34.5, 34.6]);
+  });
+
+  it("decimates the GPS track to ~2 Hz (bounds memory + per-frame track rebuild)", () => {
+    const s = new TelemetryStore(); // default gpsIntervalMs = 500
+    s.applyMeta(meta());
+    // 10 Hz stream: 25 frames over 2.4 s → only points ≥500 ms apart are kept.
+    for (let i = 0; i < 25; i++) {
+      s.applyFrame({ type: "frame", ts_ms: i * 100, emit_unix_ms: i, values: [0, i, 40 + i] });
+    }
+    // kept at ts 0, 500, 1000, 1500, 2000 (frames i = 0, 5, 10, 15, 20) → 5 points, not 25.
+    expect(s.gpsTrack().lat.length).toBe(5);
+    expect(s.gpsTrack().lat).toEqual([0, 5, 10, 15, 20]);
   });
 
   it("stores metrics", () => {
