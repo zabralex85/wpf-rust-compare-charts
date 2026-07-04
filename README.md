@@ -29,14 +29,14 @@ This is a **paradigm contrast**: a web WebView UI (Tauri/React) vs a native reta
 
 ## Measured footprint
 
-Both apps replaying the same ride at `RIDE_SPEED=1.0` with the full dashboard + offline map (**1:1** — both render the live MVT basemap), **Release** builds. Sampled after a 30 s warm‑up over a 6 s window on an 8‑core Windows 11 machine. CPU is `% of total` system capacity (the Task Manager convention); RAM is working set. The Rust figure sums **app + WebView2** (7 processes) since that's the real footprint of a Tauri app.
+Both apps replaying the same ride at `RIDE_SPEED=1.0` with the full dashboard + offline map (**1:1** — both render the live MVT basemap, both seed one line chart per strip channel), **Release** builds. Sampled after a 30 s warm‑up over a 6 s window on an 8‑core Windows 11 machine. CPU is `% of total` system capacity (the Task Manager convention); RAM is working set. The Rust figure sums **app + WebView2** (7 processes) since that's the real footprint of a Tauri app. CPU is noisy at this scale — figures are rounded ranges from a couple of samples.
 
 | Stack | Processes | RAM | CPU (total) |
 |---|---|---|---|
-| **.NET Avalonia** (native Skia) | 1 | ~279 MB | ~3.4% |
-| **Rust Tauri** (React in WebView2) | 7 (app + WebView2 tree) | ~637 MB | ~6.0% |
+| **.NET Avalonia** (native Skia) | 1 | ~279 MB | ~4–5% |
+| **Rust Tauri** (React in WebView2) | 7 (app + WebView2 tree) | ~600–650 MB | ~3–4% |
 
-The native .NET app is markedly lighter on both memory and CPU — the bundled Chromium **WebView2** runtime dominates the Tauri footprint (the Rust **backend** process is ~0% CPU / ~35 MB; all the cost is the WebView2 frontend renderer + compositor + Chromium's multiprocess RAM). (Numbers are machine‑specific and meant as a ballpark; re‑run locally for your hardware.)
+The native .NET app is still **~2.2× lighter on memory** — the bundled Chromium **WebView2** runtime dominates the Tauri footprint (the Rust **backend** process is ~0% CPU / ~36 MB; all the RAM cost is the WebView2 frontend renderer + compositor + Chromium's multiprocess floor, which decimation can't lower). **CPU is now comparable** between the two (both ~3–5%): decimating the GPS map track to **2 Hz** removed Rust's per‑frame full‑track rebuild (rebuilding the whole MapLibre polyline 10×/s was the dominant WebView2 renderer cost — it previously put Rust at ~6%). (Numbers are machine‑specific and meant as a ballpark; re‑run locally for your hardware.)
 
 **Equivalent-work check.** Both stacks update their data widgets (charts, gauges, params, map) gated to the **10 Hz** data cadence. One asymmetry: .NET's perf‑HUD `FrameClock` free‑runs the compositor (~60 Hz) while Rust composites only on the 10 Hz DOM changes — but this is **immaterial**: running .NET with `RIDE_FPS_CAP=10` (composite pinned to 10 Hz, matching Rust) measured ~4.1% vs ~3.5% uncapped, i.e. within noise. .NET's CPU is data/chart‑redraw bound, not composite bound (native Skia compositing is near‑free), so the comparison is fair regardless of composite cadence.
 

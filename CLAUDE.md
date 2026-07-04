@@ -81,6 +81,7 @@ dotnet run --project dotnet/src/TelemetryPoc.App   # launch the Avalonia app, cr
 - This repo was built plan-by-plan with the superpowers workflow (`docs/superpowers/specs` + `plans`), one feature branch + PR per plan, subagent-driven TDD with a final whole-branch review before merge.
 - Chart/map/GUI code (uPlot, MapLibre, ScottPlot.Avalonia, Avalonia/AXAML) is **build-verified, not unit-tested** — pure logic (TS modules; .NET Domain/Application/Infrastructure/Presentation) carries the test coverage; visual correctness is checked by launching the app against `docs/reference/dashboard-target.md`.
 - Keep the two stacks behaviorally equivalent (same eviction boundary, rounding, latency model, metrics cadence) so the comparison stays fair.
+- **Search with ripgrep (`rg`) by default**, not `find`/`git grep`. On Windows, if `rg` is not available, install it first: `winget install BurntSushi.ripgrep.MSVC`.
 
 ## Status / not yet done
 

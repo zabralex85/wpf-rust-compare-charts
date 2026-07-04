@@ -36,10 +36,26 @@ public class TelemetryStoreTests
         var (ch, ev) = Meta();
         s.ApplyMeta(ch, ev);
         s.ApplyFrame(new Sample(0, new[] { 0, 32.0, 34.5 }), 1);
-        s.ApplyFrame(new Sample(100, new[] { 0, 32.1, 34.6 }), 2);
+        s.ApplyFrame(new Sample(1000, new[] { 0, 32.1, 34.6 }), 2); // ≥1 s later → kept
         var (lat, lon) = s.GpsTrack();
         Assert.Equal(new[] { 32.0, 32.1 }, lat);
         Assert.Equal(new[] { 34.5, 34.6 }, lon);
+    }
+
+    [Fact]
+    public void Decimates_gps_track_to_2hz()
+    {
+        var s = new TelemetryStore(); // default gpsIntervalMs = 500
+        var (ch, ev) = Meta();
+        s.ApplyMeta(ch, ev);
+        // 10 Hz stream: 25 frames over 2.4 s → only points ≥500 ms apart are kept.
+        for (int i = 0; i < 25; i++)
+        {
+            s.ApplyFrame(new Sample(i * 100, new[] { 0.0, i, 40 + i }), i);
+        }
+
+        var (lat, _) = s.GpsTrack();
+        Assert.Equal(new[] { 0.0, 5, 10, 15, 20 }, lat); // ts 0, 500, 1000, 1500, 2000
     }
 
     [Fact]

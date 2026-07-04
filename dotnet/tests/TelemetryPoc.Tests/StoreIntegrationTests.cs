@@ -35,9 +35,21 @@ public class StoreIntegrationTests
         Assert.NotNull(store.Series(roll.Id));
         Assert.Null(store.Series(inuMode2.Id));
 
-        // gps track accumulated one paired point per frame
+        // gps track accumulated, decimated to ~2 Hz (a point kept only when ts advanced ≥500 ms)
         var (lat, lon) = store.GpsTrack();
-        Assert.Equal(samples.Count, lat.Count);
+        long lastGps = 0;
+        int expectedGps = 0;
+        foreach (var s in samples)
+        {
+            if (expectedGps == 0 || s.TsMs - lastGps >= 500)
+            {
+                expectedGps++;
+                lastGps = s.TsMs;
+            }
+        }
+
+        Assert.Equal(expectedGps, lat.Count);
+        Assert.True(lat.Count < samples.Count); // genuinely decimated below the raw 10 Hz frame count
         Assert.Equal(lat.Count, lon.Count);
 
         // enum channel formats to a decoded label via the store's enum index

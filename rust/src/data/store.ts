@@ -17,8 +17,14 @@ export class TelemetryStore {
   private _rateHz = 0;
   private _durationMs = 0;
   private _lastTs = 0;
+  private _lastGpsTs = -Infinity;
 
-  constructor(private readonly windowMs = 60_000) {}
+  // windowMs: strip-series scrolling window. gpsIntervalMs: minimum spacing between stored GPS
+  // track points — the raw stream is ~10 Hz but the flight path only needs ~2 Hz, so decimating
+  // here bounds both the track array growth and the per-frame track rebuild (GeoJSON/setData).
+  // 500 ms → map advances 2×/s (live enough) while still cutting the rebuild/growth ~5×.
+  // Kept identical to the .NET store so the memory/CPU comparison stays fair.
+  constructor(private readonly windowMs = 60_000, private readonly gpsIntervalMs = 500) {}
 
   applyMeta(m: MetaMessage): void {
     // channels arrive pre-sorted by display_order; frame.values[i] aligns to channels[i] positionally.
@@ -36,6 +42,7 @@ export class TelemetryStore {
     this._rateHz = m.rate_hz;
     this._durationMs = m.duration_s * 1000;
     this._lastTs = 0;
+    this._lastGpsTs = -Infinity;
     m.channels.forEach((ch, i) => {
       if (ch.widget === "strip") this._series.set(ch.id, new ChannelSeries(this.windowMs));
       if (ch.widget === "map_lat") this._latIdx = i;
@@ -53,9 +60,10 @@ export class TelemetryStore {
       const series = this._series.get(ch.id);
       if (series) series.push(f.ts_ms, f.values[i]);
     });
-    if (this._latIdx >= 0 && this._lonIdx >= 0) {
+    if (this._latIdx >= 0 && this._lonIdx >= 0 && f.ts_ms - this._lastGpsTs >= this.gpsIntervalMs) {
       this._lat.push(f.values[this._latIdx]);
       this._lon.push(f.values[this._lonIdx]);
+      this._lastGpsTs = f.ts_ms;
     }
   }
 

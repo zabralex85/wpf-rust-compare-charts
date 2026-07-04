@@ -248,6 +248,34 @@ describe("defaultWidgets – only roll strip present", () => {
   });
 });
 
+// ── many strips: one line per strip channel (mirrors .NET WidgetSeed) ─────────
+
+describe("defaultWidgets – one line per strip channel", () => {
+  const channels: ChannelMeta[] = [
+    ch(1, "gps_lat", "map_lat", 1),
+    ch(2, "gps_lon", "map_lon", 2),
+    ch(3, "sky_pitch", "gauge", 3),
+    ch(4, "sky_roll", "gauge", 4),
+    ch(5, "roll", "strip", 5),
+    ch(6, "pitch", "strip", 6),
+    ch(7, "acc_x", "strip", 7),
+    ch(8, "acc_y", "strip", 8),
+    ch(9, "acc_z", "strip", 9),
+  ];
+  const widgets = defaultWidgets(channels);
+
+  it("seeds a line widget for every strip channel (5 strips → 5 lines)", () => {
+    const lines = widgets.filter((w) => w.kind === "line");
+    expect(lines).toHaveLength(5);
+    expect(lines.map((l) => l.channelId)).toEqual([5, 6, 7, 8, 9]); // display_order asc
+  });
+
+  it("all widget ids remain unique with the fuller layout", () => {
+    const ids = widgets.map((w) => w.id);
+    expect(new Set(ids).size).toBe(ids.length);
+  });
+});
+
 // ── empty input ───────────────────────────────────────────────────────────────
 
 describe("defaultWidgets – empty channels array", () => {
