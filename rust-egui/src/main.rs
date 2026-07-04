@@ -1,20 +1,37 @@
 //! Fourth variant — an immediate-mode Rust dashboard on `egui`/`eframe` (glow/
-//! OpenGL backend). No HTML/CSS engine, no Vello, no WebView — the lightweight
-//! end of the spectrum. Same ride, same grouped param table + strip charts +
-//! perf HUD, reusing `app_lib` (db/replay/metrics) in-process.
+//! OpenGL). No HTML/CSS engine, no Vello, no WebView — the lightweight end.
+//! Full INU visual parity (theme, top bar, grouped param table, gauges, strip
+//! charts, GPS track, transport bar) EXCEPT the offline MVT basemap. Reuses
+//! `app_lib` (db/replay/metrics) in-process.
 
 use std::collections::HashMap;
 use std::time::{Duration, Instant};
 
 use app_lib::db::{load_channels, load_enum_values, load_samples, ChannelMeta, Sample};
 use app_lib::metrics::{Metrics, MetricsSampler};
-use app_lib::replay::Pacer;
+use app_lib::tiles::MbTiles;
 use eframe::egui;
+use egui::{pos2, vec2, Align, Align2, Color32, FontId, Layout, Pos2, Rect, RichText, Stroke};
 use rusqlite::Connection;
 
-const WINDOW_MS: i64 = 60_000;
+mod basemap;
 
-/// Fixed param grouping, mirroring the Tauri `groups.ts` / rust-native.
+const WINDOW_MS: i64 = 60_000;
+const GPS_INTERVAL_MS: i64 = 500; // decimate track (matches the other apps' 2 Hz)
+const GRID_COLS: i32 = 6; // widget grid width in cells
+
+// ---- INU palette ----
+const BG: Color32 = Color32::from_rgb(0x0a, 0x0e, 0x14);
+const PANEL: Color32 = Color32::from_rgb(0x0b, 0x11, 0x1a);
+const CARD: Color32 = Color32::from_rgb(0x0d, 0x14, 0x20);
+const BORDER: Color32 = Color32::from_rgb(0x1c, 0x27, 0x33);
+const CYAN: Color32 = Color32::from_rgb(0x38, 0xc5, 0xe0);
+const DIM: Color32 = Color32::from_rgb(0x5f, 0x73, 0x85);
+const TEXT: Color32 = Color32::from_rgb(0xd7, 0xe2, 0xea);
+const GREEN: Color32 = Color32::from_rgb(0x2f, 0xd1, 0x7a);
+const RED: Color32 = Color32::from_rgb(0xe0, 0x56, 0x4e);
+const AMBER: Color32 = Color32::from_rgb(0xf0, 0xb4, 0x29);
+
 const GROUPS: &[(&str, &[&str])] = &[
     ("INU Mode", &["inu_mode1", "inu_mode2"]),
     ("Velocity", &["vel_x", "vel_y", "vel_z", "plat_azim", "vclimb"]),
@@ -39,16 +56,53 @@ fn group_of(col: &str) -> &'static str {
     "System"
 }
 
-struct Strip {
+fn fmt_clock(ms: i64) -> String {
+    let ms = ms.max(0);
+    let (h, m, s, f) = (ms / 3_600_000, (ms / 60_000) % 60, (ms / 1000) % 60, ms % 1000);
+    format!("{h:02}:{m:02}:{s:02}.{f:03}")
+}
+
+#[derive(PartialEq, Clone, Copy)]
+enum Kind {
+    Line,
+    Gauge,
+}
+
+#[derive(PartialEq, Clone, Copy)]
+enum Tab {
+    Overview,
+    FlightTrack,
+    Events,
+}
+
+/// Deferred grid interaction, applied after the widget loop (avoids mutating
+/// `widgets` while it is borrowed for painting).
+#[derive(Clone, Copy)]
+enum GridAct {
+    Toggle(usize),
+    Remove(usize),
+    Move(usize, i32, i32),
+    Resize(usize, i32, i32),
+}
+
+/// A dashboard widget bound to a channel; can be toggled between a line chart
+/// and a radial gauge, or removed. Buffers history so a gauge→line toggle shows
+/// the recent trace.
+struct Widget {
     name: String,
     unit: String,
     min: f64,
     max: f64,
     col: usize,
+    kind: Kind,
     points: Vec<(i64, f64)>,
+    gx: i32, // grid column
+    gy: i32, // grid row
+    gw: i32, // width in cells
+    gh: i32, // height in cells
 }
 
-impl Strip {
+impl Widget {
     fn push(&mut self, ts: i64, v: f64) {
         self.points.push((ts, v));
         let cutoff = ts - WINDOW_MS;
@@ -63,17 +117,27 @@ struct Dash {
     channels: Vec<ChannelMeta>,
     enum_index: HashMap<(i64, i64), (String, String)>,
     samples: Vec<Sample>,
-    pacer: Pacer,
     cursor: usize,
-    start: Instant,
-    strips: Vec<Strip>,
+    ride_ms: f64,   // virtual playback position (ms)
+    total_ms: i64,  // ride duration
+    playing: bool,
+    speed: f64,
+    widgets: Vec<Widget>,
+    lat_col: Option<usize>,
+    lon_col: Option<usize>,
+    track: Vec<(f64, f64)>,
+    last_gps_ts: i64,
     latest: Option<Sample>,
+    last_ts: i64,
     sampler: MetricsSampler,
     metrics: Metrics,
     last_metrics: Instant,
-    frames: u64,
     last_tick: Instant,
     fps_ema: f64,
+    drag: Option<(usize, egui::Vec2)>, // (widget idx, live pixel offset while dragging)
+    tab: Tab,
+    map_bbox: Option<(f64, f64, f64, f64)>, // (min_lat, max_lat, min_lon, max_lon) fixed frame
+    basemap: Option<basemap::Region>,
 }
 
 impl Dash {
@@ -86,199 +150,753 @@ impl Dash {
         for e in &enums {
             enum_index.insert((e.channel_id, e.code), (e.label.clone(), e.severity.clone()));
         }
-        let strips = channels
+        let col_of = |pred: &dyn Fn(&ChannelMeta) -> bool| channels.iter().position(pred);
+        // Seed gauges first, then line charts (matches the reference default order).
+        let mk = |col: usize, c: &ChannelMeta, kind: Kind| Widget {
+            name: c.name.clone(),
+            unit: c.unit.clone(),
+            min: c.min,
+            max: c.max,
+            col,
+            kind,
+            points: Vec::new(),
+            gx: 0,
+            gy: 0,
+            gw: if kind == Kind::Gauge { 1 } else { 2 },
+            gh: 1,
+        };
+        let mut widgets: Vec<Widget> = channels
             .iter()
             .enumerate()
-            .filter(|(_, c)| c.widget == "strip")
-            .map(|(col, c)| Strip {
-                name: c.name.clone(),
-                unit: c.unit.clone(),
-                min: c.min,
-                max: c.max,
-                col,
-                points: Vec::new(),
-            })
+            .filter(|(_, c)| c.widget == "gauge")
+            .map(|(col, c)| mk(col, c, Kind::Gauge))
             .collect();
+        widgets.extend(
+            channels
+                .iter()
+                .enumerate()
+                .filter(|(_, c)| c.widget == "strip")
+                .map(|(col, c)| mk(col, c, Kind::Line)),
+        );
+        // Auto-place into a GRID_COLS-wide grid (row-major, no overlap).
+        let (mut cx, mut cy) = (0, 0);
+        for w in &mut widgets {
+            if cx + w.gw > GRID_COLS {
+                cx = 0;
+                cy += 1;
+            }
+            w.gx = cx;
+            w.gy = cy;
+            cx += w.gw;
+        }
+        let total_ms = samples.last().map(|s| s.ts_ms).unwrap_or(0);
+
+        // Full-ride GPS bbox = a fixed projection frame; load the offline basemap
+        // for it (skipped silently if the tileset is missing).
+        let mut map_bbox = None;
+        let mut basemap = None;
+        if let (Some(la), Some(lo)) = (col_of(&|c| c.widget == "map_lat"), col_of(&|c| c.widget == "map_lon")) {
+            let (mut mnla, mut mxla, mut mnlo, mut mxlo) = (f64::MAX, f64::MIN, f64::MAX, f64::MIN);
+            let mut any = false;
+            for s in &samples {
+                if let (Some(&lat), Some(&lon)) = (s.values.get(la), s.values.get(lo)) {
+                    mnla = mnla.min(lat);
+                    mxla = mxla.max(lat);
+                    mnlo = mnlo.min(lon);
+                    mxlo = mxlo.max(lon);
+                    any = true;
+                }
+            }
+            if any {
+                let dla = (mxla - mnla).max(1e-4) * 0.12;
+                let dlo = (mxlo - mnlo).max(1e-4) * 0.12;
+                let bb = (mnla - dla, mxla + dla, mnlo - dlo, mxlo + dlo);
+                map_bbox = Some(bb);
+                let path = std::env::var("RIDE_MBTILES").unwrap_or_else(|_| "../tiles/israel.mbtiles".into());
+                if let Ok(mb) = MbTiles::open(&path) {
+                    basemap = Some(basemap::load_region(&mb, bb.0, bb.1, bb.2, bb.3));
+                }
+            }
+        }
+
         Ok(Self {
+            map_bbox,
+            basemap,
+            lat_col: col_of(&|c| c.widget == "map_lat"),
+            lon_col: col_of(&|c| c.widget == "map_lon"),
             channels,
             enum_index,
             samples,
-            pacer: Pacer::new(speed),
             cursor: 0,
-            start: Instant::now(),
-            strips,
+            ride_ms: 0.0,
+            total_ms,
+            playing: true,
+            speed,
+            widgets,
+            track: Vec::new(),
+            last_gps_ts: 0,
             latest: None,
+            last_ts: 0,
             sampler: MetricsSampler::new(),
             metrics: Metrics { cpu_pct: 0.0, ram_mb: 0.0 },
             last_metrics: Instant::now(),
-            frames: 0,
             last_tick: Instant::now(),
             fps_ema: 0.0,
+            drag: None,
+            tab: Tab::Overview,
         })
     }
 
-    fn pump(&mut self) {
-        let elapsed = self.start.elapsed().as_millis() as i64;
-        while self.cursor < self.samples.len()
-            && self.pacer.due_offset_ms(self.samples[self.cursor].ts_ms) <= elapsed
-        {
-            let s = &self.samples[self.cursor];
-            for strip in &mut self.strips {
-                if let Some(v) = s.values.get(strip.col) {
-                    strip.push(s.ts_ms, *v);
+    /// Feed samples with ts <= target into the buffers (forward only).
+    fn consume(&mut self, target: i64) {
+        while self.cursor < self.samples.len() && self.samples[self.cursor].ts_ms <= target {
+            let s = self.samples[self.cursor].clone();
+            for w in &mut self.widgets {
+                if let Some(v) = s.values.get(w.col) {
+                    w.push(s.ts_ms, *v);
                 }
             }
-            self.latest = Some(s.clone());
+            if let (Some(la), Some(lo)) = (self.lat_col, self.lon_col) {
+                if self.track.is_empty() || s.ts_ms - self.last_gps_ts >= GPS_INTERVAL_MS {
+                    if let (Some(&lat), Some(&lon)) = (s.values.get(la), s.values.get(lo)) {
+                        self.track.push((lat, lon));
+                        self.last_gps_ts = s.ts_ms;
+                    }
+                }
+            }
+            self.last_ts = s.ts_ms;
+            self.latest = Some(s);
             self.cursor += 1;
         }
+    }
+
+    /// Jump the playhead; seeking backward resets and replays from 0 to target.
+    fn seek(&mut self, target_ms: i64) {
+        let target = target_ms.clamp(0, self.total_ms);
+        if (target as f64) < self.ride_ms {
+            self.cursor = 0;
+            for w in &mut self.widgets {
+                w.points.clear();
+            }
+            self.track.clear();
+            self.last_gps_ts = 0;
+            self.latest = None;
+            self.last_ts = 0;
+        }
+        self.ride_ms = target as f64;
+        self.consume(target);
+    }
+
+    /// Advance one frame: move the virtual clock by real dt × speed (if playing),
+    /// feed due samples, sample metrics, update FPS.
+    fn tick(&mut self) {
+        let now = Instant::now();
+        let dt = now.duration_since(self.last_tick).as_secs_f64();
+        self.last_tick = now;
+        if self.playing {
+            self.ride_ms = (self.ride_ms + dt * self.speed * 1000.0).min(self.total_ms as f64);
+        }
+        let t = self.ride_ms as i64;
+        self.consume(t);
         if self.last_metrics.elapsed() >= Duration::from_millis(500) {
             self.metrics = self.sampler.sample();
             self.last_metrics = Instant::now();
         }
-        let now = Instant::now();
-        let dt = now.duration_since(self.last_tick).as_secs_f64();
-        self.last_tick = now;
         if dt > 0.0 {
             let inst = 1.0 / dt;
             self.fps_ema = if self.fps_ema == 0.0 { inst } else { self.fps_ema * 0.9 + inst * 0.1 };
         }
-        self.frames += 1;
     }
 
-    fn fmt_val(&self, col: usize, is_enum: bool, id: i64) -> (String, egui::Color32) {
-        let v = match self.latest.as_ref().and_then(|s| s.values.get(col)) {
-            Some(v) => *v,
-            None => return ("—".into(), egui::Color32::DARK_GRAY),
+    fn val(&self, col: usize) -> Option<f64> {
+        self.latest.as_ref().and_then(|s| s.values.get(col)).copied()
+    }
+
+    fn fmt_param(&self, col: usize, is_enum: bool, id: i64) -> (String, Color32) {
+        let v = match self.val(col) {
+            Some(v) => v,
+            None => return ("—".into(), DIM),
         };
         if is_enum {
             if let Some((label, sev)) = self.enum_index.get(&(id, v as i64)) {
-                let c = if sev == "critical" {
-                    egui::Color32::from_rgb(0xe0, 0x56, 0x4e)
-                } else {
-                    egui::Color32::from_rgb(0x2f, 0xd1, 0x7a)
-                };
+                let c = if sev == "critical" { RED } else { GREEN };
                 return (label.clone(), c);
             }
         }
-        (format!("{v:.3}"), egui::Color32::from_rgb(0xd7, 0xe2, 0xea))
+        (format!("{v:.3}"), TEXT)
+    }
+
+    /// Add a line widget for `col`, placed on a fresh bottom row, backfilled
+    /// with the last 60 s of history so it shows a trace immediately.
+    fn add_widget(&mut self, col: usize) {
+        if col >= self.channels.len() {
+            return;
+        }
+        let c = &self.channels[col];
+        let gy = self.widgets.iter().map(|w| w.gy + w.gh).max().unwrap_or(0);
+        let mut w = Widget {
+            name: c.name.clone(),
+            unit: c.unit.clone(),
+            min: c.min,
+            max: c.max,
+            col,
+            kind: Kind::Line,
+            points: Vec::new(),
+            gx: 0,
+            gy,
+            gw: 2,
+            gh: 1,
+        };
+        let target = self.ride_ms as i64;
+        for s in &self.samples {
+            if s.ts_ms > target {
+                break;
+            }
+            if s.ts_ms >= target - WINDOW_MS {
+                if let Some(v) = s.values.get(col) {
+                    w.push(s.ts_ms, *v);
+                }
+            }
+        }
+        self.widgets.push(w);
+    }
+
+    fn sev_count(&self, sev_match: &str) -> usize {
+        self.channels
+            .iter()
+            .enumerate()
+            .filter(|(_, c)| c.type_ == "enum")
+            .filter(|(col, c)| {
+                self.val(*col)
+                    .and_then(|v| self.enum_index.get(&(c.id, v as i64)))
+                    .map(|(_, sev)| sev == sev_match)
+                    .unwrap_or(false)
+            })
+            .count()
+    }
+
+    fn alarms(&self) -> usize {
+        self.sev_count("critical")
+    }
+
+    fn cautions(&self) -> usize {
+        self.sev_count("warning") + self.sev_count("caution")
     }
 }
 
-const CYAN: egui::Color32 = egui::Color32::from_rgb(0x38, 0xc5, 0xe0);
-const DIM: egui::Color32 = egui::Color32::from_rgb(0x8f, 0xa3, 0xb3);
+fn pill(ui: &mut egui::Ui, color: Color32, text: &str) {
+    egui::Frame::none()
+        .fill(color.linear_multiply(0.18))
+        .stroke(Stroke::new(1.0, color))
+        .rounding(3.0)
+        .inner_margin(egui::Margin::symmetric(6.0, 1.0))
+        .show(ui, |ui| ui.colored_label(color, RichText::new(text).small()));
+}
+
+/// Radial gauge: 270° arc (opening at the bottom) + a value needle.
+fn draw_gauge(p: &egui::Painter, rect: Rect, value: f64, min: f64, max: f64, name: &str, unit: &str) {
+    p.rect_filled(rect, 3.0, CARD);
+    p.rect_stroke(rect, 3.0, Stroke::new(1.0, BORDER));
+    let center = pos2(rect.center().x, rect.top() + rect.height() * 0.52);
+    let r = (rect.width().min(rect.height()) * 0.34).max(8.0);
+    let start = 135.0_f32.to_radians();
+    let sweep = 270.0_f32.to_radians();
+    let arc = |a0: f32, a1: f32, col: Color32, w: f32, p: &egui::Painter| {
+        let n = 48;
+        let pts: Vec<Pos2> = (0..=n)
+            .map(|i| {
+                let a = a0 + (a1 - a0) * (i as f32 / n as f32);
+                center + vec2(a.cos(), a.sin()) * r
+            })
+            .collect();
+        p.add(egui::Shape::line(pts, Stroke::new(w, col)));
+    };
+    arc(start, start + sweep, BORDER, 3.0, p);
+    let t = ((value - min) / (max - min).max(1e-9)).clamp(0.0, 1.0) as f32;
+    arc(start, start + sweep * t, CYAN, 3.0, p);
+    // needle
+    let a = start + sweep * t;
+    p.line_segment([center, center + vec2(a.cos(), a.sin()) * (r - 2.0)], Stroke::new(2.0, CYAN));
+    p.circle_filled(center, 3.0, CYAN);
+    // min/max scale labels at the arc ends
+    let end = start + sweep;
+    p.text(center + vec2(start.cos(), start.sin()) * (r + 10.0), Align2::CENTER_CENTER, format!("{min:.0}"), FontId::monospace(8.0), DIM);
+    p.text(center + vec2(end.cos(), end.sin()) * (r + 10.0), Align2::CENTER_CENTER, format!("{max:.0}"), FontId::monospace(8.0), DIM);
+    // header: ≡ name  … GAUGE  ×
+    p.text(rect.left_top() + vec2(6.0, 5.0), Align2::LEFT_TOP, format!("≡ {name}"), FontId::monospace(10.0), DIM);
+    p.text(rect.right_top() + vec2(-6.0, 5.0), Align2::RIGHT_TOP, "×", FontId::monospace(10.0), DIM);
+    badge(p, rect.right_top() + vec2(-46.0, 4.0), "GAUGE");
+    p.text(
+        pos2(center.x, rect.bottom() - 16.0),
+        Align2::CENTER_CENTER,
+        format!("{value:.2} {unit}"),
+        FontId::monospace(12.0),
+        CYAN,
+    );
+}
+
+/// Flight track over the offline basemap, projected to a fixed lat/lon frame
+/// (falls back to the track's own bbox when no frame/basemap is available).
+fn draw_map(
+    p: &egui::Painter,
+    rect: Rect,
+    bbox: Option<(f64, f64, f64, f64)>,
+    base: Option<&basemap::Region>,
+    track: &[(f64, f64)],
+) {
+    p.rect_filled(rect, 3.0, Color32::from_rgb(0x08, 0x10, 0x1a));
+    p.rect_stroke(rect, 3.0, Stroke::new(1.0, BORDER));
+    p.text(rect.left_top() + vec2(6.0, 4.0), Align2::LEFT_TOP, "FLIGHT TRACK", FontId::monospace(10.0), DIM);
+    let bb = bbox.or_else(|| {
+        if track.len() < 2 {
+            return None;
+        }
+        let (mut a, mut b, mut c, mut d) = (f64::MAX, f64::MIN, f64::MAX, f64::MIN);
+        for &(la, lo) in track {
+            a = a.min(la);
+            b = b.max(la);
+            c = c.min(lo);
+            d = d.max(lo);
+        }
+        Some((a, b, c, d))
+    });
+    let (mnla, mxla, mnlo, mxlo) = match bb {
+        Some(v) => v,
+        None => return,
+    };
+    let plot = Rect::from_min_max(rect.left_top() + vec2(10.0, 22.0), rect.right_bottom() - vec2(10.0, 10.0));
+    let sx = (mxlo - mnlo).max(1e-9);
+    let sy = (mxla - mnla).max(1e-9);
+    let map = |la: f64, lo: f64| {
+        pos2(
+            plot.left() + ((lo - mnlo) / sx) as f32 * plot.width(),
+            plot.bottom() - ((la - mnla) / sy) as f32 * plot.height(), // north up
+        )
+    };
+    if let Some(r) = base {
+        let water = Color32::from_rgb(0x1c, 0x44, 0x64);
+        let road = Color32::from_rgb(0x38, 0x4a, 0x5c);
+        for s in &r.water {
+            let pts: Vec<Pos2> = s.iter().map(|&(la, lo)| map(la, lo)).collect();
+            if pts.len() >= 2 {
+                p.add(egui::Shape::line(pts, Stroke::new(1.2, water)));
+            }
+        }
+        for s in &r.roads {
+            let pts: Vec<Pos2> = s.iter().map(|&(la, lo)| map(la, lo)).collect();
+            if pts.len() >= 2 {
+                p.add(egui::Shape::line(pts, Stroke::new(0.8, road)));
+            }
+        }
+    }
+    if track.len() >= 2 {
+        let pts: Vec<Pos2> = track.iter().map(|&(la, lo)| map(la, lo)).collect();
+        p.add(egui::Shape::line(pts.clone(), Stroke::new(1.5, CYAN)));
+        if let Some(last) = pts.last() {
+            p.circle_filled(*last, 4.0, GREEN);
+        }
+    }
+}
+
+fn fmt_ms_short(ms: i64) -> String {
+    let ms = ms.max(0);
+    format!("{}:{:02}", ms / 60_000, (ms / 1000) % 60)
+}
+
+/// Small dim badge (e.g. "LINE"/"GAUGE") drawn at a top-left-ish anchor.
+fn badge(p: &egui::Painter, at: Pos2, text: &str) {
+    let galley = p.layout_no_wrap(text.to_string(), FontId::monospace(8.0), DIM);
+    let r = Rect::from_min_size(at, galley.size() + vec2(8.0, 3.0));
+    p.rect_stroke(r, 2.0, Stroke::new(1.0, BORDER));
+    p.text(r.center(), Align2::CENTER_CENTER, text, FontId::monospace(8.0), DIM);
+}
+
+fn paint_line(p: &egui::Painter, rect: Rect, w: &Widget) {
+    let grid = Color32::from_rgb(0x14, 0x1d, 0x28);
+    p.rect_filled(rect, 3.0, CARD);
+    p.rect_stroke(rect, 3.0, Stroke::new(1.0, BORDER));
+    let last = w.points.last().map(|x| x.1);
+    let val = last.map(|v| format!("{v:.3}")).unwrap_or_else(|| "—".into());
+    p.text(rect.left_top() + vec2(6.0, 5.0), Align2::LEFT_TOP, format!("≡ {}", w.name), FontId::monospace(10.0), DIM);
+    p.text(rect.right_top() + vec2(-6.0, 5.0), Align2::RIGHT_TOP, "×", FontId::monospace(10.0), DIM);
+    badge(p, rect.left_top() + vec2(100.0, 4.0), "LINE");
+    p.text(
+        rect.right_top() + vec2(-16.0, 5.0),
+        Align2::RIGHT_TOP,
+        format!("{val} {}", w.unit),
+        FontId::monospace(11.0),
+        CYAN,
+    );
+    let plot = Rect::from_min_max(rect.left_top() + vec2(36.0, 24.0), rect.right_bottom() - vec2(8.0, 15.0));
+    for i in 0..=4 {
+        let f = i as f32 / 4.0;
+        let y = plot.top() + f * plot.height();
+        let vy = w.max - (f as f64) * (w.max - w.min);
+        p.line_segment([pos2(plot.left(), y), pos2(plot.right(), y)], Stroke::new(1.0, grid));
+        p.text(pos2(plot.left() - 4.0, y), Align2::RIGHT_CENTER, format!("{vy:.0}"), FontId::monospace(8.0), DIM);
+    }
+    if w.points.len() >= 2 {
+        let newest = w.points[w.points.len() - 1].0;
+        for i in 0..=3 {
+            let f = i as f32 / 3.0;
+            let x = plot.left() + f * plot.width();
+            let ts = newest - ((1.0 - f) * WINDOW_MS as f32) as i64;
+            p.line_segment([pos2(x, plot.top()), pos2(x, plot.bottom())], Stroke::new(1.0, grid));
+            p.text(pos2(x, plot.bottom() + 2.0), Align2::CENTER_TOP, fmt_ms_short(ts), FontId::monospace(8.0), DIM);
+        }
+        let span = (w.max - w.min).max(1e-9);
+        let poly: Vec<Pos2> = w
+            .points
+            .iter()
+            .map(|&(ts, v)| {
+                let age = (newest - ts) as f32;
+                let x = plot.right() - (age / WINDOW_MS as f32) * plot.width();
+                let norm = ((v - w.min) / span).clamp(0.0, 1.0) as f32;
+                pos2(x, plot.bottom() - norm * plot.height())
+            })
+            .collect();
+        p.add(egui::Shape::line(poly, Stroke::new(1.5, CYAN)));
+    }
+}
 
 impl eframe::App for Dash {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
-        self.pump();
-        // Repaint at ~30 Hz (data is 10 Hz) instead of egui's free-running 60 Hz
-        // continuous mode — otherwise immediate-mode redraw pins a full core.
+        self.tick();
         ctx.request_repaint_after(Duration::from_millis(33));
+        let clock = fmt_clock(self.ride_ms as i64);
+
+        // ---- Top bar ----
+        egui::TopBottomPanel::top("bar")
+            .exact_height(40.0)
+            .frame(egui::Frame::none().fill(PANEL).inner_margin(egui::Margin::symmetric(12.0, 0.0)))
+            .show(ctx, |ui| {
+                ui.horizontal_centered(|ui| {
+                    ui.colored_label(CYAN, RichText::new("INU·MONITOR").strong());
+                    ui.colored_label(DIM, RichText::new("INERTIAL NAV TELEMETRY v4.0").small());
+                    ui.add_space(10.0);
+                    ui.colored_label(DIM, "AC 4X-ELT / FLT 1182");
+                    ui.add_space(16.0);
+                    for (label, t) in [("OVERVIEW", Tab::Overview), ("FLIGHT TRACK", Tab::FlightTrack), ("EVENTS", Tab::Events)] {
+                        let active = self.tab == t;
+                        if ui.add(egui::Button::new(RichText::new(label).color(if active { CYAN } else { DIM })).frame(false)).clicked() {
+                            self.tab = t;
+                        }
+                    }
+                    ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
+                        ui.colored_label(TEXT, &clock);
+                        ui.add_space(8.0);
+                        ui.colored_label(GREEN, "● LINK 1553B-OK");
+                        ui.add_space(8.0);
+                        ui.colored_label(DIM, RichText::new("SCALES ON").small());
+                        let ca = self.cautions();
+                        pill(ui, if ca > 0 { AMBER } else { DIM }, &format!("{ca} CAUTION"));
+                        let al = self.alarms();
+                        pill(ui, if al > 0 { RED } else { DIM }, &format!("{al} ALARM"));
+                    });
+                });
+            });
+
+        // ---- Bottom transport / status bar ----
+        let total = self.total_ms.max(1);
+        let played = (self.ride_ms / total as f64).clamp(0.0, 1.0) as f32;
+        let txt_btn = |ui: &mut egui::Ui, s: &str, col: Color32| {
+            ui.add(egui::Button::new(RichText::new(s).color(col)).frame(false)).clicked()
+        };
+        egui::TopBottomPanel::bottom("transport")
+            .exact_height(56.0)
+            .frame(egui::Frame::none().fill(PANEL).inner_margin(egui::Margin::symmetric(12.0, 6.0)))
+            .show(ctx, |ui| {
+                ui.horizontal(|ui| {
+                    if txt_btn(ui, "|◀", CYAN) {
+                        self.seek(0);
+                    }
+                    let play_glyph = if self.playing { "||" } else { "▶" };
+                    if txt_btn(ui, play_glyph, CYAN) {
+                        self.playing = !self.playing;
+                    }
+                    ui.add_space(8.0);
+                    if txt_btn(ui, "−", DIM) {
+                        self.speed = (self.speed / 2.0).max(0.25);
+                    }
+                    ui.colored_label(TEXT, format!("{:.2}×", self.speed));
+                    if txt_btn(ui, "+", DIM) {
+                        self.speed = (self.speed * 2.0).min(64.0);
+                    }
+                    ui.add_space(10.0);
+                    ui.colored_label(TEXT, RichText::new(&clock).strong());
+                    ui.colored_label(DIM, format!("/ {}", fmt_clock(total)));
+                    ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
+                        ui.colored_label(DIM, "DROPPED 0");
+                        ui.add_space(12.0);
+                        ui.colored_label(DIM, format!("SAMPLES {}", self.cursor));
+                        ui.add_space(12.0);
+                        ui.colored_label(DIM, format!("BUFFER {clock}"));
+                    });
+                });
+                ui.add_space(4.0);
+                // interactive seek bar
+                let (bar, resp) =
+                    ui.allocate_exact_size(vec2(ui.available_width(), 10.0), egui::Sense::click_and_drag());
+                if (resp.clicked() || resp.dragged()) && bar.width() > 0.0 {
+                    if let Some(pos) = resp.interact_pointer_pos() {
+                        let frac = ((pos.x - bar.left()) / bar.width()).clamp(0.0, 1.0) as f64;
+                        self.seek((frac * total as f64) as i64);
+                    }
+                }
+                let p = ui.painter_at(bar);
+                let y = bar.center().y;
+                p.line_segment([pos2(bar.left(), y), pos2(bar.right(), y)], Stroke::new(2.0, BORDER));
+                let hx = bar.left() + played * bar.width();
+                p.line_segment([pos2(bar.left(), y), pos2(hx, y)], Stroke::new(2.0, CYAN));
+                p.circle_filled(pos2(hx, y), 5.0, CYAN);
+            });
 
         // ---- Param table (grouped) ----
         egui::SidePanel::left("params")
             .exact_width(300.0)
+            .frame(egui::Frame::none().fill(PANEL))
             .show(ctx, |ui| {
-                ui.add_space(6.0);
-                ui.colored_label(CYAN, "PARAMETERS");
-                ui.separator();
-                egui::ScrollArea::vertical().show(ui, |ui| {
-                    let order = GROUPS.iter().map(|(n, _)| *n).chain(std::iter::once("System"));
-                    for gname in order {
-                        let rows: Vec<(usize, &ChannelMeta)> = self
-                            .channels
-                            .iter()
-                            .enumerate()
-                            .filter(|(_, c)| group_of(&c.column_name) == gname)
-                            .collect();
-                        if rows.is_empty() {
-                            continue;
-                        }
-                        ui.add_space(4.0);
-                        ui.colored_label(DIM, egui::RichText::new(gname).small());
-                        for (col, c) in rows {
-                            let (text, color) = self.fmt_val(col, c.type_ == "enum", c.id);
-                            ui.horizontal(|ui| {
-                                ui.label(egui::RichText::new(&c.name).color(DIM).small());
-                                ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                                    ui.label(egui::RichText::new(&c.unit).color(DIM).small());
-                                    ui.colored_label(color, egui::RichText::new(text).small());
+                egui::Frame::none()
+                    .inner_margin(egui::Margin::symmetric(12.0, 8.0))
+                    .show(ui, |ui| {
+                        ui.horizontal(|ui| {
+                            ui.colored_label(CYAN, RichText::new("PARAMETERS").strong());
+                            ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
+                                ui.colored_label(DIM, RichText::new(format!("ALL {} CH", self.channels.len())).small());
+                            });
+                        });
+                        ui.add_space(2.0);
+                        ui.horizontal(|ui| {
+                            ui.colored_label(BORDER, RichText::new("PARAMETER").small());
+                            ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
+                                ui.colored_label(BORDER, RichText::new("BUS").small());
+                                ui.add_space(8.0);
+                                ui.colored_label(BORDER, RichText::new("ENG-DATA").small());
+                            });
+                        });
+                    });
+                // drag_to_scroll off so dragging a row starts a dnd, not a scroll
+                egui::ScrollArea::vertical().drag_to_scroll(false).show(ui, |ui| {
+                    egui::Frame::none()
+                        .inner_margin(egui::Margin::symmetric(12.0, 0.0))
+                        .show(ui, |ui| {
+                            let order = GROUPS.iter().map(|(n, _)| *n).chain(std::iter::once("System"));
+                            for gname in order {
+                                let rows: Vec<(usize, &ChannelMeta)> = self
+                                    .channels
+                                    .iter()
+                                    .enumerate()
+                                    .filter(|(_, c)| group_of(&c.column_name) == gname)
+                                    .collect();
+                                if rows.is_empty() {
+                                    continue;
+                                }
+                                ui.add_space(4.0);
+                                ui.horizontal(|ui| {
+                                    ui.colored_label(DIM, RichText::new(gname.to_uppercase()).small());
+                                    ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
+                                        ui.colored_label(BORDER, RichText::new(rows.len().to_string()).small());
+                                    });
                                 });
+                                for (col, c) in rows {
+                                    let (text, color) = self.fmt_param(col, c.type_ == "enum", c.id);
+                                    // drag a row into the grid to add a chart for that channel
+                                    ui.dnd_drag_source(egui::Id::new(("param", c.id)), col, |ui| {
+                                        ui.horizontal(|ui| {
+                                            let (dot, _) = ui.allocate_exact_size(vec2(8.0, 8.0), egui::Sense::hover());
+                                            ui.painter().circle_filled(dot.center(), 3.0, if color == RED { RED } else { GREEN });
+                                            ui.label(RichText::new(&c.name).color(DIM).small());
+                                            ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
+                                                ui.label(RichText::new(&c.addr).color(BORDER).small());
+                                                ui.add_space(4.0);
+                                                ui.colored_label(color, RichText::new(text).small());
+                                            });
+                                        });
+                                    });
+                                }
+                            }
+                        });
+                });
+            });
+
+        // ---- Central: Flight Track + interactive widget grid ----
+        // Click a widget's LINE/GAUGE badge to toggle its kind; click × to remove.
+        egui::CentralPanel::default()
+            .frame(egui::Frame::none().fill(BG).inner_margin(egui::Margin::same(12.0)))
+            .show(ctx, |ui| match self.tab {
+                Tab::Overview => {
+                let full_w = ui.available_width();
+                let (trect, _) = ui.allocate_exact_size(vec2(full_w, 200.0), egui::Sense::hover());
+                draw_map(&ui.painter_at(trect), trect, self.map_bbox, self.basemap.as_ref(), &self.track);
+                ui.add_space(12.0);
+                let _ = full_w;
+                egui::ScrollArea::vertical().show(ui, |ui| {
+                    let area = ui.available_rect_before_wrap();
+                    let origin = area.min;
+                    let cell_w = (area.width() / GRID_COLS as f32).max(90.0);
+                    let cell_h = 165.0;
+                    let gap = 6.0;
+                    let max_row = self.widgets.iter().map(|w| w.gy + w.gh).max().unwrap_or(1);
+                    // fill the whole area (not just the widget rows) so there is empty
+                    // droppable space below the grid for adding a widget via DnD.
+                    ui.allocate_space(vec2(area.width(), area.height().max(max_row as f32 * cell_h + 8.0)));
+
+                    let drag = self.drag;
+                    let mut new_drag = drag;
+                    let mut act: Option<GridAct> = None;
+                    for i in 0..self.widgets.len() {
+                        let w = &self.widgets[i];
+                        let base = Rect::from_min_size(
+                            origin + vec2(w.gx as f32 * cell_w + gap, w.gy as f32 * cell_h + gap),
+                            vec2(w.gw as f32 * cell_w - 2.0 * gap, w.gh as f32 * cell_h - 2.0 * gap),
+                        );
+                        let rect = match drag {
+                            Some((di, off)) if di == i => base.translate(off),
+                            _ => base,
+                        };
+                        let id = ui.id().with(("w", i));
+                        let resp = ui.interact(rect, id, egui::Sense::click_and_drag());
+                        let p = ui.painter_at(rect);
+                        match w.kind {
+                            Kind::Line => paint_line(&p, rect, w),
+                            Kind::Gauge => {
+                                let v = self.latest.as_ref().and_then(|s| s.values.get(w.col)).copied().unwrap_or(w.min);
+                                draw_gauge(&p, rect, v, w.min, w.max, &w.name, &w.unit);
+                            }
+                        }
+                        // hover tooltip: value at the cursor's time on a line chart
+                        if w.kind == Kind::Line && w.points.len() >= 2 {
+                            if let Some(pos) = resp.hover_pos() {
+                                let plot = Rect::from_min_max(rect.left_top() + vec2(36.0, 24.0), rect.right_bottom() - vec2(8.0, 15.0));
+                                if plot.contains(pos) {
+                                    let newest = w.points[w.points.len() - 1].0;
+                                    let frac = ((pos.x - plot.left()) / plot.width()).clamp(0.0, 1.0);
+                                    let ts_c = newest - ((1.0 - frac) * WINDOW_MS as f32) as i64;
+                                    if let Some(&(ts, v)) = w.points.iter().min_by_key(|(t, _)| (*t - ts_c).abs()) {
+                                        let px = plot.right() - ((newest - ts) as f32 / WINDOW_MS as f32) * plot.width();
+                                        let span = (w.max - w.min).max(1e-9);
+                                        let py = plot.bottom() - (((v - w.min) / span).clamp(0.0, 1.0) as f32) * plot.height();
+                                        p.line_segment([pos2(px, plot.top()), pos2(px, plot.bottom())], Stroke::new(1.0, DIM));
+                                        p.circle_filled(pos2(px, py), 3.0, CYAN);
+                                        let label = format!("{} · {:.3} {}", fmt_ms_short(ts), v, w.unit);
+                                        let gal = p.layout_no_wrap(label.clone(), FontId::monospace(9.0), TEXT);
+                                        let tip = Rect::from_min_size(pos2(px + 6.0, plot.top() + 2.0), gal.size() + vec2(8.0, 4.0));
+                                        p.rect_filled(tip, 2.0, PANEL);
+                                        p.rect_stroke(tip, 2.0, Stroke::new(1.0, BORDER));
+                                        p.text(tip.center(), Align2::CENTER_CENTER, label, FontId::monospace(9.0), TEXT);
+                                    }
+                                }
+                            }
+                        }
+                        // resize grip (bottom-right)
+                        let handle = Rect::from_min_size(rect.right_bottom() - vec2(14.0, 14.0), vec2(14.0, 14.0));
+                        let hresp = ui.interact(handle, id.with("rz"), egui::Sense::drag());
+                        p.line_segment([pos2(handle.left() + 3.0, handle.bottom() - 1.0), pos2(handle.right() - 1.0, handle.top() + 3.0)], Stroke::new(1.0, DIM));
+                        p.line_segment([pos2(handle.left() + 7.0, handle.bottom() - 1.0), pos2(handle.right() - 1.0, handle.top() + 7.0)], Stroke::new(1.0, DIM));
+
+                        if hresp.dragged() {
+                            let d = hresp.drag_delta();
+                            let nw = (((rect.width() + d.x) / cell_w).round() as i32).clamp(1, GRID_COLS);
+                            let nh = (((rect.height() + d.y) / cell_h).round() as i32).clamp(1, 3);
+                            act = Some(GridAct::Resize(i, nw, nh));
+                        } else if resp.dragged() {
+                            let cur = match drag {
+                                Some((di, o)) if di == i => o,
+                                _ => egui::Vec2::ZERO,
+                            };
+                            new_drag = Some((i, cur + resp.drag_delta()));
+                        } else if resp.drag_stopped() {
+                            if let Some((di, off)) = drag {
+                                if di == i {
+                                    let moved = base.translate(off);
+                                    let ngx = (((moved.min.x - origin.x) / cell_w).round() as i32).clamp(0, GRID_COLS - w.gw);
+                                    let ngy = (((moved.min.y - origin.y) / cell_h).round() as i32).max(0);
+                                    act = Some(GridAct::Move(i, ngx, ngy));
+                                }
+                            }
+                            new_drag = None;
+                        } else if resp.clicked() {
+                            if let Some(pos) = resp.interact_pointer_pos() {
+                                let close = Rect::from_min_size(rect.right_top() + vec2(-18.0, 2.0), vec2(16.0, 16.0));
+                                let badge_r = match w.kind {
+                                    Kind::Line => Rect::from_min_size(rect.left_top() + vec2(98.0, 3.0), vec2(36.0, 14.0)),
+                                    Kind::Gauge => Rect::from_min_size(rect.right_top() + vec2(-48.0, 3.0), vec2(40.0, 14.0)),
+                                };
+                                if close.contains(pos) {
+                                    act = Some(GridAct::Remove(i));
+                                } else if badge_r.contains(pos) {
+                                    act = Some(GridAct::Toggle(i));
+                                }
+                            }
+                        }
+                    }
+                    self.drag = new_drag;
+                    match act {
+                        Some(GridAct::Remove(i)) => {
+                            self.widgets.remove(i);
+                        }
+                        Some(GridAct::Toggle(i)) => {
+                            self.widgets[i].kind = match self.widgets[i].kind {
+                                Kind::Line => Kind::Gauge,
+                                Kind::Gauge => Kind::Line,
+                            };
+                        }
+                        Some(GridAct::Move(i, gx, gy)) => {
+                            // Swap with whatever occupies the target cell so widgets don't
+                            // stack on top of each other (no free-canvas overlap).
+                            let (ox, oy) = (self.widgets[i].gx, self.widgets[i].gy);
+                            if let Some(j) = (0..self.widgets.len())
+                                .find(|&j| j != i && self.widgets[j].gx == gx && self.widgets[j].gy == gy)
+                            {
+                                self.widgets[j].gx = ox;
+                                self.widgets[j].gy = oy;
+                            }
+                            self.widgets[i].gx = gx;
+                            self.widgets[i].gy = gy;
+                        }
+                        Some(GridAct::Resize(i, gw, gh)) => {
+                            self.widgets[i].gw = gw;
+                            self.widgets[i].gh = gh;
+                        }
+                        None => {}
+                    }
+                });
+                // manual DnD: a param row released over the grid area adds a widget
+                if ui.input(|i| i.pointer.any_released()) && ui.ui_contains_pointer() {
+                    if let Some(col) = egui::DragAndDrop::take_payload::<usize>(ui.ctx()) {
+                        self.add_widget(*col);
+                    }
+                }
+                }
+                Tab::FlightTrack => {
+                    let rect = ui.available_rect_before_wrap();
+                    draw_map(&ui.painter_at(rect), rect, self.map_bbox, self.basemap.as_ref(), &self.track);
+                }
+                Tab::Events => {
+                    ui.colored_label(CYAN, RichText::new("EVENTS — INU STATUS").strong());
+                    ui.separator();
+                    egui::ScrollArea::vertical().show(ui, |ui| {
+                        let mut any = false;
+                        for (col, c) in self.channels.iter().enumerate() {
+                            if c.type_ != "enum" {
+                                continue;
+                            }
+                            any = true;
+                            let (text, color) = self.fmt_param(col, true, c.id);
+                            ui.horizontal(|ui| {
+                                let (dot, _) = ui.allocate_exact_size(vec2(10.0, 10.0), egui::Sense::hover());
+                                ui.painter().circle_filled(dot.center(), 4.0, color);
+                                ui.colored_label(DIM, &c.name);
+                                ui.colored_label(color, RichText::new(text).strong());
+                                ui.colored_label(BORDER, &c.addr);
                             });
                         }
-                    }
-                });
-            });
-
-        // ---- HUD ----
-        egui::TopBottomPanel::top("hud").show(ctx, |ui| {
-            ui.horizontal(|ui| {
-                ui.colored_label(CYAN, egui::RichText::new("INU·EGUI").strong());
-                ui.label(egui::RichText::new("egui / glow — immediate mode").color(DIM).small());
-                ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                    ui.colored_label(CYAN, format!("FPS {:.0}", self.fps_ema));
-                    ui.colored_label(CYAN, format!("RAM {:.0} MB", self.metrics.ram_mb));
-                    ui.colored_label(CYAN, format!("CPU {:.1}%", self.metrics.cpu_pct));
-                });
-            });
-        });
-
-        // ---- Chart grid ----
-        egui::CentralPanel::default().show(ctx, |ui| {
-            let avail = ui.available_size();
-            let cols = 2;
-            let cw = (avail.x - 12.0) / cols as f32;
-            let ch = 150.0;
-            egui::ScrollArea::vertical().show(ui, |ui| {
-                ui.horizontal_wrapped(|ui| {
-                    // collect indices first to avoid borrowing self.strips while drawing
-                    for i in 0..self.strips.len() {
-                        let (name, unit, min, max, pts, last) = {
-                            let s = &self.strips[i];
-                            (
-                                s.name.clone(),
-                                s.unit.clone(),
-                                s.min,
-                                s.max,
-                                s.points.clone(),
-                                s.points.last().map(|p| p.1),
-                            )
-                        };
-                        let (rect, _) =
-                            ui.allocate_exact_size(egui::vec2(cw - 8.0, ch), egui::Sense::hover());
-                        let p = ui.painter_at(rect);
-                        p.rect_filled(rect, 3.0, egui::Color32::from_rgb(0x0d, 0x14, 0x20));
-                        let val = last.map(|v| format!("{v:.3}")).unwrap_or_else(|| "—".into());
-                        p.text(
-                            rect.left_top() + egui::vec2(6.0, 4.0),
-                            egui::Align2::LEFT_TOP,
-                            format!("{name}  {val} {unit}"),
-                            egui::FontId::proportional(11.0),
-                            DIM,
-                        );
-                        // polyline: newest at right edge, value inverted into rect
-                        if pts.len() >= 2 {
-                            let newest = pts[pts.len() - 1].0;
-                            let span = (max - min).max(1e-9);
-                            let plot = egui::Rect::from_min_max(
-                                rect.left_top() + egui::vec2(6.0, 22.0),
-                                rect.right_bottom() - egui::vec2(6.0, 6.0),
-                            );
-                            let poly: Vec<egui::Pos2> = pts
-                                .iter()
-                                .map(|&(ts, v)| {
-                                    let age = (newest - ts) as f32;
-                                    let x = plot.right() - (age / WINDOW_MS as f32) * plot.width();
-                                    let norm = ((v - min) / span).clamp(0.0, 1.0) as f32;
-                                    let y = plot.bottom() - norm * plot.height();
-                                    egui::pos2(x, y)
-                                })
-                                .collect();
-                            p.add(egui::Shape::line(poly, egui::Stroke::new(1.5, CYAN)));
+                        if !any {
+                            ui.colored_label(DIM, "No status channels.");
                         }
-                    }
-                });
+                    });
+                }
             });
-        });
     }
 }
 
@@ -294,13 +912,33 @@ fn resolve_db() -> String {
     "../data/ride_small.db".to_string()
 }
 
+fn setup_theme(ctx: &egui::Context) {
+    let mut style = (*ctx.style()).clone();
+    style.override_text_style = Some(egui::TextStyle::Monospace);
+    let mut v = egui::Visuals::dark();
+    v.panel_fill = BG;
+    v.window_fill = PANEL;
+    v.extreme_bg_color = CARD;
+    v.override_text_color = Some(TEXT);
+    v.widgets.noninteractive.bg_stroke = Stroke::new(1.0, BORDER);
+    style.visuals = v;
+    ctx.set_style(style);
+}
+
 fn main() -> eframe::Result<()> {
     let db = resolve_db();
     let speed = std::env::var("RIDE_SPEED").ok().and_then(|s| s.parse().ok()).unwrap_or(1.0);
     let dash = Dash::new(&db, speed).unwrap_or_else(|e| panic!("open ride db {db}: {e}"));
     let opts = eframe::NativeOptions {
-        viewport: egui::ViewportBuilder::default().with_inner_size([1200.0, 700.0]),
+        viewport: egui::ViewportBuilder::default().with_inner_size([1400.0, 800.0]),
         ..Default::default()
     };
-    eframe::run_native("INU-EGUI", opts, Box::new(|_cc| Ok(Box::new(dash))))
+    eframe::run_native(
+        "INU-EGUI",
+        opts,
+        Box::new(|cc| {
+            setup_theme(&cc.egui_ctx);
+            Ok(Box::new(dash))
+        }),
+    )
 }

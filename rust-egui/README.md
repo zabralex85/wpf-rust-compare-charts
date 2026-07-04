@@ -25,14 +25,26 @@ The residual gap to a ~20 MB C++/Dear-ImGui app is `eframe`'s bundled default
 fonts + the glow GL context + `std`. A `softbuffer` + `tiny-skia` (CPU raster)
 or raw Direct2D build would close most of it.
 
-## Scope
+## Scope — full INU parity
 
-Same reduced dashboard as rust-native: grouped parameter table (INU groups +
-enum decode with severity color), one strip chart per strip channel (60 s
-window, drawn with `egui::Painter` polylines), perf HUD. No map / gauges /
-transport. Reuses `app_lib` (db / `replay::Pacer` / `metrics`) in-process.
+Everything drawn with `egui::Painter`, no widgets library:
+- Dark INU theme + monospace; top bar (logo, **clickable tabs**, real
+  ALARM/CAUTION pills, LINK, ride clock); bottom transport bar with **working
+  play/pause, speed, and a clickable seek slider** (BUFFER / SAMPLES / DROPPED).
+- Grouped parameter table (INU groups + counts, status dots, BUS column, enum
+  decode with severity color — `Normal`/`Critical`). Rows are **drag sources**.
+- **Interactive widget grid**: drag to move (swap on drop), resize grip,
+  click the badge to toggle LINE↔GAUGE, `×` to remove, and **drag a param row
+  into the grid to add** a chart (backfilled with history).
+- Radial gauges (arc + needle + scale) and strip charts (y/x axes, gridlines,
+  **hover readout** of the value under the cursor).
+- GPS track over an **offline MVT basemap** (roads + water) decoded from
+  `israel.mbtiles` with `geozero`/`flate2` and projected to the egui painter —
+  `basemap.rs`. `FLIGHT TRACK` tab shows it full-screen.
 
-The whole thing is one `src/main.rs` — immediate-mode fits a single file.
+Reuses `app_lib` (db / `replay::Pacer` / `metrics` / `tiles::MbTiles`)
+in-process. Almost all of it is one `src/main.rs` (+ `basemap.rs`) —
+immediate-mode fits a single file.
 
 ## Run
 
