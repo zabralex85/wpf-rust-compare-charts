@@ -5991,6 +5991,9 @@ dependencies = [
  "app",
  "dioxus",
  "dioxus-native",
+ "rusqlite",
+ "vello",
+ "wgpu 26.0.1",
 ]
 
 [[package]]

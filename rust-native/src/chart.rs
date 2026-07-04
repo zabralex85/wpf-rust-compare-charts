@@ -26,6 +26,30 @@ pub fn to_screen(
         .collect()
 }
 
+use vello::kurbo::{Affine, BezPath, Point, Stroke};
+use vello::peniko::Color;
+use vello::Scene;
+
+/// Stroke a polyline through screen-space `points` into a Vello scene.
+///
+/// This is pure Vello scene-building code (no window/GPU dependency) so it is
+/// reusable both by the main-window scene (if ever painted directly) and by a
+/// `CustomPaintSource::render` implementation that owns its own off-screen
+/// `Scene` (see `main.rs` for how `dioxus-native` 0.7.9 actually wires
+/// custom-paint canvases — it is NOT a direct "here is the window scene"
+/// callback; see the doc comment on `LineCanvas` there).
+pub fn paint_line(scene: &mut Scene, points: &[(f32, f32)], color: Color, width: f64) {
+    if points.len() < 2 {
+        return;
+    }
+    let mut path = BezPath::new();
+    path.move_to(Point::new(points[0].0 as f64, points[0].1 as f64));
+    for &(x, y) in &points[1..] {
+        path.line_to(Point::new(x as f64, y as f64));
+    }
+    scene.stroke(&Stroke::new(width), Affine::IDENTITY, color, None, &path);
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
