@@ -38,9 +38,13 @@ Everything drawn with `egui::Painter`, no widgets library:
   into the grid to add** a chart (backfilled with history).
 - Radial gauges (arc + needle + scale) and strip charts (y/x axes, gridlines,
   **hover readout** of the value under the cursor).
-- GPS track over an **offline MVT basemap** (roads + water) decoded from
-  `israel.mbtiles` with `geozero`/`flate2` and projected to the egui painter —
-  `basemap.rs`. `FLIGHT TRACK` tab shows it full-screen.
+- GPS track over an **interactive offline slippy map** — filled MVT basemap
+  (sea, parks, landuse, road hierarchy, place labels) decoded from
+  `israel.mbtiles` with `geozero`/`flate2`, projected in web-mercator and drawn
+  to the egui painter (`basemap.rs`). **Drag to pan, scroll to zoom**; tiles are
+  re-fetched + cached per view. No wgpu/WebView — runs in egui's glow/GL context.
+  `FLIGHT TRACK` tab shows it full-screen. Labels are `name:latin`-only (Israel
+  `name` is Hebrew and the default font lacks those glyphs).
 
 Reuses `app_lib` (db / `replay::Pacer` / `metrics` / `tiles::MbTiles`)
 in-process. Almost all of it is one `src/main.rs` (+ `basemap.rs`) —
