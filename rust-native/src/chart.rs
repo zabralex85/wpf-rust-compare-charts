@@ -1,0 +1,84 @@
+//! Pure strip-chart geometry: (ts, value) samples -> canvas pixel points.
+//! The newest sample sits at the right edge; the window's left edge is x=0.
+
+pub fn to_screen(
+    points: &[(i64, f64)],
+    window_ms: i64,
+    w: f32,
+    h: f32,
+    min: f64,
+    max: f64,
+) -> Vec<(f32, f32)> {
+    if points.is_empty() {
+        return Vec::new();
+    }
+    let newest = points[points.len() - 1].0;
+    let span = (max - min).max(1e-9);
+    points
+        .iter()
+        .map(|&(ts, v)| {
+            let age = (newest - ts) as f32; // 0 at newest
+            let x = w - (age / window_ms as f32) * w;
+            let norm = ((v - min) / span).clamp(0.0, 1.0) as f32;
+            let y = h - norm * h; // invert: max at top
+            (x, y)
+        })
+        .collect()
+}
+
+use vello::kurbo::{Affine, BezPath, Point, Stroke};
+use vello::peniko::Color;
+use vello::Scene;
+
+/// Stroke a polyline through screen-space `points` into a Vello scene.
+///
+/// This is pure Vello scene-building code (no window/GPU dependency) so it is
+/// reusable both by the main-window scene (if ever painted directly) and by a
+/// `CustomPaintSource::render` implementation that owns its own off-screen
+/// `Scene` (see `ui.rs` for how `dioxus-native` 0.7.9 actually wires
+/// custom-paint canvases — it is NOT a direct "here is the window scene"
+/// callback; see the doc comment on `StripCanvas` there).
+pub fn paint_line(scene: &mut Scene, points: &[(f32, f32)], color: Color, width: f64) {
+    if points.len() < 2 {
+        return;
+    }
+    let mut path = BezPath::new();
+    path.move_to(Point::new(points[0].0 as f64, points[0].1 as f64));
+    for &(x, y) in &points[1..] {
+        path.line_to(Point::new(x as f64, y as f64));
+    }
+    scene.stroke(&Stroke::new(width), Affine::IDENTITY, color, None, &path);
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn empty_input_gives_no_points() {
+        assert!(to_screen(&[], 1000, 100.0, 50.0, 0.0, 1.0).is_empty());
+    }
+
+    #[test]
+    fn newest_point_maps_to_right_edge() {
+        let pts = [(0i64, 0.0), (1000i64, 1.0)];
+        let out = to_screen(&pts, 1000, 100.0, 50.0, 0.0, 1.0);
+        assert!((out[1].0 - 100.0).abs() < 1e-3); // newest -> x = w
+        assert!((out[0].0 - 0.0).abs() < 1e-3);    // oldest (age=window) -> x = 0
+    }
+
+    #[test]
+    fn value_is_inverted_min_at_bottom_max_at_top() {
+        let pts = [(0i64, 0.0), (0i64, 1.0)];
+        let out = to_screen(&pts, 1000, 100.0, 50.0, 0.0, 1.0);
+        assert!((out[0].1 - 50.0).abs() < 1e-3); // min -> y = h (bottom)
+        assert!((out[1].1 - 0.0).abs() < 1e-3);  // max -> y = 0 (top)
+    }
+
+    #[test]
+    fn value_is_clamped_to_min_max() {
+        let pts = [(0i64, 5.0)]; // above max
+        let out = to_screen(&pts, 1000, 100.0, 50.0, 0.0, 1.0);
+        assert!((out[0].1 - 0.0).abs() < 1e-3); // clamped to max -> top
+    }
+}

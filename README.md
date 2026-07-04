@@ -35,8 +35,11 @@ Both apps replaying the same ride at `RIDE_SPEED=1.0` with the full dashboard + 
 |---|---|---|---|
 | **.NET Avalonia** (native Skia) | 1 | ~279 MB | ~3.4% |
 | **Rust Tauri** (React in WebView2) | 7 (app + WebView2 tree) | ~637 MB | ~6.0% |
+| **Rust Dioxus-native** (Blitz + Vello, no WebView) † | 1 | ~530 MB | ~5% |
 
 The native .NET app is markedly lighter on both memory and CPU — the bundled Chromium **WebView2** runtime dominates the Tauri footprint (the Rust **backend** process is ~0% CPU / ~35 MB; all the cost is the WebView2 frontend renderer + compositor + Chromium's multiprocess RAM). (Numbers are machine‑specific and meant as a ballpark; re‑run locally for your hardware.)
+
+> † **Third variant — Rust Dioxus-native** ([`rust-native/`](rust-native/)): a GPU-native Rust UI (Blitz HTML/CSS layout + Vello/WGPU rendering, **no WebView**), built to test whether dropping the Chromium runtime beats the Tauri footprint. It does — single process, ~100 MB less RAM than Tauri — but the result is more nuanced than "native = tiny": **it still loses to the .NET/Skia app (~2×)**, and this is a **reduced dashboard** (parameter table + strip charts + perf HUD only — no map or gauges yet), so its number will grow as those land. The ~530 MB floor is the **WGPU device + Vello renderer + the `system-fonts` font database** (Dioxus-native's `launch` doesn't expose a hook to swap in a single bundled font, so that cost stays). Sharing **one** `vello::Renderer` across all charts (rather than one per chart) cut ~370 MB — each extra Renderer costs ~90 MB of GPU/compute buffers. Takeaway: a native GPU stack is not automatically lighter than Chromium; WGPU/Vello carries a real baseline.
 
 **Equivalent-work check.** Both stacks update their data widgets (charts, gauges, params, map) gated to the **10 Hz** data cadence. One asymmetry: .NET's perf‑HUD `FrameClock` free‑runs the compositor (~60 Hz) while Rust composites only on the 10 Hz DOM changes — but this is **immaterial**: running .NET with `RIDE_FPS_CAP=10` (composite pinned to 10 Hz, matching Rust) measured ~4.1% vs ~3.5% uncapped, i.e. within noise. .NET's CPU is data/chart‑redraw bound, not composite bound (native Skia compositing is near‑free), so the comparison is fair regardless of composite cadence.
 
@@ -47,6 +50,7 @@ The native .NET app is markedly lighter on both memory and CPU — the bundled C
 ```
 data/    Python telemetry simulator → ride.db (shared data; gitignored)
 rust/    Tauri + React + WebSocket dashboard
+rust-native/  Third variant — Dioxus-native (Blitz + Vello, no WebView); reuses rust/'s app_lib data layer
 dotnet/  .NET 10 solution — 4-ring onion architecture:
            TelemetryPoc.Domain         (entities + pure logic)
            TelemetryPoc.Application     (use cases + ports)
