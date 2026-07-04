@@ -2,6 +2,7 @@ use dioxus::prelude::*;
 
 mod data;
 mod feed;
+mod chart;
 
 fn main() {
     // Launch via the NATIVE renderer (Blitz/Vello) — NOT dioxus-desktop.
