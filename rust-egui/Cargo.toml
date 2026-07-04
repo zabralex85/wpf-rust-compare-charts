@@ -7,6 +7,9 @@ edition = "2021"
 app_lib = { path = "../rust/src-tauri", package = "app" }
 eframe = { version = "0.29", default-features = false, features = ["glow", "default_fonts"] }
 egui = "0.29"
+flate2 = "1.1.9"
+geozero = { version = "0.15.1", features = ["with-mvt"] }
+prost = "0.14.4"
 rusqlite = { version = "0.31", features = ["bundled"] }
 
 [[bin]]
