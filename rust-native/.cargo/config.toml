@@ -1,0 +1,6 @@
+# Serial builds only. The vello/blitz/wgpu-hal stack (dioxus-native) crashes
+# rustc with STATUS_STACK_BUFFER_OVERRUN (0xc0000409) under parallel codegen
+# on this Windows/MSVC toolchain (rustc 1.95). `jobs = 1` builds fine.
+# Same failure family as the tilemaker-v3 note in the repo's CLAUDE.md.
+[build]
+jobs = 1
