@@ -33,13 +33,16 @@ Both apps replaying the same ride at `RIDE_SPEED=1.0` with the full dashboard + 
 
 | Stack | Processes | RAM | CPU (total) |
 |---|---|---|---|
+| **Rust egui** (immediate-mode, glow/OpenGL) ‡ | 1 | ~82 MB | ~2% |
 | **.NET Avalonia** (native Skia) | 1 | ~279 MB | ~4–5% |
-| **Rust Tauri** (React in WebView2) | 7 (app + WebView2 tree) | ~600–650 MB | ~3–4% |
 | **Rust Dioxus-native** (Blitz + Vello, no WebView) † | 1 | ~530 MB | ~5% |
+| **Rust Tauri** (React in WebView2) | 7 (app + WebView2 tree) | ~600–650 MB | ~3–4% |
 
 The native .NET app is still **~2.2× lighter on memory** — the bundled Chromium **WebView2** runtime dominates the Tauri footprint (the Rust **backend** process is ~0% CPU / ~36 MB; all the RAM cost is the WebView2 frontend renderer + compositor + Chromium's multiprocess floor, which decimation can't lower). **CPU is now comparable** between the two (both ~3–5%): decimating the GPS map track to **2 Hz** removed Rust's per‑frame full‑track rebuild (rebuilding the whole MapLibre polyline 10×/s was the dominant WebView2 renderer cost — it previously put Rust at ~6%). (Numbers are machine‑specific and meant as a ballpark; re‑run locally for your hardware.)
 
 > † **Third variant — Rust Dioxus-native** ([`rust-native/`](rust-native/)): a GPU-native Rust UI (Blitz HTML/CSS layout + Vello/WGPU rendering, **no WebView**), built to test whether dropping the Chromium runtime beats the Tauri footprint. It does — single process, ~100 MB less RAM than Tauri — but the result is more nuanced than "native = tiny": **it still loses to the .NET/Skia app (~2×)**, and this is a **reduced dashboard** (parameter table + strip charts + perf HUD only — no map or gauges yet), so its number will grow as those land. The ~530 MB floor is the **WGPU device + Vello renderer + the `system-fonts` font database** (Dioxus-native's `launch` doesn't expose a hook to swap in a single bundled font, so that cost stays). Sharing **one** `vello::Renderer` across all charts (rather than one per chart) cut ~370 MB — each extra Renderer costs ~90 MB of GPU/compute buffers. Takeaway: a native GPU stack is not automatically lighter than Chromium; WGPU/Vello carries a real baseline.
+
+> ‡ **Fourth variant — Rust egui** ([`rust-egui/`](rust-egui/)): the lightweight end of the spectrum — an **immediate-mode** UI on `egui`/`eframe` (glow/OpenGL), no HTML/CSS engine, no Vello, no `system-fonts` database. Same grouped param table + strip charts + perf HUD, reusing `app_lib` in-process. At **~82 MB / ~2% CPU** it is **~6.5× lighter than Dioxus-native and ~3.4× lighter than the .NET app** — proof that the memory was the **framework, not the language**: Rust the language is as lean as C++; the heavy variants pay for their rendering stack (a browser engine, a GPU compute renderer, a font database), not for Rust. The residual gap to a ~20 MB C++/Dear-ImGui app is `eframe`'s bundled default fonts + the glow GL context + `std`; a `softbuffer` + `tiny-skia` (CPU raster) or raw Direct2D build would close most of it. Same caveat as the others: this is the **reduced dashboard** (no map/gauges yet).
 
 **Equivalent-work check.** Both stacks update their data widgets (charts, gauges, params, map) gated to the **10 Hz** data cadence. One asymmetry: .NET's perf‑HUD `FrameClock` free‑runs the compositor (~60 Hz) while Rust composites only on the 10 Hz DOM changes — but this is **immaterial**: running .NET with `RIDE_FPS_CAP=10` (composite pinned to 10 Hz, matching Rust) measured ~4.1% vs ~3.5% uncapped, i.e. within noise. .NET's CPU is data/chart‑redraw bound, not composite bound (native Skia compositing is near‑free), so the comparison is fair regardless of composite cadence.
 
@@ -51,6 +54,7 @@ The native .NET app is still **~2.2× lighter on memory** — the bundled Chromi
 data/    Python telemetry simulator → ride.db (shared data; gitignored)
 rust/    Tauri + React + WebSocket dashboard
 rust-native/  Third variant — Dioxus-native (Blitz + Vello, no WebView); reuses rust/'s app_lib data layer
+rust-egui/    Fourth variant — egui/eframe immediate-mode (glow/OpenGL); the ~82 MB lightweight end
 dotnet/  .NET 10 solution — 4-ring onion architecture:
            TelemetryPoc.Domain         (entities + pure logic)
            TelemetryPoc.Application     (use cases + ports)
