@@ -35,6 +35,14 @@ fn cyan() -> Color {
 /// `blitz-paint` repaints a canvas element whenever the window repaints).
 type Buffers = Rc<RefCell<HashMap<i64, WindowBuffer>>>;
 
+/// One `vello::Renderer` shared by every strip canvas. A Renderer allocates
+/// sizable GPU/compute buffers, so giving each of the 5 charts its own cost
+/// ~94 MB per extra chart (measured: 1 chart 533 MB → 5 charts ~910 MB). All
+/// canvases paint sequentially in one repaint pass, so a single shared,
+/// interior-mutable Renderer serves them all. Created lazily on first render
+/// (against the live device) and cleared on suspend.
+type SharedRenderer = Rc<RefCell<Option<vello::Renderer>>>;
+
 #[derive(Clone, PartialEq)]
 struct StripMeta {
     idx: usize,
@@ -84,6 +92,9 @@ pub fn app() -> Element {
             Rc::new(RefCell::new(map))
         }
     });
+
+    // Single vello::Renderer shared by all strip canvases (see SharedRenderer doc).
+    use_context_provider(|| -> SharedRenderer { Rc::new(RefCell::new(None)) });
 
     let mut latest: Signal<Option<Sample>> = use_signal(|| None);
     let mut metrics: Signal<Metrics> = use_signal(|| Metrics { cpu_pct: 0.0, ram_mb: 0.0 });
@@ -326,7 +337,9 @@ fn StripChart(
     channel_id: i64,
 ) -> Element {
     let buffers = use_context::<Buffers>();
-    let canvas_id = use_wgpu(move || StripCanvas::new(buffers.clone(), channel_id, min, max));
+    let shared = use_context::<SharedRenderer>();
+    let canvas_id =
+        use_wgpu(move || StripCanvas::new(buffers.clone(), shared.clone(), channel_id, min, max));
 
     rsx! {
         div {
@@ -372,23 +385,29 @@ struct CanvasTarget {
 
 struct StripCanvas {
     buffers: Buffers,
+    shared: SharedRenderer,
     channel_id: i64,
     min: f64,
     max: f64,
     device: Option<DeviceHandle>,
-    renderer: Option<vello::Renderer>,
     target: Option<CanvasTarget>,
 }
 
 impl StripCanvas {
-    fn new(buffers: Buffers, channel_id: i64, min: f64, max: f64) -> Self {
+    fn new(
+        buffers: Buffers,
+        shared: SharedRenderer,
+        channel_id: i64,
+        min: f64,
+        max: f64,
+    ) -> Self {
         Self {
             buffers,
+            shared,
             channel_id,
             min,
             max,
             device: None,
-            renderer: None,
             target: None,
         }
     }
@@ -396,24 +415,17 @@ impl StripCanvas {
 
 impl CustomPaintSource for StripCanvas {
     fn resume(&mut self, device_handle: &DeviceHandle) {
-        let renderer = vello::Renderer::new(
-            &device_handle.device,
-            vello::RendererOptions {
-                use_cpu: false,
-                antialiasing_support: vello::AaSupport::area_only(),
-                num_init_threads: None,
-                pipeline_cache: None,
-            },
-        )
-        .expect("failed to create off-screen vello::Renderer for strip chart canvas");
+        // The vello::Renderer is created lazily (and shared) in `render`; here we
+        // only remember the live device to render/allocate against.
         self.device = Some(device_handle.clone());
-        self.renderer = Some(renderer);
     }
 
     fn suspend(&mut self) {
         self.device = None;
-        self.renderer = None;
         self.target = None;
+        // Drop the shared renderer so the next resume rebuilds it against the
+        // new device. Idempotent: every canvas suspends together.
+        *self.shared.borrow_mut() = None;
     }
 
     fn render(
@@ -423,10 +435,24 @@ impl CustomPaintSource for StripCanvas {
         height: u32,
         _scale: f64,
     ) -> Option<TextureHandle> {
-        let device_handle = self.device.as_ref()?;
-        let renderer = self.renderer.as_mut()?;
+        let device_handle = self.device.as_ref()?.clone();
         if width == 0 || height == 0 {
             return None;
+        }
+
+        // Lazily create the single shared renderer against the live device.
+        if self.shared.borrow().is_none() {
+            let renderer = vello::Renderer::new(
+                &device_handle.device,
+                vello::RendererOptions {
+                    use_cpu: false,
+                    antialiasing_support: vello::AaSupport::area_only(),
+                    num_init_threads: None,
+                    pipeline_cache: None,
+                },
+            )
+            .expect("failed to create shared off-screen vello::Renderer");
+            *self.shared.borrow_mut() = Some(renderer);
         }
 
         let pts = {
@@ -483,6 +509,8 @@ impl CustomPaintSource for StripCanvas {
         }
 
         let target = self.target.as_ref().unwrap();
+        let mut shared = self.shared.borrow_mut();
+        let renderer = shared.as_mut()?;
         renderer
             .render_to_texture(
                 &device_handle.device,
