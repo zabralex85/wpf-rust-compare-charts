@@ -1,5 +1,7 @@
 use dioxus::prelude::*;
 
+mod data;
+
 fn main() {
     // Launch via the NATIVE renderer (Blitz/Vello) — NOT dioxus-desktop.
     dioxus_native::launch(app);
