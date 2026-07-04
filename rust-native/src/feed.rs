@@ -2,12 +2,13 @@
 //! become "due" for a given elapsed wall time. No socket (mirrors the .NET
 //! app's in-process idiom). Deterministic — the caller supplies elapsed_ms.
 
-use app_lib::db::{load_channels, load_samples, ChannelMeta, Sample};
+use app_lib::db::{load_channels, load_enum_values, load_samples, ChannelMeta, EnumValue, Sample};
 use app_lib::replay::Pacer;
 use rusqlite::Connection;
 
 pub struct Feed {
     channels: Vec<ChannelMeta>,
+    enums: Vec<EnumValue>,
     samples: Vec<Sample>,
     strip_idx: Vec<usize>,
     pacer: Pacer,
@@ -18,6 +19,7 @@ impl Feed {
     pub fn open(db_path: &str, speed: f64) -> rusqlite::Result<Self> {
         let conn = Connection::open(db_path)?;
         let channels = load_channels(&conn)?;
+        let enums = load_enum_values(&conn)?;
         let samples = load_samples(&conn, &channels)?;
         let strip_idx = channels
             .iter()
@@ -25,11 +27,17 @@ impl Feed {
             .filter(|(_, c)| c.widget == "strip")
             .map(|(i, _)| i)
             .collect();
-        Ok(Self { channels, samples, strip_idx, pacer: Pacer::new(speed), cursor: 0 })
+        Ok(Self { channels, enums, samples, strip_idx, pacer: Pacer::new(speed), cursor: 0 })
     }
 
     pub fn channels(&self) -> &[ChannelMeta] {
         &self.channels
+    }
+
+    /// Enum code→label/severity rows, for decoding enum-typed param values
+    /// (mirrors the Tauri store's enum index).
+    pub fn enum_values(&self) -> &[EnumValue] {
+        &self.enums
     }
 
     pub fn strip_indices(&self) -> &[usize] {

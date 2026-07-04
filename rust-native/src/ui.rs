@@ -78,6 +78,17 @@ pub fn app() -> Element {
             .collect::<Vec<_>>()
     });
 
+    // Enum code -> (label, severity) index, snapshot once (mirrors the Tauri
+    // store's enum index) so enum params render "Normal"/"Critical", not "0.000".
+    let enum_index: Rc<HashMap<(i64, i64), (String, String)>> = use_hook(|| {
+        let feed_ref = feed.borrow();
+        let mut m = HashMap::new();
+        for e in feed_ref.enum_values() {
+            m.insert((e.channel_id, e.code), (e.label.clone(), e.severity.clone()));
+        }
+        Rc::new(m)
+    });
+
     // Provided via context (not a prop) so `StripChart` can pick it up
     // without `Buffers` needing to implement `PartialEq` for props diffing --
     // it's mutated through interior mutability, deliberately outside that
@@ -116,10 +127,15 @@ pub fn app() -> Element {
                 let start = Instant::now();
                 let mut sampler = MetricsSampler::new();
                 let mut last_metrics_at = Instant::now();
-                let mut frames: u64 = 0;
+                // FPS as an EMA of the instantaneous repaint rate (1/dt). The
+                // render pass runs on this same single-threaded executor, so a
+                // slow paint delays the next tick and the rate drops -- it
+                // tracks the live repaint throughput and shows dips, unlike a
+                // lifetime cumulative average. (Not a GPU-present counter.)
+                let mut last_tick = Instant::now();
+                let mut fps_ema = 0.0_f64;
                 loop {
                     futures_timer::Delay::new(Duration::from_millis(16)).await;
-                    frames += 1;
 
                     let elapsed_ms = start.elapsed().as_millis() as i64;
                     let due: Vec<Sample> = feed.borrow_mut().due_upto(elapsed_ms).to_vec();
@@ -144,9 +160,13 @@ pub fn app() -> Element {
                         last_metrics_at = Instant::now();
                     }
 
-                    let secs = start.elapsed().as_secs_f64();
-                    if secs > 0.0 {
-                        fps.set(frames as f64 / secs);
+                    let now = Instant::now();
+                    let dt = now.duration_since(last_tick).as_secs_f64();
+                    last_tick = now;
+                    if dt > 0.0 {
+                        let inst = 1.0 / dt;
+                        fps_ema = if fps_ema == 0.0 { inst } else { fps_ema * 0.9 + inst * 0.1 };
+                        fps.set(fps_ema);
                     }
                 }
             }
@@ -206,14 +226,19 @@ pub fn app() -> Element {
                             span { style: "color:#455567;", "{grp.rows.len()}" }
                         }
                         for row in grp.rows.iter() {
-                            div {
-                                key: "{row.id}",
-                                style: "display:flex;align-items:center;gap:8px;\
-                                         padding:3px 12px;border-bottom:1px solid #101821;font-size:12px;",
-                                span { style: "width:6px;height:6px;border-radius:50%;background:#2fd17a;flex-shrink:0;", "" }
-                                span { style: "color:#8fa3b3;flex:1;", "{row.name}" }
-                                span { style: "color:#d7e2ea;text-align:right;", "{format_value(latest_snapshot.as_ref(), row.index)}" }
-                                span { style: "color:#5f7385;width:34px;text-align:right;", "{row.unit}" }
+                            {
+                                let f = fmt_param(latest_snapshot.as_ref(), row, &enum_index);
+                                rsx! {
+                                    div {
+                                        key: "{row.id}",
+                                        style: "display:flex;align-items:center;gap:8px;\
+                                                 padding:3px 12px;border-bottom:1px solid #101821;font-size:12px;",
+                                        span { style: "width:6px;height:6px;border-radius:50%;background:{f.dot_color};flex-shrink:0;", "" }
+                                        span { style: "color:#8fa3b3;flex:1;", "{row.name}" }
+                                        span { style: "color:{f.value_color};text-align:right;", "{f.text}" }
+                                        span { style: "color:#5f7385;width:34px;text-align:right;", "{row.unit}" }
+                                    }
+                                }
                             }
                         }
                     }
@@ -262,6 +287,7 @@ struct ParamRowV {
     id: i64,
     name: String,
     unit: String,
+    is_enum: bool,
 }
 
 struct ParamGroup {
@@ -284,6 +310,44 @@ const GROUPS: &[(&str, &[&str])] = &[
     ("Body Rates", &["roll_r", "pitch_r", "yaw_r"]),
     ("Position", &["lat", "lon"]),
 ];
+
+/// Formatted param value + colors (mirrors the Tauri `paramRow`/`formatValue`).
+struct FmtVal {
+    text: String,
+    value_color: &'static str,
+    dot_color: &'static str,
+}
+
+const COL_TEXT: &str = "#d7e2ea";
+const COL_DIM: &str = "#5f7385";
+const COL_OK: &str = "#2fd17a";
+const COL_CRIT: &str = "#e0564e";
+
+/// Format one param value: enum channels decode to their label + severity color
+/// (critical -> red), numeric channels print to 3 decimals; no data -> dim dash.
+fn fmt_param(
+    sample: Option<&Sample>,
+    row: &ParamRowV,
+    enum_index: &HashMap<(i64, i64), (String, String)>,
+) -> FmtVal {
+    let v = match sample.and_then(|s| s.values.get(row.index)) {
+        Some(v) => *v,
+        None => {
+            return FmtVal { text: "—".into(), value_color: COL_DIM, dot_color: COL_DIM };
+        }
+    };
+    if row.is_enum {
+        if let Some((label, severity)) = enum_index.get(&(row.id, v as i64)) {
+            let critical = severity == "critical";
+            return FmtVal {
+                text: label.clone(),
+                value_color: if critical { COL_CRIT } else { COL_OK },
+                dot_color: if critical { COL_CRIT } else { COL_OK },
+            };
+        }
+    }
+    FmtVal { text: format!("{v:.3}"), value_color: COL_TEXT, dot_color: COL_OK }
+}
 
 fn group_of(column_name: &str) -> &'static str {
     for (name, cols) in GROUPS {
@@ -309,6 +373,7 @@ fn group_channels(channels: &[ChannelMeta]) -> Vec<ParamGroup> {
                 id: ch.id,
                 name: ch.name.clone(),
                 unit: ch.unit.clone(),
+                is_enum: ch.type_ == "enum",
             })
             .collect();
         if !rows.is_empty() {
@@ -441,8 +506,9 @@ impl CustomPaintSource for StripCanvas {
         }
 
         // Lazily create the single shared renderer against the live device.
+        // On failure, degrade to a blank canvas rather than panicking the paint.
         if self.shared.borrow().is_none() {
-            let renderer = vello::Renderer::new(
+            match vello::Renderer::new(
                 &device_handle.device,
                 vello::RendererOptions {
                     use_cpu: false,
@@ -450,9 +516,10 @@ impl CustomPaintSource for StripCanvas {
                     num_init_threads: None,
                     pipeline_cache: None,
                 },
-            )
-            .expect("failed to create shared off-screen vello::Renderer");
-            *self.shared.borrow_mut() = Some(renderer);
+            ) {
+                Ok(renderer) => *self.shared.borrow_mut() = Some(renderer),
+                Err(_) => return None,
+            }
         }
 
         let pts = {

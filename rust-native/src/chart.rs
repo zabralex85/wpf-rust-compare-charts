@@ -35,9 +35,9 @@ use vello::Scene;
 /// This is pure Vello scene-building code (no window/GPU dependency) so it is
 /// reusable both by the main-window scene (if ever painted directly) and by a
 /// `CustomPaintSource::render` implementation that owns its own off-screen
-/// `Scene` (see `main.rs` for how `dioxus-native` 0.7.9 actually wires
+/// `Scene` (see `ui.rs` for how `dioxus-native` 0.7.9 actually wires
 /// custom-paint canvases — it is NOT a direct "here is the window scene"
-/// callback; see the doc comment on `LineCanvas` there).
+/// callback; see the doc comment on `StripCanvas` there).
 pub fn paint_line(scene: &mut Scene, points: &[(f32, f32)], color: Color, width: f64) {
     if points.len() < 2 {
         return;
