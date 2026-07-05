@@ -1,17 +1,20 @@
 # wpf-rust-compare-charts
 
-Render the **same realtime telemetry dashboard in two stacks** and compare their performance.
+Render the **same realtime telemetry dashboard in four stacks** and compare their performance.
 
-An INU-style monitoring dashboard — live parameter table, scrolling strip charts, radial gauges, GPS map, and a perf HUD — is replayed from a shared SQLite "ride" and built twice:
+An INU-style monitoring dashboard — live parameter table, scrolling strip charts, radial gauges, GPS map, and a perf HUD — is replayed from a shared SQLite "ride" and built four ways: two flagships (a web-WebView Rust app and a native .NET app) plus two lean-Rust experiments that reuse the flagship's data layer.
 
-| | Rust app | .NET app |
-|---|---|---|
-| Stack | Tauri 2 + React + TypeScript | **Avalonia UI** (AXAML, MVVM, C#) — cross-platform |
-| Charts | uPlot (scrolling time-series) | ScottPlot.Avalonia |
-| Map | MapLibre GL — **offline** vector basemap | native MVT/Skia renderer — **offline** MBTiles |
-| Transport | local WebSocket | in-process |
+| | Rust — Tauri | .NET — Avalonia | Rust — Dioxus-native † | Rust — egui ‡ |
+|---|---|---|---|---|
+| Stack | Tauri 2 + React + TypeScript | **Avalonia UI** (AXAML, MVVM, C#) — cross-platform | Blitz (HTML/CSS) + Vello/WGPU, no WebView | `egui`/`eframe` immediate-mode (glow/OpenGL) |
+| Charts | uPlot (scrolling time-series) | ScottPlot.Avalonia | Vello-drawn | `egui::Painter` |
+| Map | MapLibre GL — **offline** vector basemap | native MVT/Skia renderer — **offline** MBTiles | — (reduced dashboard, no map yet) | MVT slippy map on the egui painter — **offline**, Hebrew labels |
+| Transport | local WebSocket | in-process | in-process (reuses `app_lib`) | in-process (reuses `app_lib`) |
+| Footprint | ~600–650 MB / ~3–4% | ~279 MB / ~4–5% | ~530 MB / ~5% | **~102 MB / ~3%** (0% idle) |
 
-This is a **paradigm contrast**: a web WebView UI (Tauri/React) vs a native retained-mode UI (Avalonia) — each stack in its own idiom. Both read the **same `ride.db`** and show the same HUD — FPS, frame time, end-to-end latency, CPU% (per-core), RAM — so the two stacks can be compared head to head. Target layout: [`docs/reference/dashboard-target.md`](docs/reference/dashboard-target.md).
+> † **Dioxus-native** and ‡ **egui** are the two later Rust experiments (see the [Measured footprint](#measured-footprint) notes below). Dioxus-native tests a GPU-native stack (Vello/WGPU); egui tests immediate-mode — the lightest of the four.
+
+The core **paradigm contrast** is a web WebView UI (Tauri/React) vs a native retained-mode UI (Avalonia) — each in its own idiom; the two Rust experiments (Dioxus-native, egui) probe the lighter end. All four read the **same `ride.db`** and show the same HUD — FPS, frame time, end-to-end latency, CPU% (per-core), RAM — so the stacks can be compared head to head. Target layout: [`docs/reference/dashboard-target.md`](docs/reference/dashboard-target.md).
 
 > The .NET app was originally WPF + Blazor Hybrid, reskinned to native WPF/XAML, then **ported from WPF to Avalonia UI** (in place — only the shell project changed; the four inner architecture rings were untouched). It now runs natively on **Linux, Windows, and macOS** (verified on a Kali Linux VM), and targets **.NET 10 LTS**.
 
@@ -26,6 +29,10 @@ This is a **paradigm contrast**: a web WebView UI (Tauri/React) vs a native reta
 **Rust — Tauri + React** (uPlot charts, MapLibre map)
 
 ![Rust INU-MONITOR dashboard](docs/screenshots/rust.png)
+
+**Rust — egui** (immediate-mode; config layout, offline MVT map with Hebrew labels)
+
+![Rust egui INU-MONITOR dashboard](docs/screenshots/rust-egui.png)
 
 ## Measured footprint
 
