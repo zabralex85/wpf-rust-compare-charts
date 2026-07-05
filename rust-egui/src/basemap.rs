@@ -50,7 +50,7 @@ pub fn decode(gz: &[u8]) -> Option<Tile> {
                         }
                     }
                 }
-                "place" => {
+                "place" | "poi" | "transportation_name" => {
                     if let Some(txt) = name_of(feat, keys, vals) {
                         if let Some(&(x, y)) = geoms.first().and_then(|g| g.first()) {
                             out.labels.push((x as f32 / extent, y as f32 / extent, txt));
