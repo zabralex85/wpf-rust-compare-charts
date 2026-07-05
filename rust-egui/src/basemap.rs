@@ -20,7 +20,7 @@ pub enum Fill {
 pub struct Tile {
     pub polys: Vec<(Fill, Vec<(f32, f32)>)>,
     pub roads: Vec<(u8, Vec<(f32, f32)>)>, // rank 0=major .. 3=minor
-    pub labels: Vec<(f32, f32, String)>,
+    pub labels: Vec<(f32, f32, String, u8)>, // rank 0=place(city), 1=street
 }
 
 /// gunzip + decode an MVT tile into fills / roads / labels.
@@ -50,10 +50,13 @@ pub fn decode(gz: &[u8]) -> Option<Tile> {
                         }
                     }
                 }
-                "place" | "poi" | "transportation_name" => {
+                // streets + city/place names only (POI/shops are omitted — they flood
+                // the label declutter and bury the streets the user actually wants).
+                "place" | "transportation_name" => {
                     if let Some(txt) = name_of(feat, keys, vals) {
                         if let Some(&(x, y)) = geoms.first().and_then(|g| g.first()) {
-                            out.labels.push((x as f32 / extent, y as f32 / extent, txt));
+                            let rank = if name == "place" { 0 } else { 1 };
+                            out.labels.push((x as f32 / extent, y as f32 / extent, txt, rank));
                         }
                     }
                 }
@@ -81,8 +84,13 @@ fn class_of<'a>(feat: &geozero::mvt::tile::Feature, keys: &'a [String], vals: &'
 /// Look up a feature's `name:latin` tag. (Israel `name` is Hebrew — the default
 /// font has no Hebrew glyphs, so latin-only avoids tofu boxes.)
 fn name_of(feat: &geozero::mvt::tile::Feature, keys: &[String], vals: &[geozero::mvt::tile::Value]) -> Option<String> {
-    tag_str(feat, keys, vals, "name:latin")
-        .filter(|s| s.is_ascii())
+    // Prefer the Hebrew primary `name` (matches Tauri's rendered labels); fall back to
+    // `name:latin`. A bundled Noto Sans Hebrew font renders the glyphs.
+    tag_str(feat, keys, vals, "name")
+        .or_else(|| tag_str(feat, keys, vals, "name:latin"))
+        // drop pure road-ref / house numbers ("1184", "614") — keep named streets/places
+        // (any Unicode letter, so Hebrew names pass).
+        .filter(|s| s.chars().any(|c| c.is_alphabetic()))
         .map(|s| s.to_string())
 }
 

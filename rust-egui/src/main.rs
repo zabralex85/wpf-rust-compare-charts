@@ -18,7 +18,7 @@ mod basemap;
 
 const WINDOW_MS: i64 = 60_000;
 const GPS_INTERVAL_MS: i64 = 500; // decimate track (matches the other apps' 2 Hz)
-const GRID_COLS: i32 = 6; // widget grid width in cells
+const GRID_COLS: i32 = 8; // widget grid width in cells (matches Tauri SEED_COLS)
 
 // ---- INU palette ----
 const BG: Color32 = Color32::from_rgb(0x0a, 0x0e, 0x14);
@@ -66,6 +66,7 @@ fn fmt_clock(ms: i64) -> String {
 enum Kind {
     Line,
     Gauge,
+    Map,
 }
 
 #[derive(PartialEq, Clone, Copy)]
@@ -162,6 +163,62 @@ struct DragState {
     base_gh: i32,
 }
 
+/// One widget entry in the dashboard layout config file.
+#[derive(serde::Deserialize)]
+struct LayoutItem {
+    channel: String,
+    kind: String,
+    col: i32,
+    row: i32,
+    cols: i32,
+    rows: i32,
+}
+
+#[derive(serde::Deserialize)]
+struct LayoutCfg {
+    widgets: Vec<LayoutItem>,
+}
+
+/// Build the widget list from an explicit layout config file (data/dashboard-layout.json
+/// by default, or `$RIDE_LAYOUT`). Returns None if the file is missing/invalid or names a
+/// channel that isn't in this ride, so the caller falls back to the computed seed.
+fn load_layout(channels: &[ChannelMeta]) -> Option<Vec<Widget>> {
+    let path = std::env::var("RIDE_LAYOUT").unwrap_or_else(|_| "../data/dashboard-layout.json".into());
+    let txt = std::fs::read_to_string(&path).ok()?;
+    let cfg: LayoutCfg = serde_json::from_str(&txt).ok()?;
+    let mut out = Vec::new();
+    for it in &cfg.widgets {
+        let kind = match it.kind.as_str() {
+            "map" => Kind::Map,
+            "gauge" => Kind::Gauge,
+            "line" => Kind::Line,
+            _ => return None,
+        };
+        let (col, name, unit, min, max) = if kind == Kind::Map {
+            (0usize, "FLIGHT TRACK".to_string(), String::new(), 0.0, 0.0)
+        } else {
+            let idx = channels.iter().position(|c| c.name == it.channel)?;
+            let c = &channels[idx];
+            (idx, c.name.clone(), c.unit.clone(), c.min, c.max)
+        };
+        out.push(Widget {
+            name,
+            unit,
+            min,
+            max,
+            col,
+            kind,
+            points: Vec::new(),
+            gx: it.col,
+            gy: it.row,
+            gw: it.cols.max(1),
+            gh: it.rows.max(1),
+            zoom: 1.0,
+        });
+    }
+    (!out.is_empty()).then_some(out)
+}
+
 impl Dash {
     fn new(db_path: &str, speed: f64) -> rusqlite::Result<Self> {
         let conn = Connection::open(db_path)?;
@@ -188,30 +245,45 @@ impl Dash {
             gh: 1,
             zoom: 1.0,
         };
-        let mut widgets: Vec<Widget> = channels
-            .iter()
-            .enumerate()
-            .filter(|(_, c)| c.widget == "gauge")
-            .map(|(col, c)| mk(col, c, Kind::Gauge))
-            .collect();
-        widgets.extend(
-            channels
-                .iter()
-                .enumerate()
-                .filter(|(_, c)| c.widget == "strip")
-                .map(|(col, c)| mk(col, c, Kind::Line)),
-        );
-        // Auto-place into a GRID_COLS-wide grid (row-major, no overlap).
-        let (mut cx, mut cy) = (0, 0);
-        for w in &mut widgets {
-            if cx + w.gw > GRID_COLS {
-                cx = 0;
-                cy += 1;
+        // Prefer an explicit layout config file (data/dashboard-layout.json, or
+        // $RIDE_LAYOUT). Fall back to the computed default seed that mirrors the Tauri
+        // seedLayout: map (4×4, when map_lat+map_lon exist) → gauges (1×1, widget=="gauge")
+        // → lines (2×1, widget=="strip"), display_order, first-fit packed over 8 cols.
+        let widgets = load_layout(&channels).unwrap_or_else(|| {
+            let has_lat = channels.iter().any(|c| c.widget == "map_lat");
+            let has_lon = channels.iter().any(|c| c.widget == "map_lon");
+            let mut widgets: Vec<Widget> = Vec::new();
+            if has_lat && has_lon {
+                let mut m = mk(0, &channels[0], Kind::Map);
+                m.name = "FLIGHT TRACK".into();
+                m.unit = String::new();
+                m.gw = 4;
+                m.gh = 4;
+                widgets.push(m);
             }
-            w.gx = cx;
-            w.gy = cy;
-            cx += w.gw;
-        }
+            widgets.extend(channels.iter().enumerate().filter(|(_, c)| c.widget == "gauge").map(|(col, c)| mk(col, c, Kind::Gauge)));
+            widgets.extend(channels.iter().enumerate().filter(|(_, c)| c.widget == "strip").map(|(col, c)| mk(col, c, Kind::Line)));
+            // First-fit row-major packer over a GRID_COLS-wide grid (mirrors Tauri seedLayout).
+            let mut occ: std::collections::HashSet<(i32, i32)> = std::collections::HashSet::new();
+            for w in widgets.iter_mut() {
+                'find: for row in 0..1000 {
+                    for col in 0..=(GRID_COLS - w.gw) {
+                        let free = (col..col + w.gw).all(|c| (row..row + w.gh).all(|r| !occ.contains(&(c, r))));
+                        if free {
+                            w.gx = col;
+                            w.gy = row;
+                            for c in col..col + w.gw {
+                                for r in row..row + w.gh {
+                                    occ.insert((c, r));
+                                }
+                            }
+                            break 'find;
+                        }
+                    }
+                }
+            }
+            widgets
+        });
         let total_ms = samples.last().map(|s| s.ts_ms).unwrap_or(0);
 
         // Initial map view = centred on the full-ride GPS bbox; open the tileset.
@@ -406,7 +478,7 @@ impl Dash {
 
     /// Interactive offline slippy map: pan (drag) + zoom (scroll), filled MVT
     /// basemap tiles (cached), road lines, place labels, and the GPS track.
-    fn draw_map(&mut self, ui: &mut egui::Ui, rect: Rect) {
+    fn draw_map(&mut self, ui: &mut egui::Ui, rect: Rect, interactive: bool) {
         let p = ui.painter_at(rect);
         p.rect_filled(rect, 3.0, Color32::from_rgb(0x0a, 0x12, 0x1c));
         p.rect_stroke(rect, 3.0, Stroke::new(1.0, BORDER));
@@ -419,17 +491,23 @@ impl Dash {
                 return;
             }
         };
-        // ---- interaction ----
-        let resp = ui.interact(rect, ui.id().with("map"), egui::Sense::click_and_drag());
-        if resp.dragged() {
+        // ---- interaction (pan/zoom only in the full-screen FLIGHT TRACK tab) ----
+        let resp = ui.interact(rect, ui.id().with("map"), if interactive { egui::Sense::click_and_drag() } else { egui::Sense::hover() });
+        if interactive && resp.dragged() {
             let (cx, cy) = basemap::world(v.clon, v.clat, v.zoom);
             let d = resp.drag_delta();
             let (lon, lat) = basemap::unworld(cx - d.x as f64, cy - d.y as f64, v.zoom);
             v.clon = lon;
             v.clat = lat;
         }
-        if resp.hovered() {
-            let scroll = ui.input(|i| i.raw_scroll_delta.y);
+        if interactive && resp.hovered() {
+            // consume the wheel so a surrounding ScrollArea doesn't also scroll while zooming
+            let scroll = ui.input_mut(|i| {
+                let s = i.raw_scroll_delta.y;
+                i.raw_scroll_delta = egui::Vec2::ZERO;
+                i.smooth_scroll_delta = egui::Vec2::ZERO;
+                s
+            });
             if scroll != 0.0 {
                 v.zoom = (v.zoom + scroll as f64 * 0.004).clamp(10.0, 17.0);
             }
@@ -461,7 +539,7 @@ impl Dash {
             Color32::from_rgb(0x24, 0x30, 0x3c),
         ];
         let road_w = [1.8, 1.3, 0.9, 0.6];
-        let mut labels: Vec<(Pos2, String)> = Vec::new();
+        let mut labels: Vec<(Pos2, String, u8)> = Vec::new();
 
         for tx in tx0..=tx1 {
             for ty in ty0..=ty1 {
@@ -501,8 +579,8 @@ impl Dash {
                         p.add(egui::Shape::line(pts, Stroke::new(road_w[r], road_col[r])));
                     }
                 }
-                for (u, vv, txt) in &t.labels {
-                    labels.push((tp(*u, *vv), txt.clone()));
+                for (u, vv, txt, rank) in &t.labels {
+                    labels.push((tp(*u, *vv), txt.clone(), *rank));
                 }
             }
         }
@@ -515,9 +593,11 @@ impl Dash {
                 p.circle_filled(*l, 4.0, GREEN);
             }
         }
-        // declutter: skip labels overlapping already-placed ones (like a real map)
+        // declutter: cities (rank 0) win over streets (rank 1); skip labels
+        // overlapping already-placed ones (like a real map).
+        labels.sort_by_key(|&(_, _, rank)| rank);
         let mut placed: Vec<Pos2> = Vec::new();
-        for (pos, txt) in labels {
+        for (pos, txt, rank) in labels {
             if !rect.contains(pos) || placed.iter().any(|q| (q.x - pos.x).abs() < 70.0 && (q.y - pos.y).abs() < 13.0) {
                 continue;
             }
@@ -525,12 +605,17 @@ impl Dash {
             if placed.len() > 60 {
                 break;
             }
-            // dark halo for readability over the map, then the label
+            // cities brighter + larger, streets dimmer + smaller
+            let (size, col) = if rank == 0 {
+                (12.0, Color32::from_rgb(0xdf, 0xea, 0xf2))
+            } else {
+                (9.5, Color32::from_rgb(0x9f, 0xb2, 0xc0))
+            };
             let halo = Color32::from_rgb(0x05, 0x09, 0x0f);
             for d in [vec2(-1.0, 0.0), vec2(1.0, 0.0), vec2(0.0, -1.0), vec2(0.0, 1.0)] {
-                p.text(pos + d, Align2::CENTER_CENTER, &txt, FontId::proportional(10.0), halo);
+                p.text(pos + d, Align2::CENTER_CENTER, &txt, FontId::proportional(size), halo);
             }
-            p.text(pos, Align2::CENTER_CENTER, &txt, FontId::proportional(10.0), Color32::from_rgb(0xc4, 0xd2, 0xdc));
+            p.text(pos, Align2::CENTER_CENTER, &txt, FontId::proportional(size), col);
         }
         p.text(rect.left_top() + vec2(6.0, 4.0), Align2::LEFT_TOP, "FLIGHT TRACK", FontId::monospace(10.0), DIM);
         p.text(rect.right_bottom() + vec2(-6.0, -6.0), Align2::RIGHT_BOTTOM, format!("z{:.1}  drag/scroll", v.zoom), FontId::monospace(8.0), DIM);
@@ -538,12 +623,15 @@ impl Dash {
 }
 
 fn pill(ui: &mut egui::Ui, color: Color32, text: &str) {
-    egui::Frame::none()
-        .fill(color.linear_multiply(0.18))
-        .stroke(Stroke::new(1.0, color))
-        .rounding(3.0)
-        .inner_margin(egui::Margin::symmetric(6.0, 1.0))
-        .show(ui, |ui| ui.colored_label(color, RichText::new(text).small()));
+    // manual draw at a fixed compact height (a Frame stretches to the font's
+    // ascent/descent → tall blocks; the Tauri badge is a short rounded pill).
+    let font = FontId::proportional(9.0);
+    let tw = ui.fonts(|f| f.layout_no_wrap(text.to_string(), font.clone(), color).size().x);
+    let (r, _) = ui.allocate_exact_size(vec2(tw + 14.0, 16.0), egui::Sense::hover());
+    let p = ui.painter_at(r);
+    p.rect_filled(r, 8.0, color.linear_multiply(0.12));
+    p.rect_stroke(r, 8.0, Stroke::new(1.0, color.linear_multiply(0.75)));
+    p.text(r.center(), Align2::CENTER_CENTER, text, font, color);
 }
 
 /// Radial gauge: 270° arc (opening at the bottom) + a value needle.
@@ -692,51 +780,115 @@ impl eframe::App for Dash {
             .exact_height(44.0)
             .frame(egui::Frame::none().fill(PANEL).inner_margin(egui::Margin::symmetric(12.0, 0.0)))
             .show(ctx, |ui| {
+                // frameless: the top bar itself drags the window (empty areas only —
+                // tabs/buttons are added after, so they win the hit-test where they overlap).
+                let bar_rect = ui.max_rect();
+                let wdrag = ui.interact(bar_rect, ui.id().with("wdrag"), egui::Sense::click_and_drag());
+                if wdrag.drag_started() {
+                    ctx.send_viewport_cmd(egui::ViewportCommand::StartDrag);
+                }
+                if wdrag.double_clicked() {
+                    let max = ctx.input(|i| i.viewport().maximized.unwrap_or(false));
+                    ctx.send_viewport_cmd(egui::ViewportCommand::Maximized(!max));
+                }
                 ui.horizontal_centered(|ui| {
-                    // logo + stacked subtitle
+                    // logo: small cyan square mark + stacked wordmark
+                    let (sq, _) = ui.allocate_exact_size(vec2(16.0, 16.0), egui::Sense::hover());
+                    ui.painter().rect_filled(Rect::from_center_size(sq.center(), vec2(15.0, 15.0)), 3.0, CYAN);
+                    ui.add_space(8.0);
                     ui.vertical(|ui| {
                         ui.add_space(5.0);
-                        ui.label(RichText::new("INU·MONITOR").color(CYAN).strong().size(15.0));
+                        ui.label(RichText::new("INU·MONITOR").color(CYAN).strong().size(14.0));
                         ui.label(RichText::new("INERTIAL NAV TELEMETRY v4.0").color(DIM).size(8.0));
                     });
                     ui.add_space(14.0);
-                    ui.colored_label(Color32::from_rgb(0x8f, 0xa3, 0xb3), "AC 4X-ELT / FLT 1182");
-                    ui.add_space(18.0);
-                    for (label, t) in [("OVERVIEW", Tab::Overview), ("FLIGHT TRACK", Tab::FlightTrack), ("EVENTS", Tab::Events)] {
-                        let active = self.tab == t;
-                        let resp = ui.add(egui::Button::new(RichText::new(label).color(if active { CYAN } else { DIM })).frame(false));
-                        if active {
-                            let r = resp.rect;
-                            ui.painter().line_segment([pos2(r.left(), r.bottom() - 3.0), pos2(r.right(), r.bottom() - 3.0)], Stroke::new(2.0, CYAN));
-                        }
-                        if resp.clicked() {
-                            self.tab = t;
-                        }
-                    }
+                    ui.colored_label(Color32::from_rgb(0x8f, 0xa3, 0xb3), RichText::new("AC 4X-ELT / FLT 1182").size(12.0));
                     ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
-                        ui.colored_label(TEXT, RichText::new(&clock).monospace());
+                        // frameless window controls (rightmost): vector-drawn so they render
+                        // identically across platforms (bundled fonts lack ✕/▢ glyphs → tofu).
+                        // right_to_left: first allocated is rightmost, so close comes first.
+                        let win_icon = |ui: &mut egui::Ui, kind: u8| -> bool {
+                            let (r, resp) = ui.allocate_exact_size(vec2(22.0, 22.0), egui::Sense::click());
+                            let col = if resp.hovered() { TEXT } else { DIM };
+                            let p = ui.painter_at(r);
+                            let c = r.center();
+                            let s = 4.0;
+                            match kind {
+                                0 => {
+                                    p.line_segment([pos2(c.x - s, c.y - s), pos2(c.x + s, c.y + s)], Stroke::new(1.2, col));
+                                    p.line_segment([pos2(c.x + s, c.y - s), pos2(c.x - s, c.y + s)], Stroke::new(1.2, col));
+                                }
+                                1 => {
+                                    p.rect_stroke(Rect::from_center_size(c, vec2(s * 2.0, s * 2.0)), 0.0, Stroke::new(1.2, col));
+                                }
+                                _ => {
+                                    p.line_segment([pos2(c.x - s, c.y + 3.0), pos2(c.x + s, c.y + 3.0)], Stroke::new(1.2, col));
+                                }
+                            }
+                            resp.clicked()
+                        };
+                        if win_icon(ui, 0) {
+                            ctx.send_viewport_cmd(egui::ViewportCommand::Close);
+                        }
+                        if win_icon(ui, 1) {
+                            let max = ctx.input(|i| i.viewport().maximized.unwrap_or(false));
+                            ctx.send_viewport_cmd(egui::ViewportCommand::Maximized(!max));
+                        }
+                        if win_icon(ui, 2) {
+                            ctx.send_viewport_cmd(egui::ViewportCommand::Minimized(true));
+                        }
+                        ui.add_space(12.0);
+                        ui.colored_label(TEXT, RichText::new(&clock).monospace().size(12.0));
                         ui.add_space(10.0);
-                        ui.colored_label(GREEN, "● LINK 1553B·OK");
+                        ui.colored_label(GREEN, RichText::new("● LINK 1553B·OK").size(11.0));
                         ui.add_space(10.0);
-                        ui.colored_label(DIM, RichText::new("SCALES ON").small());
-                        ui.add_space(6.0);
+                        ui.colored_label(DIM, RichText::new("SCALES ON").size(10.0));
+                        ui.add_space(8.0);
                         let ca = self.cautions();
                         pill(ui, AMBER, &format!("● {ca} CAUTION"));
+                        ui.add_space(6.0);
                         let al = self.alarms();
                         pill(ui, RED, &format!("● {al} ALARM"));
                     });
                 });
+                // tabs centered in the bar (absolute, painted over the row)
+                {
+                    let font = FontId::proportional(13.0);
+                    let labels = [("OVERVIEW", Tab::Overview), ("FLIGHT TRACK", Tab::FlightTrack), ("EVENTS", Tab::Events)];
+                    let gap = 22.0;
+                    let widths: Vec<f32> = labels
+                        .iter()
+                        .map(|(l, _)| ui.fonts(|f| f.layout_no_wrap(l.to_string(), font.clone(), DIM).size().x))
+                        .collect();
+                    let total_w: f32 = widths.iter().sum::<f32>() + gap * (labels.len() - 1) as f32;
+                    let cy = bar_rect.center().y;
+                    let mut x = bar_rect.center().x - total_w / 2.0;
+                    for (i, (label, t)) in labels.iter().enumerate() {
+                        let w = widths[i];
+                        let r = Rect::from_min_size(pos2(x, cy - 10.0), vec2(w, 20.0));
+                        let resp = ui.interact(r, ui.id().with(("tab", i)), egui::Sense::click());
+                        let active = self.tab == *t;
+                        let col = if active || resp.hovered() { CYAN } else { DIM };
+                        ui.painter().text(pos2(x, cy), Align2::LEFT_CENTER, *label, font.clone(), col);
+                        if active {
+                            ui.painter().line_segment([pos2(x, cy + 11.0), pos2(x + w, cy + 11.0)], Stroke::new(2.0, CYAN));
+                        }
+                        if resp.clicked() {
+                            self.tab = *t;
+                        }
+                        x += w + gap;
+                    }
+                }
             });
 
         // ---- Bottom transport / status bar ----
+        // Layout mirrors the Tauri/.NET transport: a control row (buttons + stacked
+        // clock/T+·speed), a full-width seek bar, then a stacked BUFFER/SAMPLES/DROPPED row.
         let total = self.total_ms.max(1);
         let played = (self.ride_ms / total as f64).clamp(0.0, 1.0) as f32;
-        let txt_btn = |ui: &mut egui::Ui, s: &str, col: Color32| {
-            ui.add(egui::Button::new(RichText::new(s).color(col)).frame(false)).clicked()
-        };
         egui::TopBottomPanel::bottom("transport")
-            .exact_height(56.0)
-            .frame(egui::Frame::none().fill(PANEL).inner_margin(egui::Margin::symmetric(12.0, 6.0)))
+            .exact_height(96.0)
+            .frame(egui::Frame::none().fill(PANEL).inner_margin(egui::Margin::symmetric(16.0, 8.0)))
             .show(ctx, |ui| {
                 ui.horizontal(|ui| {
                     // rewind-to-start (bar + two triangles)
@@ -778,27 +930,15 @@ impl eframe::App for Dash {
                     if fwr.clicked() {
                         self.seek(self.total_ms);
                     }
-                    ui.add_space(14.0);
-                    // big clock + T+/speed subtitle
-                    ui.label(RichText::new(&clock).color(TEXT).monospace().size(15.0));
-                    ui.add_space(8.0);
-                    ui.colored_label(DIM, RichText::new(format!("T+{clock} · {:.1} s/s", self.speed)).small());
-                    ui.add_space(8.0);
-                    if txt_btn(ui, "−", DIM) {
-                        self.speed = (self.speed / 2.0).max(0.25);
-                    }
-                    if txt_btn(ui, "+", DIM) {
-                        self.speed = (self.speed * 2.0).min(64.0);
-                    }
-                    ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
-                        ui.colored_label(DIM, "DROPPED 0");
-                        ui.add_space(12.0);
-                        ui.colored_label(DIM, format!("SAMPLES {}", self.cursor));
-                        ui.add_space(12.0);
-                        ui.colored_label(DIM, format!("BUFFER {clock}"));
+                    ui.add_space(16.0);
+                    // clock (big) + T+/speed subtitle, stacked
+                    ui.vertical(|ui| {
+                        ui.add_space(1.0);
+                        ui.label(RichText::new(&clock).color(TEXT).monospace().size(15.0));
+                        ui.colored_label(DIM, RichText::new(format!("T+{clock} · {:.1} s/s", self.speed)).monospace().size(9.0));
                     });
                 });
-                ui.add_space(4.0);
+                ui.add_space(6.0);
                 // interactive seek bar
                 let (bar, resp) =
                     ui.allocate_exact_size(vec2(ui.available_width(), 10.0), egui::Sense::click_and_drag());
@@ -817,6 +957,21 @@ impl eframe::App for Dash {
                 p.rect_filled(Rect::from_min_max(pos2(bar.left(), y - 2.0), pos2(hx, y + 2.0)), 2.0, CYAN);
                 p.circle_filled(pos2(hx, y), 5.0, CYAN);
                 p.circle_stroke(pos2(hx, y), 5.0, Stroke::new(1.0, Color32::from_rgb(0x0a, 0x0e, 0x14)));
+                ui.add_space(8.0);
+                // stacked stats row: label (9, dim) over value (11); DROPPED value green
+                ui.horizontal(|ui| {
+                    let stat = |ui: &mut egui::Ui, label: &str, val: String, col: Color32| {
+                        ui.vertical(|ui| {
+                            ui.colored_label(DIM, RichText::new(label).monospace().size(9.0));
+                            ui.colored_label(col, RichText::new(val).monospace().size(11.0));
+                        });
+                    };
+                    stat(ui, "BUFFER", clock.clone(), TEXT);
+                    ui.add_space(24.0);
+                    stat(ui, "SAMPLES", format!("{}", self.cursor), TEXT);
+                    ui.add_space(24.0);
+                    stat(ui, "DROPPED", "0".into(), GREEN);
+                });
             });
 
         // ---- Param table (grouped) ----
@@ -894,11 +1049,6 @@ impl eframe::App for Dash {
             .frame(egui::Frame::none().fill(BG).inner_margin(egui::Margin::same(12.0)))
             .show(ctx, |ui| match self.tab {
                 Tab::Overview => {
-                let full_w = ui.available_width();
-                let (trect, _) = ui.allocate_exact_size(vec2(full_w, 200.0), egui::Sense::hover());
-                self.draw_map(ui, trect);
-                ui.add_space(12.0);
-                let _ = full_w;
                 egui::ScrollArea::vertical().show(ui, |ui| {
                     let area = ui.available_rect_before_wrap();
                     let origin = area.min;
@@ -913,20 +1063,25 @@ impl eframe::App for Dash {
                     let drag = self.drag;
                     let mut new_drag = drag;
                     let mut act: Option<GridAct> = None;
+                    let mut map_rect: Option<Rect> = None;
+                    // dashed placeholder (like .NET's DropGhost): the widget itself stays
+                    // put while dragging; the ghost shows the snapped landing / resized size.
+                    let mut ghost: Option<Rect> = None;
                     for i in 0..self.widgets.len() {
                         let w = &self.widgets[i];
                         let base = Rect::from_min_size(
                             origin + vec2(w.gx as f32 * cell_w + gap, w.gy as f32 * cell_h + gap),
                             vec2(w.gw as f32 * cell_w - 2.0 * gap, w.gh as f32 * cell_h - 2.0 * gap),
                         );
-                        let rect = match drag {
-                            Some(d) if d.idx == i && d.resize => Rect::from_min_size(
-                                base.min,
-                                vec2((base.width() + d.off.x).max(cell_w * 0.5), (base.height() + d.off.y).max(cell_h * 0.5)),
-                            ),
-                            Some(d) if d.idx == i => base.translate(d.off),
-                            _ => base,
-                        };
+                        // widget draws at its static cell; drag only moves the ghost
+                        let rect = base;
+                        // Map is a FIXED panning/zooming widget (like Tauri) — no grid
+                        // move/resize so drag/scroll inside it pan & zoom the map. Drawn
+                        // (interactive) after the loop since it borrows &mut self.
+                        if w.kind == Kind::Map {
+                            map_rect = Some(rect);
+                            continue;
+                        }
                         let id = ui.id().with(("w", i));
                         let resp = ui.interact(rect, id, egui::Sense::click_and_drag());
                         let p = ui.painter_at(rect);
@@ -936,6 +1091,7 @@ impl eframe::App for Dash {
                                 let v = self.latest.as_ref().and_then(|s| s.values.get(w.col)).copied().unwrap_or(w.min);
                                 draw_gauge(&p, rect, v, w.min, w.max, &w.name, &w.unit);
                             }
+                            Kind::Map => {}
                         }
                         // hover tooltip: value at the cursor's time on a line chart
                         if w.kind == Kind::Line && w.points.len() >= 2 {
@@ -965,6 +1121,34 @@ impl eframe::App for Dash {
                         let grip = Rect::from_min_size(rect.right_bottom() - vec2(16.0, 16.0), vec2(16.0, 16.0));
                         p.line_segment([pos2(grip.left() + 4.0, grip.bottom() - 2.0), pos2(grip.right() - 2.0, grip.top() + 4.0)], Stroke::new(1.0, DIM));
                         p.line_segment([pos2(grip.left() + 8.0, grip.bottom() - 2.0), pos2(grip.right() - 2.0, grip.top() + 8.0)], Stroke::new(1.0, DIM));
+
+                        // corner cursors: top-left = move (SizeAll), bottom-right = resize
+                        // (mirrors the .NET grip / BottomRightCorner thumb).
+                        let in_br = |pp: Pos2| pp.x > base.right() - 18.0 && pp.y > base.bottom() - 18.0;
+                        let in_tl = |pp: Pos2| pp.x < base.left() + 18.0 && pp.y < base.top() + 18.0;
+                        if let Some(d) = drag.filter(|d| d.idx == i) {
+                            ui.ctx().set_cursor_icon(if d.resize { egui::CursorIcon::ResizeNwSe } else { egui::CursorIcon::Move });
+                        } else if let Some(pos) = resp.hover_pos() {
+                            if in_br(pos) {
+                                ui.ctx().set_cursor_icon(egui::CursorIcon::ResizeNwSe);
+                            } else if in_tl(pos) {
+                                ui.ctx().set_cursor_icon(egui::CursorIcon::Move);
+                            }
+                        }
+                        // placeholder ghost while this widget is being dragged
+                        if let Some(d) = drag.filter(|d| d.idx == i) {
+                            ghost = Some(if d.resize {
+                                Rect::from_min_size(
+                                    base.min,
+                                    vec2((base.width() + d.off.x).max(cell_w * 0.5), (base.height() + d.off.y).max(cell_h * 0.5)),
+                                )
+                            } else {
+                                let moved = base.translate(d.off);
+                                let ngx = (((moved.min.x - origin.x) / cell_w).round() as i32).clamp(0, GRID_COLS - w.gw);
+                                let ngy = (((moved.min.y - origin.y) / cell_h).round() as i32).max(0);
+                                Rect::from_min_size(origin + vec2(ngx as f32 * cell_w + gap, ngy as f32 * cell_h + gap), base.size())
+                            });
+                        }
 
                         if resp.drag_started() {
                             // resize if the press landed in the bottom-right grip, else move
@@ -999,6 +1183,7 @@ impl eframe::App for Dash {
                                 let badge_r = match w.kind {
                                     Kind::Line => Rect::from_min_size(rect.left_top() + vec2(98.0, 3.0), vec2(44.0, 14.0)),
                                     Kind::Gauge => Rect::from_min_size(rect.right_top() + vec2(-48.0, 3.0), vec2(40.0, 14.0)),
+                                    Kind::Map => Rect::NOTHING, // no LINE/GAUGE badge on the map
                                 };
                                 if close.contains(pos) {
                                     act = Some(GridAct::Remove(i));
@@ -1034,6 +1219,7 @@ impl eframe::App for Dash {
                             self.widgets[i].kind = match self.widgets[i].kind {
                                 Kind::Line => Kind::Gauge,
                                 Kind::Gauge => Kind::Line,
+                                Kind::Map => Kind::Map,
                             };
                         }
                         Some(GridAct::Move(i, gx, gy)) => {
@@ -1061,6 +1247,22 @@ impl eframe::App for Dash {
                         }
                         None => {}
                     }
+                    // map widget: drawn last (needs &mut self; grid loop only borrowed
+                    // &self.widgets). Static preview here; pan/zoom lives in FLIGHT TRACK.
+                    if let Some(mr) = map_rect {
+                        self.draw_map(ui, mr, true);
+                    }
+                    // dashed placeholder on top of everything (like .NET's DropGhost)
+                    if let Some(g) = ghost {
+                        let pg = ui.painter();
+                        pg.rect_filled(g, 3.0, Color32::from_rgba_unmultiplied(0x38, 0xc5, 0xe0, 0x15)); // .NET DropGhost fill #1538C5E0
+                        let corners = [g.left_top(), g.right_top(), g.right_bottom(), g.left_bottom(), g.left_top()];
+                        for seg in corners.windows(2) {
+                            for s in egui::Shape::dashed_line(&[seg[0], seg[1]], Stroke::new(1.5, CYAN), 4.0, 3.0) {
+                                pg.add(s);
+                            }
+                        }
+                    }
                 });
                 // manual DnD: a param row released over the grid area adds a widget
                 if ui.input(|i| i.pointer.any_released()) && ui.ui_contains_pointer() {
@@ -1071,7 +1273,7 @@ impl eframe::App for Dash {
                 }
                 Tab::FlightTrack => {
                     let rect = ui.available_rect_before_wrap();
-                    self.draw_map(ui, rect);
+                    self.draw_map(ui, rect, true);
                 }
                 Tab::Events => {
                     ui.colored_label(CYAN, RichText::new("EVENTS — INU STATUS").strong());
@@ -1114,6 +1316,18 @@ fn resolve_db() -> String {
 }
 
 fn setup_theme(ctx: &egui::Context) {
+    // bundle Noto Sans Hebrew as a fallback so map labels render Israeli place/street
+    // names (Hebrew `name`) like the Tauri MapLibre style, not tofu boxes.
+    let mut fonts = egui::FontDefinitions::default();
+    fonts.font_data.insert(
+        "hebrew".to_owned(),
+        egui::FontData::from_static(include_bytes!("../assets/NotoSansHebrew-Regular.ttf")),
+    );
+    for fam in [egui::FontFamily::Proportional, egui::FontFamily::Monospace] {
+        fonts.families.entry(fam).or_default().push("hebrew".to_owned());
+    }
+    ctx.set_fonts(fonts);
+
     let mut style = (*ctx.style()).clone();
     style.override_text_style = Some(egui::TextStyle::Monospace);
     let mut v = egui::Visuals::dark();
@@ -1131,7 +1345,10 @@ fn main() -> eframe::Result<()> {
     let speed = std::env::var("RIDE_SPEED").ok().and_then(|s| s.parse().ok()).unwrap_or(1.0);
     let dash = Dash::new(&db, speed).unwrap_or_else(|e| panic!("open ride db {db}: {e}"));
     let opts = eframe::NativeOptions {
-        viewport: egui::ViewportBuilder::default().with_inner_size([1400.0, 800.0]),
+        viewport: egui::ViewportBuilder::default()
+            .with_inner_size([1400.0, 800.0])
+            .with_min_inner_size([960.0, 600.0])
+            .with_decorations(false), // frameless, like the Tauri/.NET INU shell
         ..Default::default()
     };
     eframe::run_native(
