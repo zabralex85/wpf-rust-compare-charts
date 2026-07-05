@@ -83,6 +83,8 @@ enum GridAct {
     Remove(usize),
     Move(usize, i32, i32),
     Resize(usize, i32, i32),
+    Zoom(usize, f64),
+    ResetZoom(usize),
 }
 
 /// A dashboard widget bound to a channel; can be toggled between a line chart
@@ -96,10 +98,11 @@ struct Widget {
     col: usize,
     kind: Kind,
     points: Vec<(i64, f64)>,
-    gx: i32, // grid column
-    gy: i32, // grid row
-    gw: i32, // width in cells
-    gh: i32, // height in cells
+    gx: i32,   // grid column
+    gy: i32,   // grid row
+    gw: i32,   // width in cells
+    gh: i32,   // height in cells
+    zoom: f64, // chart x-zoom (visible window = 60s / zoom)
 }
 
 impl Widget {
@@ -173,6 +176,7 @@ impl Dash {
             gy: 0,
             gw: if kind == Kind::Gauge { 1 } else { 2 },
             gh: 1,
+            zoom: 1.0,
         };
         let mut widgets: Vec<Widget> = channels
             .iter()
@@ -352,6 +356,7 @@ impl Dash {
             gy,
             gw: 2,
             gh: 1,
+            zoom: 1.0,
         };
         let target = self.ride_ms as i64;
         for s in &self.samples {
@@ -416,7 +421,7 @@ impl Dash {
         if resp.hovered() {
             let scroll = ui.input(|i| i.raw_scroll_delta.y);
             if scroll != 0.0 {
-                v.zoom = (v.zoom + scroll as f64 * 0.004).clamp(10.0, 16.0);
+                v.zoom = (v.zoom + scroll as f64 * 0.004).clamp(10.0, 17.0);
             }
         }
         self.view = Some(v);
@@ -427,7 +432,8 @@ impl Dash {
             pos2(rect.center().x + (wx - cwx) as f32, rect.center().y + (wy - cwy) as f32)
         };
         let unproject = |px: f32, py: f32| basemap::unworld(cwx + (px - rect.center().x) as f64, cwy + (py - rect.center().y) as f64, v.zoom);
-        let zi = v.zoom.floor() as u32;
+        // tileset maxzoom is 14 — cap the fetched zoom there and over-magnify z14 tiles beyond it
+        let zi = (v.zoom.floor() as u32).min(14);
         let (lon_a, lat_a) = unproject(rect.left(), rect.top());
         let (lon_b, lat_b) = unproject(rect.right(), rect.bottom());
         let tx0 = basemap::lon_to_tx(lon_a.min(lon_b), zi).floor() as i64;
@@ -550,7 +556,7 @@ fn draw_gauge(p: &egui::Painter, rect: Rect, value: f64, min: f64, max: f64, nam
     // header: ≡ name  … GAUGE  ×
     p.text(rect.left_top() + vec2(6.0, 5.0), Align2::LEFT_TOP, format!("≡ {name}"), FontId::monospace(10.0), DIM);
     p.text(rect.right_top() + vec2(-6.0, 5.0), Align2::RIGHT_TOP, "×", FontId::monospace(10.0), DIM);
-    badge(p, rect.right_top() + vec2(-46.0, 4.0), "GAUGE");
+    badge(p, rect.right_top() + vec2(-46.0, 4.0), "LINE"); // click -> switch to line
     p.text(
         pos2(center.x, rect.bottom() - 16.0),
         Align2::CENTER_CENTER,
@@ -611,7 +617,7 @@ fn paint_line(p: &egui::Painter, rect: Rect, w: &Widget) {
     let val = last.map(|v| format!("{v:.3}")).unwrap_or_else(|| "—".into());
     p.text(rect.left_top() + vec2(6.0, 5.0), Align2::LEFT_TOP, format!("≡ {}", w.name), FontId::monospace(10.0), DIM);
     p.text(rect.right_top() + vec2(-6.0, 5.0), Align2::RIGHT_TOP, "×", FontId::monospace(10.0), DIM);
-    badge(p, rect.left_top() + vec2(100.0, 4.0), "LINE");
+    badge(p, rect.left_top() + vec2(100.0, 4.0), "GAUGE"); // click -> switch to gauge
     p.text(
         rect.right_top() + vec2(-16.0, 5.0),
         Align2::RIGHT_TOP,
@@ -628,11 +634,12 @@ fn paint_line(p: &egui::Painter, rect: Rect, w: &Widget) {
         p.text(pos2(plot.left() - 4.0, y), Align2::RIGHT_CENTER, format!("{vy:.0}"), FontId::monospace(8.0), DIM);
     }
     if w.points.len() >= 2 {
+        let win = (WINDOW_MS as f64 / w.zoom).max(1000.0) as f32; // zoomed visible window
         let newest = w.points[w.points.len() - 1].0;
         for i in 0..=3 {
             let f = i as f32 / 3.0;
             let x = plot.left() + f * plot.width();
-            let ts = newest - ((1.0 - f) * WINDOW_MS as f32) as i64;
+            let ts = newest - ((1.0 - f) * win) as i64;
             p.line_segment([pos2(x, plot.top()), pos2(x, plot.bottom())], Stroke::new(1.0, grid));
             p.text(pos2(x, plot.bottom() + 2.0), Align2::CENTER_TOP, fmt_ms_short(ts), FontId::monospace(8.0), DIM);
         }
@@ -640,9 +647,10 @@ fn paint_line(p: &egui::Painter, rect: Rect, w: &Widget) {
         let poly: Vec<Pos2> = w
             .points
             .iter()
+            .filter(|&&(ts, _)| (newest - ts) as f32 <= win)
             .map(|&(ts, v)| {
                 let age = (newest - ts) as f32;
-                let x = plot.right() - (age / WINDOW_MS as f32) * plot.width();
+                let x = plot.right() - (age / win) * plot.width();
                 let norm = ((v - w.min) / span).clamp(0.0, 1.0) as f32;
                 pos2(x, plot.bottom() - norm * plot.height())
             })
@@ -681,9 +689,9 @@ impl eframe::App for Dash {
                         ui.add_space(8.0);
                         ui.colored_label(DIM, RichText::new("SCALES ON").small());
                         let ca = self.cautions();
-                        pill(ui, if ca > 0 { AMBER } else { DIM }, &format!("{ca} CAUTION"));
+                        pill(ui, AMBER, &format!("● {ca} CAUTION"));
                         let al = self.alarms();
-                        pill(ui, if al > 0 { RED } else { DIM }, &format!("{al} ALARM"));
+                        pill(ui, RED, &format!("● {al} ALARM"));
                     });
                 });
             });
@@ -737,10 +745,13 @@ impl eframe::App for Dash {
                 }
                 let p = ui.painter_at(bar);
                 let y = bar.center().y;
-                p.line_segment([pos2(bar.left(), y), pos2(bar.right(), y)], Stroke::new(2.0, BORDER));
+                // rounded track + cyan progress fill + knob
+                let track = Rect::from_min_max(pos2(bar.left(), y - 2.0), pos2(bar.right(), y + 2.0));
+                p.rect_filled(track, 2.0, Color32::from_rgb(0x1c, 0x27, 0x33));
                 let hx = bar.left() + played * bar.width();
-                p.line_segment([pos2(bar.left(), y), pos2(hx, y)], Stroke::new(2.0, CYAN));
+                p.rect_filled(Rect::from_min_max(pos2(bar.left(), y - 2.0), pos2(hx, y + 2.0)), 2.0, CYAN);
                 p.circle_filled(pos2(hx, y), 5.0, CYAN);
+                p.circle_stroke(pos2(hx, y), 5.0, Stroke::new(1.0, Color32::from_rgb(0x0a, 0x0e, 0x14)));
             });
 
         // ---- Param table (grouped) ----
@@ -911,7 +922,7 @@ impl eframe::App for Dash {
                             if let Some(pos) = resp.interact_pointer_pos() {
                                 let close = Rect::from_min_size(rect.right_top() + vec2(-18.0, 2.0), vec2(16.0, 16.0));
                                 let badge_r = match w.kind {
-                                    Kind::Line => Rect::from_min_size(rect.left_top() + vec2(98.0, 3.0), vec2(36.0, 14.0)),
+                                    Kind::Line => Rect::from_min_size(rect.left_top() + vec2(98.0, 3.0), vec2(44.0, 14.0)),
                                     Kind::Gauge => Rect::from_min_size(rect.right_top() + vec2(-48.0, 3.0), vec2(40.0, 14.0)),
                                 };
                                 if close.contains(pos) {
@@ -920,6 +931,23 @@ impl eframe::App for Dash {
                                     act = Some(GridAct::Toggle(i));
                                 }
                             }
+                        }
+                        // right-click a chart -> zoom context menu
+                        if w.kind == Kind::Line {
+                            resp.context_menu(|ui| {
+                                if ui.button("Zoom in").clicked() {
+                                    act = Some(GridAct::Zoom(i, 2.0));
+                                    ui.close_menu();
+                                }
+                                if ui.button("Zoom out").clicked() {
+                                    act = Some(GridAct::Zoom(i, 0.5));
+                                    ui.close_menu();
+                                }
+                                if ui.button("Reset zoom").clicked() {
+                                    act = Some(GridAct::ResetZoom(i));
+                                    ui.close_menu();
+                                }
+                            });
                         }
                     }
                     self.drag = new_drag;
@@ -949,6 +977,12 @@ impl eframe::App for Dash {
                         Some(GridAct::Resize(i, gw, gh)) => {
                             self.widgets[i].gw = gw;
                             self.widgets[i].gh = gh;
+                        }
+                        Some(GridAct::Zoom(i, f)) => {
+                            self.widgets[i].zoom = (self.widgets[i].zoom * f).clamp(0.25, 16.0);
+                        }
+                        Some(GridAct::ResetZoom(i)) => {
+                            self.widgets[i].zoom = 1.0;
                         }
                         None => {}
                     }
