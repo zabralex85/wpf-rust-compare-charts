@@ -525,7 +525,12 @@ impl Dash {
             if placed.len() > 60 {
                 break;
             }
-            p.text(pos, Align2::CENTER_CENTER, &txt, FontId::proportional(10.0), Color32::from_rgb(0x9a, 0xb0, 0xc0));
+            // dark halo for readability over the map, then the label
+            let halo = Color32::from_rgb(0x05, 0x09, 0x0f);
+            for d in [vec2(-1.0, 0.0), vec2(1.0, 0.0), vec2(0.0, -1.0), vec2(0.0, 1.0)] {
+                p.text(pos + d, Align2::CENTER_CENTER, &txt, FontId::proportional(10.0), halo);
+            }
+            p.text(pos, Align2::CENTER_CENTER, &txt, FontId::proportional(10.0), Color32::from_rgb(0xc4, 0xd2, 0xdc));
         }
         p.text(rect.left_top() + vec2(6.0, 4.0), Align2::LEFT_TOP, "FLIGHT TRACK", FontId::monospace(10.0), DIM);
         p.text(rect.right_bottom() + vec2(-6.0, -6.0), Align2::RIGHT_BOTTOM, format!("z{:.1}  drag/scroll", v.zoom), FontId::monospace(8.0), DIM);
@@ -684,27 +689,37 @@ impl eframe::App for Dash {
 
         // ---- Top bar ----
         egui::TopBottomPanel::top("bar")
-            .exact_height(40.0)
+            .exact_height(44.0)
             .frame(egui::Frame::none().fill(PANEL).inner_margin(egui::Margin::symmetric(12.0, 0.0)))
             .show(ctx, |ui| {
                 ui.horizontal_centered(|ui| {
-                    ui.colored_label(CYAN, RichText::new("INU·MONITOR").strong());
-                    ui.colored_label(DIM, RichText::new("INERTIAL NAV TELEMETRY v4.0").small());
-                    ui.add_space(10.0);
-                    ui.colored_label(DIM, "AC 4X-ELT / FLT 1182");
-                    ui.add_space(16.0);
+                    // logo + stacked subtitle
+                    ui.vertical(|ui| {
+                        ui.add_space(5.0);
+                        ui.label(RichText::new("INU·MONITOR").color(CYAN).strong().size(15.0));
+                        ui.label(RichText::new("INERTIAL NAV TELEMETRY v4.0").color(DIM).size(8.0));
+                    });
+                    ui.add_space(14.0);
+                    ui.colored_label(Color32::from_rgb(0x8f, 0xa3, 0xb3), "AC 4X-ELT / FLT 1182");
+                    ui.add_space(18.0);
                     for (label, t) in [("OVERVIEW", Tab::Overview), ("FLIGHT TRACK", Tab::FlightTrack), ("EVENTS", Tab::Events)] {
                         let active = self.tab == t;
-                        if ui.add(egui::Button::new(RichText::new(label).color(if active { CYAN } else { DIM })).frame(false)).clicked() {
+                        let resp = ui.add(egui::Button::new(RichText::new(label).color(if active { CYAN } else { DIM })).frame(false));
+                        if active {
+                            let r = resp.rect;
+                            ui.painter().line_segment([pos2(r.left(), r.bottom() - 3.0), pos2(r.right(), r.bottom() - 3.0)], Stroke::new(2.0, CYAN));
+                        }
+                        if resp.clicked() {
                             self.tab = t;
                         }
                     }
                     ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
-                        ui.colored_label(TEXT, &clock);
-                        ui.add_space(8.0);
-                        ui.colored_label(GREEN, "● LINK 1553B-OK");
-                        ui.add_space(8.0);
+                        ui.colored_label(TEXT, RichText::new(&clock).monospace());
+                        ui.add_space(10.0);
+                        ui.colored_label(GREEN, "● LINK 1553B·OK");
+                        ui.add_space(10.0);
                         ui.colored_label(DIM, RichText::new("SCALES ON").small());
+                        ui.add_space(6.0);
                         let ca = self.cautions();
                         pill(ui, AMBER, &format!("● {ca} CAUTION"));
                         let al = self.alarms();
@@ -751,17 +766,30 @@ impl eframe::App for Dash {
                     if ppr.clicked() {
                         self.playing = !self.playing;
                     }
-                    ui.add_space(10.0);
+                    // forward-to-end
+                    let (fw, fwr) = ui.allocate_exact_size(vec2(22.0, 18.0), egui::Sense::click());
+                    {
+                        let p = ui.painter_at(fw);
+                        let c = fw.center();
+                        p.add(egui::Shape::convex_polygon(vec![pos2(c.x - 6.0, c.y - 6.0), pos2(c.x, c.y), pos2(c.x - 6.0, c.y + 6.0)], CYAN, Stroke::NONE));
+                        p.add(egui::Shape::convex_polygon(vec![pos2(c.x + 1.0, c.y - 6.0), pos2(c.x + 7.0, c.y), pos2(c.x + 1.0, c.y + 6.0)], CYAN, Stroke::NONE));
+                        p.line_segment([pos2(c.x + 8.0, c.y - 6.0), pos2(c.x + 8.0, c.y + 6.0)], Stroke::new(1.5, CYAN));
+                    }
+                    if fwr.clicked() {
+                        self.seek(self.total_ms);
+                    }
+                    ui.add_space(14.0);
+                    // big clock + T+/speed subtitle
+                    ui.label(RichText::new(&clock).color(TEXT).monospace().size(15.0));
+                    ui.add_space(8.0);
+                    ui.colored_label(DIM, RichText::new(format!("T+{clock} · {:.1} s/s", self.speed)).small());
+                    ui.add_space(8.0);
                     if txt_btn(ui, "−", DIM) {
                         self.speed = (self.speed / 2.0).max(0.25);
                     }
-                    ui.colored_label(TEXT, format!("{:.2}×", self.speed));
                     if txt_btn(ui, "+", DIM) {
                         self.speed = (self.speed * 2.0).min(64.0);
                     }
-                    ui.add_space(10.0);
-                    ui.colored_label(TEXT, RichText::new(&clock).strong());
-                    ui.colored_label(DIM, format!("/ {}", fmt_clock(total)));
                     ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
                         ui.colored_label(DIM, "DROPPED 0");
                         ui.add_space(12.0);
@@ -800,6 +828,7 @@ impl eframe::App for Dash {
                     .inner_margin(egui::Margin::symmetric(12.0, 8.0))
                     .show(ui, |ui| {
                         ui.horizontal(|ui| {
+                            ui.colored_label(GREEN, "●");
                             ui.colored_label(CYAN, RichText::new("PARAMETERS").strong());
                             ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
                                 ui.colored_label(DIM, RichText::new(format!("ALL {} CH", self.channels.len())).small());
@@ -832,12 +861,12 @@ impl eframe::App for Dash {
                                     continue;
                                 }
                                 ui.add_space(4.0);
-                                ui.horizontal(|ui| {
-                                    ui.colored_label(DIM, RichText::new(gname.to_uppercase()).small());
-                                    ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
-                                        ui.colored_label(BORDER, RichText::new(rows.len().to_string()).small());
-                                    });
-                                });
+                                // group header strip (full-width dark bg)
+                                let (bg, _) = ui.allocate_exact_size(vec2(ui.available_width(), 17.0), egui::Sense::hover());
+                                let gp = ui.painter_at(bg);
+                                gp.rect_filled(bg, 0.0, Color32::from_rgb(0x0d, 0x16, 0x21));
+                                gp.text(bg.left_center() + vec2(2.0, 0.0), Align2::LEFT_CENTER, gname.to_uppercase(), FontId::monospace(9.0), Color32::from_rgb(0x6f, 0x84, 0x96));
+                                gp.text(bg.right_center() - vec2(2.0, 0.0), Align2::RIGHT_CENTER, rows.len().to_string(), FontId::monospace(9.0), BORDER);
                                 for (col, c) in rows {
                                     let (text, color) = self.fmt_param(col, c.type_ == "enum", c.id);
                                     // drag a row into the grid to add a chart for that channel
