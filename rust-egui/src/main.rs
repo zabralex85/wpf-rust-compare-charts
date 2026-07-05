@@ -137,7 +137,7 @@ struct Dash {
     last_metrics: Instant,
     last_tick: Instant,
     fps_ema: f64,
-    drag: Option<(usize, egui::Vec2)>, // (widget idx, live pixel offset while dragging)
+    drag: Option<DragState>,
     tab: Tab,
     mb: Option<MbTiles>,
     view: Option<MapView>,
@@ -150,6 +150,16 @@ struct MapView {
     clat: f64,
     clon: f64,
     zoom: f64,
+}
+
+/// Active widget drag: move OR resize, decided by where the press landed.
+#[derive(Clone, Copy)]
+struct DragState {
+    idx: usize,
+    off: egui::Vec2, // accumulated pointer offset
+    resize: bool,    // press landed in the bottom-right grip
+    base_gw: i32,
+    base_gh: i32,
 }
 
 impl Dash {
@@ -505,10 +515,17 @@ impl Dash {
                 p.circle_filled(*l, 4.0, GREEN);
             }
         }
-        for (pos, txt) in labels.into_iter().take(48) {
-            if rect.contains(pos) {
-                p.text(pos, Align2::CENTER_CENTER, &txt, FontId::proportional(10.0), Color32::from_rgb(0x9a, 0xb0, 0xc0));
+        // declutter: skip labels overlapping already-placed ones (like a real map)
+        let mut placed: Vec<Pos2> = Vec::new();
+        for (pos, txt) in labels {
+            if !rect.contains(pos) || placed.iter().any(|q| (q.x - pos.x).abs() < 70.0 && (q.y - pos.y).abs() < 13.0) {
+                continue;
             }
+            placed.push(pos);
+            if placed.len() > 60 {
+                break;
+            }
+            p.text(pos, Align2::CENTER_CENTER, &txt, FontId::proportional(10.0), Color32::from_rgb(0x9a, 0xb0, 0xc0));
         }
         p.text(rect.left_top() + vec2(6.0, 4.0), Align2::LEFT_TOP, "FLIGHT TRACK", FontId::monospace(10.0), DIM);
         p.text(rect.right_bottom() + vec2(-6.0, -6.0), Align2::RIGHT_BOTTOM, format!("z{:.1}  drag/scroll", v.zoom), FontId::monospace(8.0), DIM);
@@ -707,14 +724,34 @@ impl eframe::App for Dash {
             .frame(egui::Frame::none().fill(PANEL).inner_margin(egui::Margin::symmetric(12.0, 6.0)))
             .show(ctx, |ui| {
                 ui.horizontal(|ui| {
-                    if txt_btn(ui, "|◀", CYAN) {
+                    // rewind-to-start (bar + two triangles)
+                    let (rw, rwr) = ui.allocate_exact_size(vec2(22.0, 18.0), egui::Sense::click());
+                    {
+                        let p = ui.painter_at(rw);
+                        let c = rw.center();
+                        p.line_segment([pos2(c.x - 8.0, c.y - 6.0), pos2(c.x - 8.0, c.y + 6.0)], Stroke::new(1.5, CYAN));
+                        p.add(egui::Shape::convex_polygon(vec![pos2(c.x - 1.0, c.y - 6.0), pos2(c.x - 7.0, c.y), pos2(c.x - 1.0, c.y + 6.0)], CYAN, Stroke::NONE));
+                        p.add(egui::Shape::convex_polygon(vec![pos2(c.x + 6.0, c.y - 6.0), pos2(c.x, c.y), pos2(c.x + 6.0, c.y + 6.0)], CYAN, Stroke::NONE));
+                    }
+                    if rwr.clicked() {
                         self.seek(0);
                     }
-                    let play_glyph = if self.playing { "||" } else { "▶" };
-                    if txt_btn(ui, play_glyph, CYAN) {
+                    // play / pause
+                    let (pp, ppr) = ui.allocate_exact_size(vec2(22.0, 18.0), egui::Sense::click());
+                    {
+                        let p = ui.painter_at(pp);
+                        let c = pp.center();
+                        if self.playing {
+                            p.rect_filled(Rect::from_center_size(pos2(c.x - 3.0, c.y), vec2(3.0, 13.0)), 0.0, CYAN);
+                            p.rect_filled(Rect::from_center_size(pos2(c.x + 3.0, c.y), vec2(3.0, 13.0)), 0.0, CYAN);
+                        } else {
+                            p.add(egui::Shape::convex_polygon(vec![pos2(c.x - 5.0, c.y - 6.0), pos2(c.x + 6.0, c.y), pos2(c.x - 5.0, c.y + 6.0)], CYAN, Stroke::NONE));
+                        }
+                    }
+                    if ppr.clicked() {
                         self.playing = !self.playing;
                     }
-                    ui.add_space(8.0);
+                    ui.add_space(10.0);
                     if txt_btn(ui, "−", DIM) {
                         self.speed = (self.speed / 2.0).max(0.25);
                     }
@@ -854,7 +891,11 @@ impl eframe::App for Dash {
                             vec2(w.gw as f32 * cell_w - 2.0 * gap, w.gh as f32 * cell_h - 2.0 * gap),
                         );
                         let rect = match drag {
-                            Some((di, off)) if di == i => base.translate(off),
+                            Some(d) if d.idx == i && d.resize => Rect::from_min_size(
+                                base.min,
+                                vec2((base.width() + d.off.x).max(cell_w * 0.5), (base.height() + d.off.y).max(cell_h * 0.5)),
+                            ),
+                            Some(d) if d.idx == i => base.translate(d.off),
                             _ => base,
                         };
                         let id = ui.id().with(("w", i));
@@ -891,27 +932,32 @@ impl eframe::App for Dash {
                                 }
                             }
                         }
-                        // resize grip (bottom-right)
-                        let handle = Rect::from_min_size(rect.right_bottom() - vec2(14.0, 14.0), vec2(14.0, 14.0));
-                        let hresp = ui.interact(handle, id.with("rz"), egui::Sense::drag());
-                        p.line_segment([pos2(handle.left() + 3.0, handle.bottom() - 1.0), pos2(handle.right() - 1.0, handle.top() + 3.0)], Stroke::new(1.0, DIM));
-                        p.line_segment([pos2(handle.left() + 7.0, handle.bottom() - 1.0), pos2(handle.right() - 1.0, handle.top() + 7.0)], Stroke::new(1.0, DIM));
+                        // resize grip (bottom-right) — visual only; interaction via `resp`
+                        let grip = Rect::from_min_size(rect.right_bottom() - vec2(16.0, 16.0), vec2(16.0, 16.0));
+                        p.line_segment([pos2(grip.left() + 4.0, grip.bottom() - 2.0), pos2(grip.right() - 2.0, grip.top() + 4.0)], Stroke::new(1.0, DIM));
+                        p.line_segment([pos2(grip.left() + 8.0, grip.bottom() - 2.0), pos2(grip.right() - 2.0, grip.top() + 8.0)], Stroke::new(1.0, DIM));
 
-                        if hresp.dragged() {
-                            let d = hresp.drag_delta();
-                            let nw = (((rect.width() + d.x) / cell_w).round() as i32).clamp(1, GRID_COLS);
-                            let nh = (((rect.height() + d.y) / cell_h).round() as i32).clamp(1, 3);
-                            act = Some(GridAct::Resize(i, nw, nh));
+                        if resp.drag_started() {
+                            // resize if the press landed in the bottom-right grip, else move
+                            let resize = resp
+                                .interact_pointer_pos()
+                                .map(|pp| pp.x > base.right() - 18.0 && pp.y > base.bottom() - 18.0)
+                                .unwrap_or(false);
+                            new_drag = Some(DragState { idx: i, off: resp.drag_delta(), resize, base_gw: w.gw, base_gh: w.gh });
                         } else if resp.dragged() {
-                            let cur = match drag {
-                                Some((di, o)) if di == i => o,
-                                _ => egui::Vec2::ZERO,
-                            };
-                            new_drag = Some((i, cur + resp.drag_delta()));
+                            if let Some(d) = drag {
+                                if d.idx == i {
+                                    new_drag = Some(DragState { off: d.off + resp.drag_delta(), ..d });
+                                }
+                            }
                         } else if resp.drag_stopped() {
-                            if let Some((di, off)) = drag {
-                                if di == i {
-                                    let moved = base.translate(off);
+                            if let Some(d) = drag {
+                                if d.idx == i && d.resize {
+                                    let nw = (d.base_gw + (d.off.x / cell_w).round() as i32).clamp(1, GRID_COLS);
+                                    let nh = (d.base_gh + (d.off.y / cell_h).round() as i32).clamp(1, 3);
+                                    act = Some(GridAct::Resize(i, nw, nh));
+                                } else if d.idx == i {
+                                    let moved = base.translate(d.off);
                                     let ngx = (((moved.min.x - origin.x) / cell_w).round() as i32).clamp(0, GRID_COLS - w.gw);
                                     let ngy = (((moved.min.y - origin.y) / cell_h).round() as i32).max(0);
                                     act = Some(GridAct::Move(i, ngx, ngy));
