@@ -16,19 +16,23 @@ leanest common Rust GUI stack, lands at:
 
 | | RAM | CPU | Processes |
 |---|---|---|---|
-| **rust-egui** | **~115 MB** | ~13% | 1 |
+| **rust-egui** | **~102 MB** | ~3% (0% idle) | 1 |
 
 vs Dioxus-native ~530 MB, .NET/Avalonia-Skia ~279 MB, Tauri/WebView2 ~600+ MB
 (all same ride, `RIDE_SPEED=1`, Release, 30 s warm-up — see the root README
-table). ~4.6× lighter than Dioxus-native, ~2.4× lighter than .NET. Rust itself
-is as lean as C++; the heavy variants pay for their rendering stack.
+table). ~5× lighter than Dioxus-native, ~2.7× lighter than .NET, and
+CPU-competitive with both (.NET/Skia ~4–5%, Tauri ~3–4%). Rust itself is as lean
+as C++; the heavy variants pay for their rendering stack.
 
-**The tradeoff is CPU (~13%)**, higher than the retained-mode stacks (.NET/Skia
-~4–5%, Tauri ~3–4%). Immediate mode redraws the whole UI every frame at 30 Hz —
-including re-projecting the entire MVT basemap (polygons, roads, labels) — while
-MapLibre/Skia retain a GPU scene and redraw only on change. It buys low RAM by
-spending CPU; caching the projected map geometry (re-tessellate only when the
-view changes) would cut most of it.
+**CPU was ~13% until it repainted on _change_ instead of a fixed 30 Hz clock.**
+Immediate mode re-projects the *entire* MVT basemap (polygons, roads, labels)
+every frame, so redrawing 30×/s — even while paused — was the whole cost (a
+per-tab profile showed the empty EVENTS tab at ~1.8% and the map tabs at ~13%,
+*unchanged* by pausing). Waking only at the data cadence (`request_repaint_after`
+at ~10 Hz while playing, and nothing while idle — egui still repaints on
+input) dropped it to **~3% playing / 0% idle** with no visible change: the ride
+is 10 Hz, so 30 Hz never showed anything new. Caching the projected map geometry
+(re-tessellate only on pan/zoom) would shave the playing figure further.
 
 The residual RAM gap to a ~20 MB C++/Dear-ImGui app is `eframe`'s bundled default
 fonts + a bundled Noto Sans Hebrew (map labels) + the glow GL context + `std`. A
@@ -77,9 +81,11 @@ RIDE_DB=../data/ride_small.db RIDE_SPEED=1 cargo run --release
 
 ## Notes
 
-- Repaints are capped to ~30 Hz (`request_repaint_after(33ms)`) — egui's default
-  continuous mode free-runs at 60 Hz and pins a full core; the data is only
-  10 Hz, so 30 Hz is smooth and cheap.
+- Repaints are driven by **change, not a clock**: while playing, `update()` calls
+  `request_repaint_after` at the data cadence (~10 Hz at `SPEED=1`); while paused
+  it schedules nothing, so an idle window costs ~0% (egui still repaints on input
+  — hover/drag/pan/zoom). A fixed 30 Hz clock previously re-rendered the map 30×/s
+  even while paused and cost ~13% CPU for nothing.
 - `default-features = false` on `eframe` (glow only, no wgpu) keeps it light.
 - Depending on `app_lib` pulls the Tauri dep graph into the build (compile
   weight only; no WebView is created at runtime).
