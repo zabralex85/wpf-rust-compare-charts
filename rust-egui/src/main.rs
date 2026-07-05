@@ -772,7 +772,14 @@ fn paint_line(p: &egui::Painter, rect: Rect, w: &Widget) {
 impl eframe::App for Dash {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         self.tick();
-        ctx.request_repaint_after(Duration::from_millis(33));
+        // Repaint on CHANGE, not on a fixed 30 Hz clock: while playing, wake at the
+        // data cadence (~10 Hz at SPEED=1) for the next frame; while paused, don't
+        // schedule anything — egui still repaints on input (hover/drag/pan/zoom), so
+        // an idle paused window costs ~0% instead of re-rendering the map 30×/s.
+        if self.playing && self.ride_ms < self.total_ms as f64 {
+            let ms = (100.0 / self.speed).clamp(16.0, 1000.0) as u64;
+            ctx.request_repaint_after(Duration::from_millis(ms));
+        }
         let clock = fmt_clock(self.ride_ms as i64);
 
         // ---- Top bar ----
