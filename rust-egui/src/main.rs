@@ -785,6 +785,7 @@ impl eframe::App for Dash {
         // ---- Top bar ----
         egui::TopBottomPanel::top("bar")
             .exact_height(44.0)
+            .show_separator_line(false) // no light seam between panels
             .frame(egui::Frame::none().fill(PANEL).inner_margin(egui::Margin::symmetric(12.0, 0.0)))
             .show(ctx, |ui| {
                 // frameless: the top bar itself drags the window (empty areas only —
@@ -895,6 +896,7 @@ impl eframe::App for Dash {
         let played = (self.ride_ms / total as f64).clamp(0.0, 1.0) as f32;
         egui::TopBottomPanel::bottom("transport")
             .exact_height(96.0)
+            .show_separator_line(false)
             .frame(egui::Frame::none().fill(PANEL).inner_margin(egui::Margin::symmetric(16.0, 8.0)))
             .show(ctx, |ui| {
                 ui.horizontal(|ui| {
@@ -984,6 +986,8 @@ impl eframe::App for Dash {
         // ---- Param table (grouped) ----
         egui::SidePanel::left("params")
             .exact_width(300.0)
+            .resizable(false)
+            .show_separator_line(false)
             .frame(egui::Frame::none().fill(PANEL))
             .show(ctx, |ui| {
                 egui::Frame::none()
