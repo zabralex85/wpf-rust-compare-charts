@@ -1,0 +1,15 @@
+{
+  "_comment": "Shared dashboard widget layout for the INU overview. 8-column grid; the map is a fixed 4x4 panning widget at (0,0) and the charts/gauges fill the columns to its right. `channel` matches channels.name (or \"map\"); `kind` overrides the DB widget type; col/row are 0-based; cols/rows are the cell span. Loaded by rust-egui (env RIDE_LAYOUT overrides the path); missing/invalid → the computed default seed.",
+  "grid_cols": 8,
+  "widgets": [
+    { "channel": "map",           "kind": "map",   "col": 0, "row": 0, "cols": 4, "rows": 4 },
+    { "channel": "SkyPitch",      "kind": "gauge", "col": 4, "row": 0, "cols": 1, "rows": 1 },
+    { "channel": "SkyRoll",       "kind": "gauge", "col": 5, "row": 0, "cols": 1, "rows": 1 },
+    { "channel": "I0110Roll",     "kind": "line",  "col": 6, "row": 0, "cols": 2, "rows": 1 },
+    { "channel": "I0116PlatAccZ", "kind": "line",  "col": 4, "row": 1, "cols": 4, "rows": 2 },
+    { "channel": "I0112HeadingT", "kind": "gauge", "col": 4, "row": 3, "cols": 1, "rows": 1 },
+    { "channel": "SkyRoll",       "kind": "gauge", "col": 5, "row": 3, "cols": 1, "rows": 1 },
+    { "channel": "I0111Pitch",    "kind": "gauge", "col": 6, "row": 3, "cols": 1, "rows": 1 },
+    { "channel": "I0114PlatAccX", "kind": "gauge", "col": 7, "row": 3, "cols": 1, "rows": 1 }
+  ]
+}

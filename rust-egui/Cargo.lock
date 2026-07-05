@@ -4172,6 +4172,8 @@ dependencies = [
  "geozero",
  "prost",
  "rusqlite",
+ "serde",
+ "serde_json",
 ]
 
 [[package]]
