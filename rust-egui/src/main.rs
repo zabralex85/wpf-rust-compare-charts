@@ -1075,6 +1075,10 @@ impl eframe::App for Dash {
                     let mut new_drag = drag;
                     let mut act: Option<GridAct> = None;
                     let mut map_rect: Option<Rect> = None;
+                    // map body pan/zoom captured in the loop, applied to self.view after it
+                    // (the loop borrows &self.widgets, so it can't touch self.view directly)
+                    let mut map_pan = egui::Vec2::ZERO;
+                    let mut map_zoom = 0.0f32;
                     // dashed placeholder (like .NET's DropGhost): the widget itself stays
                     // put while dragging; the ghost shows the snapped landing / resized size.
                     let mut ghost: Option<Rect> = None;
@@ -1086,11 +1090,74 @@ impl eframe::App for Dash {
                         );
                         // widget draws at its static cell; drag only moves the ghost
                         let rect = base;
-                        // Map is a FIXED panning/zooming widget (like Tauri) — no grid
-                        // move/resize so drag/scroll inside it pan & zoom the map. Drawn
-                        // (interactive) after the loop since it borrows &mut self.
+                        // Map widget: MOVE via the header strip, RESIZE via the corner grip,
+                        // PAN/ZOOM in the body. Three interacts added body→grip→header so the
+                        // later ones win their sub-areas; the map itself is drawn after the loop.
                         if w.kind == Kind::Map {
                             map_rect = Some(rect);
+                            let id = ui.id().with(("w", i));
+                            let hh = 22.0;
+                            let body = Rect::from_min_max(pos2(rect.left(), rect.top() + hh), rect.max);
+                            let bresp = ui.interact(body, id.with("mbody"), egui::Sense::click_and_drag());
+                            let grip = Rect::from_min_size(rect.right_bottom() - vec2(18.0, 18.0), vec2(18.0, 18.0));
+                            let gresp = ui.interact(grip, id.with("mgrip"), egui::Sense::click_and_drag());
+                            let header = Rect::from_min_size(rect.min, vec2(rect.width(), hh));
+                            let hresp = ui.interact(header, id.with("mhdr"), egui::Sense::click_and_drag());
+                            let dragging = drag.filter(|d| d.idx == i);
+                            // cursor: resize on the grip, move on the header
+                            if dragging.map(|d| d.resize).unwrap_or(false) || gresp.hovered() {
+                                ui.ctx().set_cursor_icon(egui::CursorIcon::ResizeNwSe);
+                            } else if dragging.is_some() || hresp.hovered() {
+                                ui.ctx().set_cursor_icon(egui::CursorIcon::Move);
+                            }
+                            // start move / resize; continue + commit via the owning response
+                            if hresp.drag_started() {
+                                new_drag = Some(DragState { idx: i, off: hresp.drag_delta(), resize: false, base_gw: w.gw, base_gh: w.gh });
+                            } else if gresp.drag_started() {
+                                new_drag = Some(DragState { idx: i, off: gresp.drag_delta(), resize: true, base_gw: w.gw, base_gh: w.gh });
+                            } else if let Some(d) = dragging {
+                                let owner = if d.resize { &gresp } else { &hresp };
+                                if owner.dragged() {
+                                    new_drag = Some(DragState { off: d.off + owner.drag_delta(), ..d });
+                                } else if owner.drag_stopped() {
+                                    if d.resize {
+                                        let nw = (d.base_gw + (d.off.x / cell_w).round() as i32).clamp(2, GRID_COLS);
+                                        let nh = (d.base_gh + (d.off.y / cell_h).round() as i32).clamp(2, 6);
+                                        act = Some(GridAct::Resize(i, nw, nh));
+                                    } else {
+                                        let moved = base.translate(d.off);
+                                        let ngx = (((moved.min.x - origin.x) / cell_w).round() as i32).clamp(0, GRID_COLS - w.gw);
+                                        let ngy = (((moved.min.y - origin.y) / cell_h).round() as i32).max(0);
+                                        act = Some(GridAct::Move(i, ngx, ngy));
+                                    }
+                                    new_drag = None;
+                                }
+                            }
+                            // placeholder ghost while moving/resizing the map
+                            if let Some(d) = dragging {
+                                ghost = Some(if d.resize {
+                                    Rect::from_min_size(base.min, vec2((base.width() + d.off.x).max(cell_w), (base.height() + d.off.y).max(cell_h)))
+                                } else {
+                                    let moved = base.translate(d.off);
+                                    let ngx = (((moved.min.x - origin.x) / cell_w).round() as i32).clamp(0, GRID_COLS - w.gw);
+                                    let ngy = (((moved.min.y - origin.y) / cell_h).round() as i32).max(0);
+                                    Rect::from_min_size(origin + vec2(ngx as f32 * cell_w + gap, ngy as f32 * cell_h + gap), base.size())
+                                });
+                            }
+                            // body pan/zoom — only when this widget isn't being moved/resized
+                            if dragging.is_none() {
+                                if bresp.dragged() {
+                                    map_pan += bresp.drag_delta();
+                                }
+                                if bresp.hovered() {
+                                    map_zoom += ui.input_mut(|inp| {
+                                        let s = inp.raw_scroll_delta.y;
+                                        inp.raw_scroll_delta = egui::Vec2::ZERO;
+                                        inp.smooth_scroll_delta = egui::Vec2::ZERO;
+                                        s
+                                    });
+                                }
+                            }
                             continue;
                         }
                         let id = ui.id().with(("w", i));
@@ -1269,7 +1336,20 @@ impl eframe::App for Dash {
                     // map widget: drawn last (needs &mut self; grid loop only borrowed
                     // &self.widgets). Static preview here; pan/zoom lives in FLIGHT TRACK.
                     if let Some(mr) = map_rect {
-                        self.draw_map(ui, mr, true);
+                        // apply the body pan/zoom captured in the loop, then render (the grid
+                        // map handles its own interaction, so draw_map draws without interacting)
+                        if let Some(v) = self.view.as_mut() {
+                            if map_pan != egui::Vec2::ZERO {
+                                let (cx, cy) = basemap::world(v.clon, v.clat, v.zoom);
+                                let (lon, lat) = basemap::unworld(cx - map_pan.x as f64, cy - map_pan.y as f64, v.zoom);
+                                v.clon = lon;
+                                v.clat = lat;
+                            }
+                            if map_zoom != 0.0 {
+                                v.zoom = (v.zoom + map_zoom as f64 * 0.004).clamp(10.0, 17.0);
+                            }
+                        }
+                        self.draw_map(ui, mr, false);
                     }
                     // dashed placeholder on top of everything (like .NET's DropGhost)
                     if let Some(g) = ghost {
