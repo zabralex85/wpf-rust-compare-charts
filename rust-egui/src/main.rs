@@ -1109,11 +1109,19 @@ impl eframe::App for Dash {
                             if let Some(pos) = resp.hover_pos() {
                                 let plot = Rect::from_min_max(rect.left_top() + vec2(36.0, 24.0), rect.right_bottom() - vec2(8.0, 15.0));
                                 if plot.contains(pos) {
+                                    // use the SAME zoomed window as paint_line, else the readout
+                                    // dot drifts off the line when the chart is zoomed
+                                    let win = (WINDOW_MS as f64 / w.zoom).max(1000.0) as f32;
                                     let newest = w.points[w.points.len() - 1].0;
                                     let frac = ((pos.x - plot.left()) / plot.width()).clamp(0.0, 1.0);
-                                    let ts_c = newest - ((1.0 - frac) * WINDOW_MS as f32) as i64;
-                                    if let Some(&(ts, v)) = w.points.iter().min_by_key(|(t, _)| (*t - ts_c).abs()) {
-                                        let px = plot.right() - ((newest - ts) as f32 / WINDOW_MS as f32) * plot.width();
+                                    let ts_c = newest - ((1.0 - frac) * win) as i64;
+                                    if let Some(&(ts, v)) = w
+                                        .points
+                                        .iter()
+                                        .filter(|&&(t, _)| (newest - t) as f32 <= win)
+                                        .min_by_key(|(t, _)| (*t - ts_c).abs())
+                                    {
+                                        let px = plot.right() - ((newest - ts) as f32 / win) * plot.width();
                                         let span = (w.max - w.min).max(1e-9);
                                         let py = plot.bottom() - (((v - w.min) / span).clamp(0.0, 1.0) as f32) * plot.height();
                                         p.line_segment([pos2(px, plot.top()), pos2(px, plot.bottom())], Stroke::new(1.0, DIM));
