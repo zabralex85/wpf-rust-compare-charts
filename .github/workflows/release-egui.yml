@@ -1,0 +1,57 @@
+name: release-egui
+
+# Builds the rust-egui (immediate-mode) variant for Windows x64 and attaches
+# the zipped binary to the GitHub release for the pushed tag. Mirrors the
+# manual `gh release` flow used for v0.1.6.
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Existing release tag to build & attach the asset to (e.g. v0.1.6)"
+        required: true
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Resolve tag
+        id: tag
+        shell: bash
+        run: echo "name=${{ github.event.inputs.tag || github.ref_name }}" >> "$GITHUB_OUTPUT"
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: rust-egui
+
+      - name: Build release binary
+        working-directory: rust-egui
+        run: cargo build --release --bin rust-egui
+
+      - name: Stage & zip
+        shell: bash
+        run: |
+          TAG="${{ steps.tag.outputs.name }}"
+          STAGE="rust-egui-${TAG}-win-x64"
+          mkdir -p "$STAGE"
+          cp rust-egui/target/release/rust-egui.exe "$STAGE/"
+          cp rust-egui/README.md "$STAGE/"
+          7z a "${STAGE}.zip" "$STAGE" >/dev/null
+          echo "ASSET=${STAGE}.zip" >> "$GITHUB_ENV"
+
+      - name: Attach to release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.tag.outputs.name }}
+          files: ${{ env.ASSET }}
+          fail_on_unmatched_files: true
